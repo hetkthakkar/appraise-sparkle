@@ -1,29 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/lib/mock-auth";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
-    ],
-  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  if (user.role === "no_access") return <Navigate to="/pending" />;
+  if (user.role === "super_admin") return <Navigate to="/dashboard" />;
+  if (user.role === "admin") return <Navigate to="/admin" />;
+  return <Navigate to="/me" />;
 }
