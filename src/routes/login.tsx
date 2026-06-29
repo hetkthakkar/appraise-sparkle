@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const [picking, setPicking] = useState(false);
 
-  if (user) {
-    navigate({ to: "/" });
-  }
+  if (user) return <Navigate to="/" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
