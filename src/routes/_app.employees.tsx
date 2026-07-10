@@ -1,10 +1,10 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/mock-auth";
-import { EMPLOYEES } from "@/lib/mock-data";
+import { useEmployees } from "@/lib/queries";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -12,21 +12,24 @@ export const Route = createFileRoute("/_app/employees")({
 
 function EmployeesPage() {
   const { user } = useAuth();
+  const employees = useEmployees();
   const [q, setQ] = useState("");
 
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "super_admin" && user.role !== "admin") return <Navigate to="/" />;
 
-  const scope =
-    user.role === "super_admin"
-      ? EMPLOYEES
-      : EMPLOYEES.filter((e) => {
-          const me = EMPLOYEES.find((x) => x.employeeId === user.employeeId);
-          return me ? e.teamLead === me.name : false;
-        });
+  const list = employees.data ?? [];
+  const me = list.find((e) => e.employeeId === user.employeeId);
+  const scope = user.role === "super_admin" ? list : list.filter((e) => me && e.teamLead === me.name);
 
-  const filtered = scope.filter((e) =>
-    [e.name, e.email, e.employeeId, e.department].some((f) => f.toLowerCase().includes(q.toLowerCase()))
+  const filtered = useMemo(
+    () =>
+      scope.filter((e) =>
+        [e.name, e.email, e.employeeId, e.department, e.location].some((f) =>
+          (f ?? "").toLowerCase().includes(q.toLowerCase())
+        )
+      ),
+    [scope, q]
   );
 
   return (
@@ -38,7 +41,7 @@ function EmployeesPage() {
             <CardDescription>{filtered.length} of {scope.length} shown</CardDescription>
           </div>
           <Input
-            placeholder="Search by name, ID, email…"
+            placeholder="Search by name, ID, email, location…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="max-w-xs"
@@ -54,6 +57,7 @@ function EmployeesPage() {
                 <TableHead>Department</TableHead>
                 <TableHead>Designation</TableHead>
                 <TableHead>Team Lead</TableHead>
+                <TableHead>Location</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -65,12 +69,13 @@ function EmployeesPage() {
                   <TableCell>{e.department}</TableCell>
                   <TableCell>{e.designation}</TableCell>
                   <TableCell>{e.teamLead}</TableCell>
+                  <TableCell>{e.location}</TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No employees match your search.
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    {employees.isLoading ? "Loading…" : "No employees found. Import the Employee Master to get started."}
                   </TableCell>
                 </TableRow>
               )}
