@@ -1,4 +1,5 @@
 import { createFileRoute, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/lib/mock-auth";
@@ -17,9 +18,16 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function AppLayout() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" />;
   if (user.role === "no_access") return <Navigate to="/pending" />;
 

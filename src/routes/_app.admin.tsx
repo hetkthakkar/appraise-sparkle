@@ -1,11 +1,12 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { Users, FileUp, CalendarCheck2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/mock-auth";
-import { EMPLOYEES, PERFORMANCE, CURRENT_MONTH } from "@/lib/mock-data";
+import { useEmployees, usePerformance } from "@/lib/queries";
 
 export const Route = createFileRoute("/_app/admin")({
   component: AdminDashboard,
@@ -13,32 +14,40 @@ export const Route = createFileRoute("/_app/admin")({
 
 function AdminDashboard() {
   const { user } = useAuth();
-  if (!user || user.role !== "admin") return <Navigate to="/" />;
+  const employees = useEmployees();
+  const perf = usePerformance();
 
-  const me = EMPLOYEES.find((e) => e.employeeId === user.employeeId);
-  const team = EMPLOYEES.filter((e) => e.teamLead === me?.name);
-  const teamPerf = PERFORMANCE.filter(
-    (p) => p.month === CURRENT_MONTH && team.some((t) => t.employeeId === p.employeeId)
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== "admin") return <Navigate to="/" />;
+
+  const list = employees.data ?? [];
+  const me = list.find((e) => e.employeeId === user.employeeId);
+  const team = useMemo(() => list.filter((e) => me && e.teamLead === me.name), [list, me]);
+  const latestMonth = perf.data?.[0]?.month;
+  const teamPerf = (perf.data ?? []).filter(
+    (p) => p.month === latestMonth && team.some((t) => t.employeeId === p.employeeId)
   );
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Team Overview</h2>
-        <p className="text-sm text-muted-foreground">{me?.department} • {team.length} reports</p>
+        <p className="text-sm text-muted-foreground">
+          {me ? `${me.department} • ${me.location} • ${team.length} reports` : "Your employee record isn't linked yet."}
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Team Size" value={team.length} icon={Users} />
-        <StatCard label="Current Month" value={CURRENT_MONTH} icon={CalendarCheck2} />
-        <StatCard label="Upload Status" value="Pending" icon={FileUp} hint="Upload June performance" />
+        <StatCard label="Latest Month" value={latestMonth ?? "—"} icon={CalendarCheck2} />
+        <StatCard label="Upload Status" value={teamPerf.length ? "Complete" : "Pending"} icon={FileUp} />
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Current month performance</CardTitle>
-            <CardDescription>Snapshot of your team's {CURRENT_MONTH} numbers.</CardDescription>
+            <CardDescription>{latestMonth ? `Snapshot for ${latestMonth}.` : "No performance data yet."}</CardDescription>
           </div>
           <Button asChild size="sm">
             <Link to="/upload">Upload File</Link>
@@ -49,6 +58,7 @@ function AdminDashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Production</TableHead>
                 <TableHead>Tickets</TableHead>
                 <TableHead>Errors</TableHead>
@@ -60,6 +70,7 @@ function AdminDashboard() {
               {teamPerf.map((p) => (
                 <TableRow key={p.employeeId}>
                   <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell>{p.location}</TableCell>
                   <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
                   <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
                   <TableCell>{p.errorActual} / {p.errorTarget}</TableCell>
@@ -69,8 +80,8 @@ function AdminDashboard() {
               ))}
               {teamPerf.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No data yet for this month.
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    No performance rows yet for your team.
                   </TableCell>
                 </TableRow>
               )}
