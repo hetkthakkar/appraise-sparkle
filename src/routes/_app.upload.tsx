@@ -1,10 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { UploadCard } from "@/components/upload-card";
 import { useAuth } from "@/lib/mock-auth";
-import { EMPLOYEE_COLUMNS, PERFORMANCE_COLUMNS } from "@/lib/excel";
-import { upsertEmployees, upsertPerformance } from "@/lib/upload.functions";
 
 export const Route = createFileRoute("/_app/upload")({
   component: UploadCenter,
@@ -12,10 +8,6 @@ export const Route = createFileRoute("/_app/upload")({
 
 function UploadCenter() {
   const { user } = useAuth();
-  const qc = useQueryClient();
-  const upEmp = useServerFn(upsertEmployees);
-  const upPerf = useServerFn(upsertPerformance);
-
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "super_admin" && user.role !== "admin") return <Navigate to="/" />;
 
@@ -24,32 +16,34 @@ function UploadCenter() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Upload Center</h2>
         <p className="text-sm text-muted-foreground">
-          Drop Excel files here. Columns are validated automatically and a preview shows before import.
+          Drop Excel files here. They'll sync to the Google Sheets backend on the next phase.
         </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-1">
+      <div className="grid gap-4 md:grid-cols-2">
         {user.role === "super_admin" && (
           <UploadCard
             title="Employee Master Upload"
-            description="Onboard or update the employee directory. Existing rows are matched by Employee ID."
-            columns={EMPLOYEE_COLUMNS}
-            onImport={async (rows) => {
-              const r = await upEmp({ data: { rows: rows as any } });
-              qc.invalidateQueries({ queryKey: ["employees"] });
-              qc.invalidateQueries({ queryKey: ["users-with-roles"] });
-              return r;
-            }}
+            description="Onboard or update the employee directory."
+            columns={["Employee ID", "Name", "Email", "Department", "Designation", "Team Lead"]}
           />
         )}
         <UploadCard
           title="Monthly Performance Upload"
-          description="Upload monthly KPI data. Existing rows are matched by Month + Employee ID."
-          columns={PERFORMANCE_COLUMNS}
-          onImport={async (rows) => {
-            const r = await upPerf({ data: { rows: rows as any } });
-            qc.invalidateQueries({ queryKey: ["performance"] });
-            return r;
-          }}
+          description="Upload the current month's KPI sheet for your team."
+          columns={[
+            "Month",
+            "Employee ID",
+            "Name",
+            "Production Target",
+            "Production Actual",
+            "Ticket Target",
+            "Ticket Actual",
+            "Internal Errors Target",
+            "Internal Errors Actual",
+            "Attendance (0-10)",
+            "Behavior (0-5)",
+            "Manager Remarks",
+          ]}
         />
       </div>
     </div>

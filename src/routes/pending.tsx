@@ -9,8 +9,7 @@ export const Route = createFileRoute("/pending")({
 });
 
 function Pending() {
-  const { user, signOut, loading } = useAuth();
-  if (loading) return null;
+  const { user, signOut } = useAuth();
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "no_access") return <Navigate to="/" />;
 
@@ -24,14 +23,17 @@ function Pending() {
           <div>
             <h1 className="text-xl font-semibold">Awaiting approval</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your account is awaiting approval from an administrator. You'll get access as soon as a role is assigned.
+              Your account is awaiting approval from the administrator. You'll get
+              access as soon as a role is assigned.
             </p>
           </div>
           <div className="w-full rounded-md border bg-muted/40 p-3 text-left text-xs text-muted-foreground">
             <div className="font-medium text-foreground">{user.name}</div>
             <div>{user.email}</div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void signOut()}>Sign out</Button>
+          <Button variant="outline" size="sm" onClick={signOut}>
+            Sign out
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -6,8 +6,8 @@ export interface AuthUser {
   email: string;
   avatar?: string;
   role: Role;
+  /** Linked employee id (for `user` role) */
   employeeId?: string;
-  location?: string;
 }
 
 export interface Employee {
@@ -16,30 +16,20 @@ export interface Employee {
   email: string;
   department: string;
   designation: string;
-  teamLead: string;
-  location: string;
+  teamLead: string; // team lead's name
 }
 
 export interface MonthlyPerformance {
-  month: string;
+  month: string; // e.g. "2026-05"
   employeeId: string;
   name: string;
-  location: string;
   productionTarget: number;
   productionActual: number;
   ticketTarget: number;
   ticketActual: number;
   errorTarget: number;
   errorActual: number;
-  attendance: number;
-  behavior: number;
+  attendance: number; // 0-10
+  behavior: number; // 0-5
   managerRemarks: string;
-}
-
-export interface UserRow {
-  id: string;
-  name: string;
-  email: string;
-  location: string | null;
-  role: Role;
 }

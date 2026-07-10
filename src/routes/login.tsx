@@ -1,12 +1,14 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/mock-auth";
-import { Loader2 } from "lucide-react";
+import { useAuth, ROLE_LABEL } from "@/lib/mock-auth";
+import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Sign in — Appraise" }] }),
+  head: () => ({
+    meta: [{ title: "Sign in — Appraise" }],
+  }),
   component: LoginPage,
 });
 
@@ -22,37 +24,69 @@ function GoogleIcon() {
 }
 
 function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth();
-  const [busy, setBusy] = useState(false);
+  const { users, signInAs, user } = useAuth();
+  const navigate = useNavigate();
+  const [picking, setPicking] = useState(false);
 
-  if (!loading && user) return <Navigate to="/" />;
+  if (user) return <Navigate to="/" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-            JB
+            EP
           </div>
-          <CardTitle className="text-2xl">JB InfoTech — Appraise</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Appraise</CardTitle>
           <CardDescription>
-            Sign in with your company Google account to continue. New users receive <strong>No Access</strong> until a Super Admin assigns a role.
+            Sign in with your company Google account to continue.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button
-            size="lg"
-            variant="outline"
-            className="w-full"
-            disabled={busy || loading}
-            onClick={async () => {
-              setBusy(true);
-              try { await signInWithGoogle(); } finally { setBusy(false); }
-            }}
-          >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
-            <span className="ml-2">Sign in with Google</span>
-          </Button>
+          {!picking ? (
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full"
+              onClick={() => setPicking(true)}
+            >
+              <GoogleIcon />
+              <span className="ml-2">Sign in with Google</span>
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Demo mode — choose an account to impersonate
+              </p>
+              {users.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    signInAs(u.id);
+                    navigate({ to: "/" });
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                      {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{u.name}</span>
+                      <span className="text-xs text-muted-foreground">{u.email}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {ROLE_LABEL[u.role]}
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </button>
+              ))}
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setPicking(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
           <p className="text-center text-xs text-muted-foreground">
             By signing in you agree to the internal usage policy.
           </p>
