@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persist(null);
       return null;
     }
-    const name = getIdentityName(identity, email);
+    const name = getIdentityName(identity ?? {}, email);
     const profile = await getUserProfile(email, name);
     const session: SessionUser = {
       email,
