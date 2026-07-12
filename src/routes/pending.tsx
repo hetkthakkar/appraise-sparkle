@@ -9,7 +9,8 @@ export const Route = createFileRoute("/pending")({
 });
 
 function Pending() {
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
+  if (loading) return null;
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "no_access") return <Navigate to="/" />;
 

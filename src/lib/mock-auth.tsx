@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { getUserProfile, normalizeRole } from "./sheetsApi";
 import type { Role } from "./types";
 
@@ -13,33 +15,12 @@ export interface SessionUser {
 interface AuthCtx {
   user: SessionUser | null;
   loading: boolean;
-  signInWithCredential: (credential: string) => Promise<SessionUser>;
-  signOut: () => void;
+  signInWithGoogle: () => Promise<SessionUser | null>;
+  signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
-
-function decodeJwtPayload(token: string): { email?: string; name?: string } {
-  try {
-    const [, payload] = token.split(".");
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    // handle utf-8
-    const decoded = decodeURIComponent(
-      json
-        .split("")
-        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
-        .join(""),
-    );
-    return JSON.parse(decoded);
-  } catch {
-    try {
-      return JSON.parse(atob(token.split(".")[1]));
-    } catch {
-      return {};
-    }
-  }
-}
 
 function loadStored(): SessionUser | null {
   if (typeof window === "undefined") return null;
@@ -58,20 +39,32 @@ function persist(u: SessionUser | null) {
   } catch {}
 }
 
+type AuthIdentity = {
+  email?: string | null;
+  name?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+};
+
+function getIdentityName(identity: AuthIdentity, email: string) {
+  const metadata = identity.user_metadata ?? {};
+  const metadataName = metadata.full_name ?? metadata.name ?? metadata.display_name;
+  return (typeof identity.name === "string" && identity.name) ||
+    (typeof metadataName === "string" && metadataName) ||
+    email;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setUser(loadStored());
-    setLoading(false);
-  }, []);
-
-  const signInWithCredential = useCallback(async (credential: string) => {
-    const payload = decodeJwtPayload(credential);
-    const email = (payload.email ?? "").toLowerCase();
-    const name = payload.name ?? email;
-    if (!email) throw new Error("Google sign-in did not return an email");
+  const syncProfile = useCallback(async (identity: AuthIdentity | null | undefined) => {
+    const email = (identity?.email ?? "").toLowerCase();
+    if (!email) {
+      setUser(null);
+      persist(null);
+      return null;
+    }
+    const name = getIdentityName(identity, email);
     const profile = await getUserProfile(email, name);
     const session: SessionUser = {
       email,
@@ -83,7 +76,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session;
   }, []);
 
-  const signOut = useCallback(() => {
+  useEffect(() => {
+    let mounted = true;
+    const cached = loadStored();
+    if (cached) setUser(cached);
+
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error || !data.user) {
+        setUser(null);
+        persist(null);
+        setLoading(false);
+        return;
+      }
+      syncProfile(data.user)
+        .catch(() => {
+          setUser(cached);
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        persist(null);
+        return;
+      }
+      if (session?.user) {
+        window.setTimeout(() => {
+          syncProfile(session.user).catch(() => undefined);
+        }, 0);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [syncProfile]);
+
+  const signInWithGoogle = useCallback(async () => {
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+
+    if (result.redirected) return null;
+    if (result.error) throw result.error;
+
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw error ?? new Error("Google sign-in did not return a user");
+    return syncProfile(data.user);
+  }, [syncProfile]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
     setUser(null);
     persist(null);
   }, []);
@@ -97,8 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const value = useMemo(
-    () => ({ user, loading, signInWithCredential, signOut, refreshRole }),
-    [user, loading, signInWithCredential, signOut, refreshRole],
+    () => ({ user, loading, signInWithGoogle, signOut, refreshRole }),
+    [user, loading, signInWithGoogle, signOut, refreshRole],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
