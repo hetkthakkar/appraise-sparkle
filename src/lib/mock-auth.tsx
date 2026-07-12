@@ -65,16 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
     const name = getIdentityName(identity ?? {}, email);
-    const profile = await getUserProfile(email, name);
-    const session: SessionUser = {
-      email,
-      name: profile.name || name,
-      role: normalizeRole(profile.role),
-    };
+    let session: SessionUser;
+    try {
+      const profile = await getUserProfile(email, name);
+      session = {
+        email,
+        name: profile.name || name,
+        role: normalizeRole(profile.role),
+      };
+    } catch (err) {
+      console.error("getUserProfile failed, defaulting to no_access", err);
+      session = { email, name, role: "no_access" };
+    }
     setUser(session);
     persist(session);
     return session;
   }, []);
+
 
   useEffect(() => {
     let mounted = true;
