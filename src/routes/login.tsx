@@ -1,7 +1,8 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { GoogleLogin } from "@react-oauth/google";
+import { Chrome } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/mock-auth";
 import { toast } from "sonner";
 
@@ -13,11 +14,26 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, signInWithCredential } = useAuth();
+  const { user, loading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
+  if (loading) return null;
   if (user) return <Navigate to="/" />;
+
+  const handleGoogleSignIn = async () => {
+    setBusy(true);
+    try {
+      const session = await signInWithGoogle();
+      if (session) navigate({ to: "/" });
+    } catch (e) {
+      toast.error("Google sign-in failed", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
@@ -32,29 +48,10 @@ function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={async (resp) => {
-                if (!resp.credential) {
-                  toast.error("Google sign-in failed", { description: "No credential returned." });
-                  return;
-                }
-                setBusy(true);
-                try {
-                  await signInWithCredential(resp.credential);
-                  navigate({ to: "/" });
-                } catch (e) {
-                  toast.error("Sign-in failed", {
-                    description: e instanceof Error ? e.message : String(e),
-                  });
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              onError={() => toast.error("Google sign-in failed")}
-              useOneTap={false}
-            />
-          </div>
+          <Button className="w-full" onClick={handleGoogleSignIn} disabled={busy}>
+            <Chrome className="mr-2 h-4 w-4" />
+            {busy ? "Signing you in…" : "Continue with Google"}
+          </Button>
           {busy && (
             <p className="text-center text-xs text-muted-foreground">Signing you in…</p>
           )}
