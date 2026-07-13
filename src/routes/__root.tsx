@@ -8,11 +8,14 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/mock-auth";
 import { Toaster } from "@/components/ui/sonner";
+
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ?? "";
 
 function NotFoundComponent() {
   return (
@@ -86,8 +89,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Appraise — Employee Performance Suite" },
       { property: "og:description", content: "Internal employee performance and appraisal management tool." },
       { name: "twitter:description", content: "Internal employee performance and appraisal management tool." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/877d096e-fb94-4406-8910-a7e452d51808/id-preview-bf8c7b1d--f4a40bd2-eb74-4797-a410-2167d424b971.lovable.app-1783681560521.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/877d096e-fb94-4406-8910-a7e452d51808/id-preview-bf8c7b1d--f4a40bd2-eb74-4797-a410-2167d424b971.lovable.app-1783681560521.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
@@ -123,10 +124,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster />
-      </AuthProvider>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <AuthProvider>
+          <Outlet />
+          <Toaster />
+        </AuthProvider>
+      </GoogleOAuthProvider>
     </QueryClientProvider>
   );
 }
