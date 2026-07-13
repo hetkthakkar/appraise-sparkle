@@ -4,11 +4,16 @@ const API_URL = import.meta.env.VITE_SHEETS_API_URL as string;
 
 export async function callSheetsApi<T = unknown>(action: string, payload: object): Promise<T> {
   if (!API_URL) throw new Error("VITE_SHEETS_API_URL is not configured");
-  const res = await fetch(`${API_URL}?action=${encodeURIComponent(action)}`, {
-    method: "POST",
-    body: new URLSearchParams({ payload: JSON.stringify(payload) }),
-  });
-  const json = await res.json();
+  const url = `${API_URL}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+  const res = await fetch(url, { method: "GET" });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    console.error("Non-JSON response from Apps Script:", text);
+    throw new Error("Backend returned an invalid response. Check Apps Script deployment.");
+  }
   if (json && json.error) throw new Error(String(json.error));
   return json as T;
 }
@@ -19,7 +24,6 @@ export interface SheetUser {
   name: string;
   role: string; // "Super Admin" | "Admin" | "User" | "No Access"
 }
-
 export interface SheetEmployee {
   employeeId: string;
   name: string;
@@ -28,7 +32,6 @@ export interface SheetEmployee {
   designation: string;
   teamLead: string;
 }
-
 export interface SheetPerformance {
   month: string;
   employeeId: string;
@@ -52,7 +55,6 @@ export function normalizeRole(raw: string | undefined | null): Role {
   if (r === "user" || r === "employee") return "user";
   return "no_access";
 }
-
 export function roleToDisplay(role: Role): string {
   if (role === "super_admin") return "Super Admin";
   if (role === "admin") return "Admin";
@@ -67,11 +69,9 @@ export function getUserProfile(email: string, name: string) {
     { email, name }
   );
 }
-
 export function listUsers(callerEmail: string) {
   return callSheetsApi<SheetUser[]>("listUsers", { callerEmail });
 }
-
 export function updateUserRole(callerEmail: string, email: string, newRole: Role) {
   return callSheetsApi<{ ok: true }>("updateUserRole", {
     callerEmail,
@@ -79,29 +79,24 @@ export function updateUserRole(callerEmail: string, email: string, newRole: Role
     newRole: roleToDisplay(newRole),
   });
 }
-
 export function listEmployees(callerEmail: string) {
   return callSheetsApi<SheetEmployee[]>("listEmployees", { callerEmail });
 }
-
 export function uploadEmployees(callerEmail: string, rows: SheetEmployee[]) {
   return callSheetsApi<{ inserted: number; updated: number }>("uploadEmployees", {
     callerEmail,
     rows,
   });
 }
-
 export function listPerformance(callerEmail: string, month?: string) {
   return callSheetsApi<SheetPerformance[]>("listPerformance", { callerEmail, month });
 }
-
 export function uploadPerformance(callerEmail: string, rows: SheetPerformance[]) {
   return callSheetsApi<{ inserted: number; updated: number }>("uploadPerformance", {
     callerEmail,
     rows,
   });
 }
-
 export function updateRemarks(
   callerEmail: string,
   employeeId: string,
