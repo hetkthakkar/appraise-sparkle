@@ -17,10 +17,9 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function AppLayout() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  if (loading) return null;
   if (!user) return <Navigate to="/login" />;
   if (user.role === "no_access") return <Navigate to="/pending" />;
 

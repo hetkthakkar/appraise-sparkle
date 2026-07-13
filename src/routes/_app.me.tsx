@@ -1,70 +1,29 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { MetricRow } from "@/components/metric-row";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance } from "@/lib/sheetsApi";
-import { toast } from "sonner";
+import { EMPLOYEES, PERFORMANCE, CURRENT_MONTH, PREVIOUS_MONTHS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_app/me")({
   component: MyPerformance,
 });
 
-function currentMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function MyPerformance() {
   const { user } = useAuth();
-  const email = user?.email ?? "";
-  const month = currentMonthKey();
-
-  const empQ = useQuery({
-    queryKey: ["employees", email],
-    queryFn: () => listEmployees(email),
-    enabled: !!email,
-  });
-  const perfQ = useQuery({
-    queryKey: ["performance-all", email],
-    queryFn: () => listPerformance(email),
-    enabled: !!email,
-  });
-
-  if (empQ.error) toast.error("Failed to load profile", { description: (empQ.error as Error).message });
-  if (perfQ.error) toast.error("Failed to load performance", { description: (perfQ.error as Error).message });
-
-  const me = useMemo(
-    () => (empQ.data ?? []).find((e) => e.email.toLowerCase() === email.toLowerCase()),
-    [empQ.data, email],
-  );
-  const myPerf = useMemo(
-    () => (perfQ.data ?? []).filter((p) => me && p.employeeId === me.employeeId),
-    [perfQ.data, me],
-  );
-  const current = myPerf.find((p) => p.month === month);
-  const history = myPerf.filter((p) => p.month !== month).sort((a, b) => b.month.localeCompare(a.month));
-
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "user") return <Navigate to="/" />;
 
-  const loading = empQ.isLoading || perfQ.isLoading;
+  const me = EMPLOYEES.find((e) => e.employeeId === user.employeeId);
+  const current = PERFORMANCE.find(
+    (p) => p.employeeId === user.employeeId && p.month === CURRENT_MONTH
+  );
+  const history = PREVIOUS_MONTHS.map((m) =>
+    PERFORMANCE.find((p) => p.employeeId === user.employeeId && p.month === m)
+  ).filter(Boolean);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-4">
-        <Skeleton className="h-40" />
-        <Skeleton className="h-64" />
-        <Skeleton className="h-40" />
-      </div>
-    );
-  }
-
-  if (!me) return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
+  if (!me || !current) return <p className="p-6 text-muted-foreground">No employee record found.</p>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -83,43 +42,34 @@ function MyPerformance() {
         </CardContent>
       </Card>
 
-      {current ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Current Month — {current.month}</CardTitle>
-                <CardDescription>Live snapshot of your KPIs.</CardDescription>
-              </div>
-              <Badge variant="secondary">Updated today</Badge>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Current Month — {current.month}</CardTitle>
+              <CardDescription>Live snapshot of your KPIs.</CardDescription>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              <MetricRow label="Production" target={current.productionTarget} actual={current.productionActual} />
-              <MetricRow label="Tickets" target={current.ticketTarget} actual={current.ticketActual} />
-              <MetricRow label="Internal Errors / Rejections" target={current.errorTarget} actual={current.errorActual} invert />
+            <Badge variant="secondary">Updated today</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <MetricRow label="Production" target={current.productionTarget} actual={current.productionActual} />
+            <MetricRow label="Tickets" target={current.ticketTarget} actual={current.ticketActual} />
+            <MetricRow label="Internal Errors / Rejections" target={current.errorTarget} actual={current.errorActual} invert />
+          </div>
+          <div className="space-y-4">
+            <ScoreBlock label="Attendance" value={current.attendance} outOf={10} />
+            <ScoreBlock label="Behavior" value={current.behavior} outOf={5} />
+            <div>
+              <p className="text-sm font-medium">Manager Remarks</p>
+              <p className="mt-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+                {current.managerRemarks}
+              </p>
             </div>
-            <div className="space-y-4">
-              <ScoreBlock label="Attendance" value={Number(current.attendance)} outOf={10} />
-              <ScoreBlock label="Behavior" value={Number(current.behavior)} outOf={5} />
-              <div>
-                <p className="text-sm font-medium">Manager Remarks</p>
-                <p className="mt-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  {current.managerRemarks || "No remarks yet."}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Month — {month}</CardTitle>
-            <CardDescription>No data uploaded yet for this month.</CardDescription>
-          </CardHeader>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -140,22 +90,15 @@ function MyPerformance() {
             </TableHeader>
             <TableBody>
               {history.map((p) => (
-                <TableRow key={p.month}>
-                  <TableCell className="font-medium">{p.month}</TableCell>
-                  <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
-                  <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
-                  <TableCell>{p.errorActual} / {p.errorTarget}</TableCell>
-                  <TableCell>{Number(p.attendance).toFixed(1)}</TableCell>
-                  <TableCell>{Number(p.behavior).toFixed(1)}</TableCell>
+                <TableRow key={p!.month}>
+                  <TableCell className="font-medium">{p!.month}</TableCell>
+                  <TableCell>{p!.productionActual} / {p!.productionTarget}</TableCell>
+                  <TableCell>{p!.ticketActual} / {p!.ticketTarget}</TableCell>
+                  <TableCell>{p!.errorActual} / {p!.errorTarget}</TableCell>
+                  <TableCell>{p!.attendance.toFixed(1)}</TableCell>
+                  <TableCell>{p!.behavior.toFixed(1)}</TableCell>
                 </TableRow>
               ))}
-              {history.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No history yet.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
