@@ -1,81 +1,106 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { DEMO_USERS } from "./mock-data";
-import type { AuthUser, Role } from "./types";
+import { getUserProfile, normalizeRole } from "./sheetsApi";
+import type { Role } from "./types";
 
-const STORAGE_KEY = "epa.auth.v1";
-const USERS_KEY = "epa.users.v1";
+const STORAGE_KEY = "epa.auth.v2";
+
+export interface AuthUser {
+  email: string;
+  name: string;
+  role: Role;
+  employeeId?: string;
+}
 
 interface AuthCtx {
   user: AuthUser | null;
-  users: AuthUser[];
-  signInAs: (id: string) => void;
+  loading: boolean;
+  signInWithCredential: (credential: string) => Promise<AuthUser>;
+  refreshProfile: () => Promise<void>;
   signOut: () => void;
-  setRole: (userId: string, role: Role) => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-function loadUsers(): AuthUser[] {
-  if (typeof window === "undefined") return DEMO_USERS;
+function decodeJwt(token: string): { email?: string; name?: string } {
   try {
-    const raw = window.localStorage.getItem(USERS_KEY);
-    if (raw) return JSON.parse(raw) as AuthUser[];
-  } catch {}
-  return DEMO_USERS;
+    const payload = token.split(".")[1];
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(b64);
+    const decoded = decodeURIComponent(
+      json
+        .split("")
+        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join("")
+    );
+    return JSON.parse(decoded);
+  } catch {
+    return {};
+  }
 }
 
-function loadCurrent(users: AuthUser[]): AuthUser | null {
+function loadStored(): AuthUser | null {
   if (typeof window === "undefined") return null;
   try {
-    const id = window.localStorage.getItem(STORAGE_KEY);
-    if (!id) return null;
-    return users.find((u) => u.id === id) ?? null;
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthUser;
   } catch {
     return null;
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<AuthUser[]>(() => loadUsers());
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUser(loadCurrent(users));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setUser(loadStored());
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
+  const persist = useCallback((u: AuthUser | null) => {
+    setUser(u);
     try {
-      window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      if (u) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      else window.localStorage.removeItem(STORAGE_KEY);
     } catch {}
-  }, [users]);
+  }, []);
 
-  const signInAs = useCallback(
-    (id: string) => {
-      const u = users.find((x) => x.id === id) ?? null;
-      setUser(u);
-      try {
-        if (u) window.localStorage.setItem(STORAGE_KEY, u.id);
-      } catch {}
+  const signInWithCredential = useCallback(
+    async (credential: string) => {
+      const { email, name } = decodeJwt(credential);
+      if (!email) throw new Error("Google sign-in did not return an email");
+      const profile = await getUserProfile(email, name ?? email);
+      const authed: AuthUser = {
+        email: profile.email ?? email,
+        name: profile.name ?? name ?? email,
+        role: normalizeRole(profile.role),
+        employeeId: profile.employeeId,
+      };
+      persist(authed);
+      return authed;
     },
-    [users]
+    [persist]
   );
 
-  const signOut = useCallback(() => {
-    setUser(null);
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {}
-  }, []);
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    const profile = await getUserProfile(user.email, user.name);
+    persist({
+      email: profile.email ?? user.email,
+      name: profile.name ?? user.name,
+      role: normalizeRole(profile.role),
+      employeeId: profile.employeeId,
+    });
+  }, [user, persist]);
 
-  const setRole = useCallback((userId: string, role: Role) => {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    setUser((cur) => (cur && cur.id === userId ? { ...cur, role } : cur));
-  }, []);
+  const signOut = useCallback(() => {
+    persist(null);
+  }, [persist]);
 
   const value = useMemo(
-    () => ({ user, users, signInAs, signOut, setRole }),
-    [user, users, signInAs, signOut, setRole]
+    () => ({ user, loading, signInWithCredential, refreshProfile, signOut }),
+    [user, loading, signInWithCredential, refreshProfile, signOut]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
