@@ -29,6 +29,7 @@ export function AppSidebar() {
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
       { title: "Employees", url: "/employees", icon: Users },
       { title: "Users & Roles", url: "/users", icon: UserCog },
+      { title: "Manage Lists", url: "/admin/lists", icon: ListChecks },
       { title: "Upload Center", url: "/upload", icon: Upload }
     );
   } else if (user.role === "admin") {
