@@ -20,6 +20,7 @@ import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppAdminRouteImport } from './routes/_app.admin'
 import { Route as AppAdminIndexRouteImport } from './routes/_app.admin.index'
+import { Route as AppAdminListsRouteImport } from './routes/_app.admin.lists'
 
 const PendingRoute = PendingRouteImport.update({
   id: '/pending',
@@ -75,6 +76,11 @@ const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminListsRoute = AppAdminListsRouteImport.update({
+  id: '/lists',
+  path: '/lists',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/me': typeof AppMeRoute
   '/upload': typeof AppUploadRoute
   '/users': typeof AppUsersRoute
+  '/admin/lists': typeof AppAdminListsRoute
   '/admin/': typeof AppAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/me': typeof AppMeRoute
   '/upload': typeof AppUploadRoute
   '/users': typeof AppUsersRoute
+  '/admin/lists': typeof AppAdminListsRoute
   '/admin': typeof AppAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_app/me': typeof AppMeRoute
   '/_app/upload': typeof AppUploadRoute
   '/_app/users': typeof AppUsersRoute
+  '/_app/admin/lists': typeof AppAdminListsRoute
   '/_app/admin/': typeof AppAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/me'
     | '/upload'
     | '/users'
+    | '/admin/lists'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/me'
     | '/upload'
     | '/users'
+    | '/admin/lists'
     | '/admin'
   id:
     | '__root__'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/_app/me'
     | '/_app/upload'
     | '/_app/users'
+    | '/_app/admin/lists'
     | '/_app/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -238,14 +250,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminIndexRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/lists': {
+      id: '/_app/admin/lists'
+      path: '/lists'
+      fullPath: '/admin/lists'
+      preLoaderRoute: typeof AppAdminListsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
 interface AppAdminRouteChildren {
+  AppAdminListsRoute: typeof AppAdminListsRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminListsRoute: AppAdminListsRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
 }
 
