@@ -95,6 +95,7 @@ function MyPerformance() {
           <Field label="Department" value={me.department} />
           <Field label="Designation" value={me.designation} />
           <Field label="Team Lead" value={me.teamLead} />
+          <Field label="Joining Date" value={formatJoiningDate(me.joiningDate)} />
         </CardContent>
       </Card>
 
