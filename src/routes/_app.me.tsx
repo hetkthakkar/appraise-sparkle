@@ -56,7 +56,8 @@ function MyPerformance() {
     !me.department?.trim() ||
     !me.designation?.trim() ||
     !me.teamLead?.trim() ||
-    !me.location?.trim();
+    !me.location?.trim() ||
+    !me.joiningDate?.trim();
 
   if (needsOnboarding) {
     return <EmployeeOnboarding me={me} />;
