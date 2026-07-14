@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance } from "@/lib/sheetsApi";
 
-export const Route = createFileRoute("/_app/admin")({
+export const Route = createFileRoute("/_app/admin/")({
   component: AdminDashboard,
 });
 
