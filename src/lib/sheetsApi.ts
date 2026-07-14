@@ -23,6 +23,8 @@ export interface SheetUser {
   email: string;
   name: string;
   role: string; // "Super Admin" | "Admin" | "User" | "No Access"
+  location?: string;
+  status?: string;
 }
 export interface SheetEmployee {
   employeeId: string;
@@ -31,6 +33,7 @@ export interface SheetEmployee {
   department: string;
   designation: string;
   teamLead: string;
+  location?: string;
 }
 export interface SheetPerformance {
   month: string;
