@@ -34,6 +34,7 @@ export interface SheetEmployee {
   designation: string;
   teamLead: string;
   location?: string;
+  joiningDate: string;
 }
 export interface SheetPerformance {
   month: string;
