@@ -18,13 +18,6 @@ function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatJoiningDate(v?: string) {
-  if (!v) return "—";
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return v;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
-
 function MyPerformance() {
   const { user } = useAuth();
   const month = currentMonth();
@@ -63,8 +56,7 @@ function MyPerformance() {
     !me.department?.trim() ||
     !me.designation?.trim() ||
     !me.teamLead?.trim() ||
-    !me.location?.trim() ||
-    !me.joiningDate?.trim();
+    !me.location?.trim();
 
   if (needsOnboarding) {
     return <EmployeeOnboarding me={me} />;
@@ -102,7 +94,6 @@ function MyPerformance() {
           <Field label="Department" value={me.department} />
           <Field label="Designation" value={me.designation} />
           <Field label="Team Lead" value={me.teamLead} />
-          <Field label="Joining Date" value={formatJoiningDate(me.joiningDate)} />
         </CardContent>
       </Card>
 
