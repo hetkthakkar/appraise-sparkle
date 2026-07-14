@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Upload, UserCog, User, LogOut, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, Upload, UserCog, User, LogOut, BarChart3, ListChecks } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +29,7 @@ export function AppSidebar() {
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
       { title: "Employees", url: "/employees", icon: Users },
       { title: "Users & Roles", url: "/users", icon: UserCog },
+      { title: "Manage Lists", url: "/admin/lists", icon: ListChecks },
       { title: "Upload Center", url: "/upload", icon: Upload }
     );
   } else if (user.role === "admin") {

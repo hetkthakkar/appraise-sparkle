@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_app")({
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Super Admin Dashboard",
   "/admin": "Team Overview",
+  "/admin/lists": "Manage Lists",
   "/me": "My Performance",
   "/employees": "Employee Management",
   "/users": "User & Role Management",

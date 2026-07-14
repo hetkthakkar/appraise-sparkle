@@ -23,6 +23,8 @@ export interface SheetUser {
   email: string;
   name: string;
   role: string; // "Super Admin" | "Admin" | "User" | "No Access"
+  location?: string;
+  status?: string;
 }
 export interface SheetEmployee {
   employeeId: string;
@@ -31,6 +33,7 @@ export interface SheetEmployee {
   department: string;
   designation: string;
   teamLead: string;
+  location?: string;
 }
 export interface SheetPerformance {
   month: string;
@@ -108,5 +111,43 @@ export function updateRemarks(
     employeeId,
     month,
     remarks,
+  });
+}
+
+// --- Lookup lists ---
+export function listDepartments() {
+  return callSheetsApi<string[]>("listDepartments", {});
+}
+export function addDepartment(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("addDepartment", { callerEmail, name });
+}
+export function listDesignations() {
+  return callSheetsApi<string[]>("listDesignations", {});
+}
+export function addDesignation(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("addDesignation", { callerEmail, name });
+}
+export function listLocations() {
+  return callSheetsApi<string[]>("listLocations", {});
+}
+export function addLocation(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("addLocation", { callerEmail, name });
+}
+export function listTeamLeads() {
+  return callSheetsApi<string[]>("listTeamLeads", {});
+}
+export function updateEmployeeDetails(
+  callerEmail: string,
+  department: string,
+  designation: string,
+  teamLead: string,
+  location: string
+) {
+  return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
+    callerEmail,
+    department,
+    designation,
+    teamLead,
+    location,
   });
 }
