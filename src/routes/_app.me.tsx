@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MetricRow } from "@/components/metric-row";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance } from "@/lib/sheetsApi";
+import { EmployeeOnboarding } from "@/components/employee-onboarding";
 
 export const Route = createFileRoute("/_app/me")({
   component: MyPerformance,
@@ -36,11 +37,30 @@ function MyPerformance() {
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "user") return <Navigate to="/" />;
 
-  const loading = empQ.isLoading || perfQ.isLoading;
+  if (empQ.isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-4">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   const me =
     (empQ.data ?? []).find((e) => e.email === user.email) ??
     (empQ.data ?? []).find((e) => e.employeeId === user.employeeId);
+
+  if (!me) return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
+
+  const needsOnboarding =
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.teamLead?.trim() ||
+    !me.location?.trim();
+
+  if (needsOnboarding) {
+    return <EmployeeOnboarding me={me} />;
+  }
 
   const myPerf = (perfQ.data ?? []).filter(
     (p) => p.employeeId === me?.employeeId || p.employeeId === user.employeeId
@@ -50,17 +70,15 @@ function MyPerformance() {
     .filter((p) => p.month !== month)
     .sort((a, b) => (a.month < b.month ? 1 : -1));
 
-  if (loading) {
+  if (perfQ.isLoading) {
     return (
       <div className="mx-auto max-w-5xl space-y-4">
         <Skeleton className="h-40" />
         <Skeleton className="h-64" />
-        <Skeleton className="h-40" />
       </div>
     );
   }
 
-  if (!me) return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
