@@ -27,10 +27,9 @@ export function UploadCard({ title, description, columns, onUpload }: Props) {
     setBusy(true);
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: true });
-      if (rows.length === 0) throw new Error("The sheet is empty or has no header row.");
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
       const result = await onUpload(rows);
       toast.success(`${file.name} synced`, {
         description: result
