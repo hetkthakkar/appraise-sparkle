@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -35,7 +34,6 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   const [designation, setDesignation] = useState(me.designation ?? "");
   const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
   const [location, setLocation] = useState(me.location ?? "");
-  const [joiningDate, setJoiningDate] = useState(me.joiningDate ?? "");
 
   const missing = useMemo(() => {
     const out: string[] = [];
@@ -45,11 +43,9 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
     return out;
   }, [deptQ.data, desigQ.data, locQ.data]);
 
-  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(joiningDate);
-
   const m = useMutation({
     mutationFn: () =>
-      updateEmployeeDetails(user!.email, department, designation, teamLead, location, joiningDate),
+      updateEmployeeDetails(user!.email, department, designation, teamLead, location),
     onSuccess: () => {
       toast.success("Profile completed");
       qc.invalidateQueries({ queryKey: ["employees"] });
@@ -61,20 +57,19 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   });
 
   const loading = deptQ.isLoading || desigQ.isLoading || locQ.isLoading || leadQ.isLoading;
-  const canSubmit =
-    !!department && !!designation && !!teamLead && !!location && isValidDate && !m.isPending;
+  const canSubmit = !!department && !!designation && !!teamLead && !!location && !m.isPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Welcome, {me.name.split(" ")[0] || "there"}</CardTitle>
+          <CardTitle>Welcome, {me.name.split(" ")[0]}</CardTitle>
           <CardDescription>
             Please confirm your details to finish setting up your profile.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3 text-sm">
-          <Field label="Employee ID" value={me.employeeId || "—"} />
+          <Field label="Employee ID" value={me.employeeId} />
           <Field label="Name" value={me.name} />
           <Field label="Email" value={me.email} />
         </CardContent>
@@ -131,16 +126,6 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
                 onChange={setLocation}
                 options={locQ.data ?? []}
               />
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Joining Date</label>
-                <Input
-                  type="date"
-                  value={joiningDate}
-                  onChange={(e) => setJoiningDate(e.target.value)}
-                  placeholder="YYYY-MM-DD"
-                />
-                <p className="text-xs text-muted-foreground">Format: YYYY-MM-DD</p>
-              </div>
               <div className="flex justify-end">
                 <Button type="submit" disabled={!canSubmit}>
                   {m.isPending ? "Saving…" : "Save & continue"}
