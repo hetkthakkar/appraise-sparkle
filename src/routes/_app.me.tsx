@@ -18,6 +18,24 @@ function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function monthToLabel(yyyyMM: string) {
+  const m = /^(\d{4})-(\d{2})$/.exec(yyyyMM);
+  if (!m) return yyyyMM;
+  const year = Number(m[1]);
+  const monthIdx = Number(m[2]) - 1;
+  const d = new Date(year, monthIdx, 1);
+  return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+function formatJoiningDate(raw?: string) {
+  if (!raw) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (!m) return raw;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function MyPerformance() {
   const { user } = useAuth();
   const month = currentMonth();
