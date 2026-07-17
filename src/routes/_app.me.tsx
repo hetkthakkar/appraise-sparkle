@@ -68,13 +68,31 @@ function MyPerformance() {
     (empQ.data ?? []).find((e) => e.email === user.email) ??
     (empQ.data ?? []).find((e) => e.employeeId === user.employeeId);
 
-  if (!me) return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
+  // No employee record at all — treat as fresh onboarding (admin added user
+  // from backend but no employee row exists yet, or user just got approved).
+  if (!me) {
+    return (
+      <EmployeeOnboarding
+        me={{
+          employeeId: user.employeeId ?? "",
+          name: user.name,
+          email: user.email,
+          department: "",
+          designation: "",
+          teamLead: "",
+          location: "",
+          joiningDate: "",
+        }}
+      />
+    );
+  }
 
   const needsOnboarding =
     !me.department?.trim() ||
     !me.designation?.trim() ||
     !me.teamLead?.trim() ||
-    !me.location?.trim();
+    !me.location?.trim() ||
+    !me.joiningDate?.trim();
 
   if (needsOnboarding) {
     return <EmployeeOnboarding me={me} />;
@@ -83,7 +101,7 @@ function MyPerformance() {
   const myPerf = (perfQ.data ?? []).filter(
     (p) => p.employeeId === me?.employeeId || p.employeeId === user.employeeId
   );
-  const current = myPerf.find((p) => p.month === month);
+  const current = myPerf.find((p) => p.month === month) ?? null;
   const history = myPerf
     .filter((p) => p.month !== month)
     .sort((a, b) => (a.month < b.month ? 1 : -1));
@@ -112,8 +130,22 @@ function MyPerformance() {
           <Field label="Department" value={me.department} />
           <Field label="Designation" value={me.designation} />
           <Field label="Team Lead" value={me.teamLead} />
+          <Field label="Location" value={me.location ?? "—"} />
+          <Field label="Joining Date" value={formatJoiningDate(me.joiningDate)} />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Current Month — {monthToLabel(month)}</CardTitle>
+              <CardDescription>Live snapshot of your KPIs.</CardDescription>
+            </div>
+            {current && <Badge variant="secondary">Updated</Badge>}
+          </div>
+        </CardHeader>
+
 
       <Card>
         <CardHeader>
