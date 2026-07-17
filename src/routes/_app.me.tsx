@@ -145,18 +145,6 @@ function MyPerformance() {
             {current && <Badge variant="secondary">Updated</Badge>}
           </div>
         </CardHeader>
-
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Current Month — {month}</CardTitle>
-              <CardDescription>Live snapshot of your KPIs.</CardDescription>
-            </div>
-            {current && <Badge variant="secondary">Updated</Badge>}
-          </div>
-        </CardHeader>
         <CardContent>
           {!current ? (
             <p className="text-sm text-muted-foreground">No performance data uploaded for this month yet.</p>
