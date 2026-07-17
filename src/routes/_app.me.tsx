@@ -190,7 +190,7 @@ function MyPerformance() {
             <TableBody>
               {history.map((p) => (
                 <TableRow key={p.month}>
-                  <TableCell className="font-medium">{p.month}</TableCell>
+                  <TableCell className="font-medium">{monthToLabel(p.month)}</TableCell>
                   <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
                   <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
                   <TableCell>{p.errorActual} / {p.errorTarget}</TableCell>
