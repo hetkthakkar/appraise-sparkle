@@ -18,6 +18,24 @@ function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function monthToLabel(yyyyMM: string) {
+  const m = /^(\d{4})-(\d{2})$/.exec(yyyyMM);
+  if (!m) return yyyyMM;
+  const year = Number(m[1]);
+  const monthIdx = Number(m[2]) - 1;
+  const d = new Date(year, monthIdx, 1);
+  return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+function formatJoiningDate(raw?: string) {
+  if (!raw) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (!m) return raw;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function MyPerformance() {
   const { user } = useAuth();
   const month = currentMonth();
@@ -50,13 +68,31 @@ function MyPerformance() {
     (empQ.data ?? []).find((e) => e.email === user.email) ??
     (empQ.data ?? []).find((e) => e.employeeId === user.employeeId);
 
-  if (!me) return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
+  // No employee record at all — treat as fresh onboarding (admin added user
+  // from backend but no employee row exists yet, or user just got approved).
+  if (!me) {
+    return (
+      <EmployeeOnboarding
+        me={{
+          employeeId: user.employeeId ?? "",
+          name: user.name,
+          email: user.email,
+          department: "",
+          designation: "",
+          teamLead: "",
+          location: "",
+          joiningDate: "",
+        }}
+      />
+    );
+  }
 
   const needsOnboarding =
     !me.department?.trim() ||
     !me.designation?.trim() ||
     !me.teamLead?.trim() ||
-    !me.location?.trim();
+    !me.location?.trim() ||
+    !me.joiningDate?.trim();
 
   if (needsOnboarding) {
     return <EmployeeOnboarding me={me} />;
@@ -65,7 +101,7 @@ function MyPerformance() {
   const myPerf = (perfQ.data ?? []).filter(
     (p) => p.employeeId === me?.employeeId || p.employeeId === user.employeeId
   );
-  const current = myPerf.find((p) => p.month === month);
+  const current = myPerf.find((p) => p.month === month) ?? null;
   const history = myPerf
     .filter((p) => p.month !== month)
     .sort((a, b) => (a.month < b.month ? 1 : -1));
@@ -94,6 +130,8 @@ function MyPerformance() {
           <Field label="Department" value={me.department} />
           <Field label="Designation" value={me.designation} />
           <Field label="Team Lead" value={me.teamLead} />
+          <Field label="Location" value={me.location ?? "—"} />
+          <Field label="Joining Date" value={formatJoiningDate(me.joiningDate)} />
         </CardContent>
       </Card>
 
@@ -101,7 +139,7 @@ function MyPerformance() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Current Month — {month}</CardTitle>
+              <CardTitle>Current Month — {monthToLabel(month)}</CardTitle>
               <CardDescription>Live snapshot of your KPIs.</CardDescription>
             </div>
             {current && <Badge variant="secondary">Updated</Badge>}
@@ -152,7 +190,7 @@ function MyPerformance() {
             <TableBody>
               {history.map((p) => (
                 <TableRow key={p.month}>
-                  <TableCell className="font-medium">{p.month}</TableCell>
+                  <TableCell className="font-medium">{monthToLabel(p.month)}</TableCell>
                   <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
                   <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
                   <TableCell>{p.errorActual} / {p.errorTarget}</TableCell>

@@ -34,6 +34,7 @@ export interface SheetEmployee {
   designation: string;
   teamLead: string;
   location?: string;
+  joiningDate?: string;
 }
 export interface SheetPerformance {
   month: string;
@@ -141,7 +142,8 @@ export function updateEmployeeDetails(
   department: string,
   designation: string,
   teamLead: string,
-  location: string
+  location: string,
+  joiningDate: string
 ) {
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
     callerEmail,
@@ -149,5 +151,6 @@ export function updateEmployeeDetails(
     designation,
     teamLead,
     location,
+    joiningDate,
   });
 }
