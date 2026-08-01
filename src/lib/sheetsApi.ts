@@ -85,20 +85,14 @@ export function updateUserRole(callerEmail: string, email: string, newRole: Role
 export function listEmployees(callerEmail: string) {
   return callSheetsApi<SheetEmployee[]>("listEmployees", { callerEmail });
 }
-export function uploadEmployees(callerEmail: string, rows: SheetEmployee[]) {
-  return callSheetsApi<{ inserted: number; updated: number }>("uploadEmployees", {
-    callerEmail,
-    rows,
-  });
+export function uploadEmployees(callerEmail: string, rows: Record<string, unknown>[]) {
+  return callSheetsApi<UploadResult>("uploadEmployees", { callerEmail, rows });
 }
 export function listPerformance(callerEmail: string, month?: string) {
   return callSheetsApi<SheetPerformance[]>("listPerformance", { callerEmail, month });
 }
-export function uploadPerformance(callerEmail: string, rows: SheetPerformance[]) {
-  return callSheetsApi<{ inserted: number; updated: number }>("uploadPerformance", {
-    callerEmail,
-    rows,
-  });
+export function uploadPerformance(callerEmail: string, rows: Record<string, unknown>[]) {
+  return callSheetsApi<UploadResult>("uploadPerformance", { callerEmail, rows });
 }
 export function updateRemarks(
   callerEmail: string,
