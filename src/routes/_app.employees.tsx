@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees } from "@/lib/sheetsApi";
+import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
