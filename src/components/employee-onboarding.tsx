@@ -48,10 +48,18 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
 
   const m = useMutation({
     mutationFn: () =>
-      updateEmployeeDetails(user!.email, department, designation, teamLead, location),
+      updateEmployeeDetails(
+        user!.email,
+        department,
+        designation,
+        teamLead,
+        location,
+        joiningDate
+      ),
     onSuccess: () => {
       toast.success("Profile completed");
       qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["myDashboard"] });
     },
     onError: (e) =>
       toast.error("Could not save", {
