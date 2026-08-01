@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, FileUp, CalendarCheck2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
@@ -6,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance } from "@/lib/sheetsApi";
 
