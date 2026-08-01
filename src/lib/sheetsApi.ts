@@ -34,6 +34,19 @@ export interface SheetEmployee {
   designation: string;
   teamLead: string;
   location?: string;
+  joiningDate?: string;
+}
+export interface UploadResult {
+  success?: boolean;
+  inserted?: number;
+  updated?: number;
+  skipped?: number;
+  total?: number;
+}
+export interface MyDashboard {
+  profile: SheetEmployee;
+  currentMonth: SheetPerformance | null;
+  previousMonths: SheetPerformance[];
 }
 export interface SheetPerformance {
   month: string;
