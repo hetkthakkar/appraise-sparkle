@@ -137,6 +137,18 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
                 onChange={setLocation}
                 options={locQ.data ?? []}
               />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="joiningDate">
+                  Joining Date
+                </label>
+                <Input
+                  id="joiningDate"
+                  type="date"
+                  value={joiningDate}
+                  onChange={(e) => setJoiningDate(e.target.value)}
+                />
+              </div>
+
               <div className="flex justify-end">
                 <Button type="submit" disabled={!canSubmit}>
                   {m.isPending ? "Saving…" : "Save & continue"}
