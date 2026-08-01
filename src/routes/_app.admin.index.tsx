@@ -23,6 +23,7 @@ function currentMonth() {
 function AdminDashboard() {
   const { user } = useAuth();
   const month = currentMonth();
+  const [selected, setSelected] = useState<string | null>(null);
 
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
