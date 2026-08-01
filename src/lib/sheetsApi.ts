@@ -34,6 +34,19 @@ export interface SheetEmployee {
   designation: string;
   teamLead: string;
   location?: string;
+  joiningDate?: string;
+}
+export interface UploadResult {
+  success?: boolean;
+  inserted?: number;
+  updated?: number;
+  skipped?: number;
+  total?: number;
+}
+export interface MyDashboard {
+  profile: SheetEmployee;
+  currentMonth: SheetPerformance | null;
+  previousMonths: SheetPerformance[];
 }
 export interface SheetPerformance {
   month: string;
@@ -85,20 +98,14 @@ export function updateUserRole(callerEmail: string, email: string, newRole: Role
 export function listEmployees(callerEmail: string) {
   return callSheetsApi<SheetEmployee[]>("listEmployees", { callerEmail });
 }
-export function uploadEmployees(callerEmail: string, rows: SheetEmployee[]) {
-  return callSheetsApi<{ inserted: number; updated: number }>("uploadEmployees", {
-    callerEmail,
-    rows,
-  });
+export function uploadEmployees(callerEmail: string, rows: Record<string, unknown>[]) {
+  return callSheetsApi<UploadResult>("uploadEmployees", { callerEmail, rows });
 }
 export function listPerformance(callerEmail: string, month?: string) {
   return callSheetsApi<SheetPerformance[]>("listPerformance", { callerEmail, month });
 }
-export function uploadPerformance(callerEmail: string, rows: SheetPerformance[]) {
-  return callSheetsApi<{ inserted: number; updated: number }>("uploadPerformance", {
-    callerEmail,
-    rows,
-  });
+export function uploadPerformance(callerEmail: string, rows: Record<string, unknown>[]) {
+  return callSheetsApi<UploadResult>("uploadPerformance", { callerEmail, rows });
 }
 export function updateRemarks(
   callerEmail: string,
@@ -141,7 +148,8 @@ export function updateEmployeeDetails(
   department: string,
   designation: string,
   teamLead: string,
-  location: string
+  location: string,
+  joiningDate?: string
 ) {
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
     callerEmail,
@@ -149,5 +157,42 @@ export function updateEmployeeDetails(
     designation,
     teamLead,
     location,
+    joiningDate: joiningDate ?? "",
   });
+}
+
+// --- Dashboard & detail views ---
+export function getMyDashboard(callerEmail: string) {
+  return callSheetsApi<MyDashboard>("getMyDashboard", { callerEmail });
+}
+export function getEmployeeDetail(callerEmail: string, employeeId: string) {
+  return callSheetsApi<MyDashboard>("getEmployeeDetail", { callerEmail, employeeId });
+}
+export function adminUpdateEmployee(
+  callerEmail: string,
+  employeeId: string,
+  updates: {
+    department?: string;
+    designation?: string;
+    teamLead?: string;
+    location?: string;
+    joiningDate?: string;
+  }
+) {
+  return callSheetsApi<{ ok: true }>("adminUpdateEmployee", {
+    callerEmail,
+    employeeId,
+    ...updates,
+  });
+}
+
+export function monthToLabel(month: string): string {
+  const [y, m] = String(month ?? "").split("-");
+  const idx = Number(m) - 1;
+  const names = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  if (!y || Number.isNaN(idx) || !names[idx]) return String(month ?? "");
+  return `${names[idx]} ${y}`;
 }

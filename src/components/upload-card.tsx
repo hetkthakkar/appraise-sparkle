@@ -9,7 +9,9 @@ interface Props {
   title: string;
   description: string;
   columns: string[];
-  onUpload?: (rows: Record<string, unknown>[]) => Promise<{ inserted?: number; updated?: number } | void>;
+  onUpload?: (
+    rows: Record<string, unknown>[]
+  ) => Promise<{ inserted?: number; updated?: number; skipped?: number; total?: number } | void>;
 }
 
 export function UploadCard({ title, description, columns, onUpload }: Props) {
@@ -33,7 +35,12 @@ export function UploadCard({ title, description, columns, onUpload }: Props) {
       const result = await onUpload(rows);
       toast.success(`${file.name} synced`, {
         description: result
-          ? `${result.inserted ?? 0} inserted, ${result.updated ?? 0} updated`
+          ? [
+              `${result.inserted ?? 0} added`,
+              `${result.updated ?? 0} updated`,
+              ...(result.skipped ? [`${result.skipped} skipped`] : []),
+              `${result.total ?? rows.length} rows read`,
+            ].join(" · ")
           : `${rows.length} rows uploaded`,
       });
     } catch (e) {

@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/mock-auth";
 import {
@@ -34,6 +35,9 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   const [designation, setDesignation] = useState(me.designation ?? "");
   const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
   const [location, setLocation] = useState(me.location ?? "");
+  const [joiningDate, setJoiningDate] = useState(
+    me.joiningDate ? String(me.joiningDate).slice(0, 10) : ""
+  );
 
   const missing = useMemo(() => {
     const out: string[] = [];
@@ -45,10 +49,18 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
 
   const m = useMutation({
     mutationFn: () =>
-      updateEmployeeDetails(user!.email, department, designation, teamLead, location),
+      updateEmployeeDetails(
+        user!.email,
+        department,
+        designation,
+        teamLead,
+        location,
+        joiningDate
+      ),
     onSuccess: () => {
       toast.success("Profile completed");
       qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["myDashboard"] });
     },
     onError: (e) =>
       toast.error("Could not save", {
@@ -57,7 +69,8 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   });
 
   const loading = deptQ.isLoading || desigQ.isLoading || locQ.isLoading || leadQ.isLoading;
-  const canSubmit = !!department && !!designation && !!teamLead && !!location && !m.isPending;
+  const canSubmit =
+    !!department && !!designation && !!teamLead && !!location && !!joiningDate && !m.isPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -126,6 +139,18 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
                 onChange={setLocation}
                 options={locQ.data ?? []}
               />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="joiningDate">
+                  Joining Date
+                </label>
+                <Input
+                  id="joiningDate"
+                  type="date"
+                  value={joiningDate}
+                  onChange={(e) => setJoiningDate(e.target.value)}
+                />
+              </div>
+
               <div className="flex justify-end">
                 <Button type="submit" disabled={!canSubmit}>
                   {m.isPending ? "Saving…" : "Save & continue"}

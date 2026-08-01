@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees } from "@/lib/sheetsApi";
+import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/_app/employees")({
 function EmployeesPage() {
   const { user } = useAuth();
   const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["employees", user?.email],
@@ -74,7 +77,11 @@ function EmployeesPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((e) => (
-                  <TableRow key={e.employeeId}>
+                  <TableRow
+                    key={e.employeeId}
+                    onClick={() => setSelected(e.employeeId)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="font-mono text-xs">{e.employeeId}</TableCell>
                     <TableCell className="font-medium">{e.name}</TableCell>
                     <TableCell className="text-muted-foreground">{e.email}</TableCell>
@@ -95,6 +102,10 @@ function EmployeesPage() {
           )}
         </CardContent>
       </Card>
+      <EmployeeDetailModal
+        employeeId={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </div>
   );
 }

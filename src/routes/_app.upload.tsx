@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { UploadCard } from "@/components/upload-card";
 import { useAuth } from "@/lib/mock-auth";
-import { uploadEmployees, uploadPerformance, type SheetEmployee, type SheetPerformance } from "@/lib/sheetsApi";
+import { uploadEmployees, uploadPerformance } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/upload")({
   component: UploadCenter,
@@ -28,10 +28,20 @@ function UploadCenter() {
           <UploadCard
             title="Employee Master Upload"
             description="Onboard or update the employee directory."
-            columns={["Employee ID", "Name", "Email", "Department", "Designation", "Team Lead"]}
+            columns={[
+              "Employee ID",
+              "Employee Name",
+              "Email",
+              "Department",
+              "Designation",
+              "Team Lead",
+              "Location",
+              "Joining Date",
+            ]}
             onUpload={async (rows) => {
-              const result = await uploadEmployees(user.email, rows as unknown as SheetEmployee[]);
+              const result = await uploadEmployees(user.email, rows);
               qc.invalidateQueries({ queryKey: ["employees"] });
+              qc.invalidateQueries({ queryKey: ["users"] });
               return result;
             }}
           />
@@ -42,20 +52,21 @@ function UploadCenter() {
           columns={[
             "Month",
             "Employee ID",
-            "Name",
+            "Employee Name",
             "Production Target",
             "Production Actual",
             "Ticket Target",
             "Ticket Actual",
             "Internal Errors Target",
             "Internal Errors Actual",
-            "Attendance (0-10)",
-            "Behavior (0-5)",
+            "Attendance Score",
+            "Behavior Score",
             "Manager Remarks",
           ]}
           onUpload={async (rows) => {
-            const result = await uploadPerformance(user.email, rows as unknown as SheetPerformance[]);
+            const result = await uploadPerformance(user.email, rows);
             qc.invalidateQueries({ queryKey: ["performance"] });
+            qc.invalidateQueries({ queryKey: ["myDashboard"] });
             return result;
           }}
         />
