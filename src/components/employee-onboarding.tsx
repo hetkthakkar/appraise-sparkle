@@ -34,6 +34,9 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   const [designation, setDesignation] = useState(me.designation ?? "");
   const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
   const [location, setLocation] = useState(me.location ?? "");
+  const [joiningDate, setJoiningDate] = useState(
+    me.joiningDate ? String(me.joiningDate).slice(0, 10) : ""
+  );
 
   const missing = useMemo(() => {
     const out: string[] = [];
