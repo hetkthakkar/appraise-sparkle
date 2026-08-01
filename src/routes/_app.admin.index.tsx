@@ -100,7 +100,11 @@ function AdminDashboard() {
               </TableHeader>
               <TableBody>
                 {teamPerf.map((p) => (
-                  <TableRow key={p.employeeId}>
+                  <TableRow
+                    key={p.employeeId}
+                    onClick={() => setSelected(p.employeeId)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
                     <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
