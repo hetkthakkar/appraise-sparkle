@@ -148,7 +148,8 @@ export function updateEmployeeDetails(
   department: string,
   designation: string,
   teamLead: string,
-  location: string
+  location: string,
+  joiningDate?: string
 ) {
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
     callerEmail,
@@ -156,5 +157,42 @@ export function updateEmployeeDetails(
     designation,
     teamLead,
     location,
+    joiningDate: joiningDate ?? "",
   });
+}
+
+// --- Dashboard & detail views ---
+export function getMyDashboard(callerEmail: string) {
+  return callSheetsApi<MyDashboard>("getMyDashboard", { callerEmail });
+}
+export function getEmployeeDetail(callerEmail: string, employeeId: string) {
+  return callSheetsApi<MyDashboard>("getEmployeeDetail", { callerEmail, employeeId });
+}
+export function adminUpdateEmployee(
+  callerEmail: string,
+  employeeId: string,
+  updates: {
+    department?: string;
+    designation?: string;
+    teamLead?: string;
+    location?: string;
+    joiningDate?: string;
+  }
+) {
+  return callSheetsApi<{ ok: true }>("adminUpdateEmployee", {
+    callerEmail,
+    employeeId,
+    ...updates,
+  });
+}
+
+export function monthToLabel(month: string): string {
+  const [y, m] = String(month ?? "").split("-");
+  const idx = Number(m) - 1;
+  const names = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  if (!y || Number.isNaN(idx) || !names[idx]) return String(month ?? "");
+  return `${names[idx]} ${y}`;
 }
