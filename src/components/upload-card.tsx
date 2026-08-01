@@ -9,7 +9,9 @@ interface Props {
   title: string;
   description: string;
   columns: string[];
-  onUpload?: (rows: Record<string, unknown>[]) => Promise<{ inserted?: number; updated?: number } | void>;
+  onUpload?: (
+    rows: Record<string, unknown>[]
+  ) => Promise<{ inserted?: number; updated?: number; skipped?: number; total?: number } | void>;
 }
 
 export function UploadCard({ title, description, columns, onUpload }: Props) {
