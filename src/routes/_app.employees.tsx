@@ -16,6 +16,8 @@ export const Route = createFileRoute("/_app/employees")({
 function EmployeesPage() {
   const { user } = useAuth();
   const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["employees", user?.email],
