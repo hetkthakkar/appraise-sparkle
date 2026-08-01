@@ -127,6 +127,10 @@ function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+      <EmployeeDetailModal
+        employeeId={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </div>
   );
 }
