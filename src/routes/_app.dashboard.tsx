@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance, monthToLabel } from "@/lib/sheetsApi";
+import { listEmployees, listPerformance } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: SuperAdminDashboard,
@@ -75,7 +75,7 @@ function SuperAdminDashboard() {
             <StatCard label="Total Employees" value={employees.length} icon={Users} />
             <StatCard label="Total Departments" value={departments.size} icon={Building2} />
             <StatCard label="Total Team Leads" value={teamLeads.size} icon={UserCheck} />
-            <StatCard label="Monthly Upload" value={uploadStatus} icon={CalendarCheck2} hint={monthToLabel(month)} />
+            <StatCard label="Monthly Upload" value={uploadStatus} icon={CalendarCheck2} hint={month} />
           </>
         )}
       </div>
@@ -84,7 +84,7 @@ function SuperAdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Current month coverage</CardTitle>
-            <CardDescription>Performance rows uploaded for {monthToLabel(month)}.</CardDescription>
+            <CardDescription>Performance rows uploaded for {month}.</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (

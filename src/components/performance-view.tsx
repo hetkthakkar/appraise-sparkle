@@ -27,9 +27,7 @@ function ScoreBlock({ label, value, outOf }: { label: string; value: number; out
 
 export function PerformanceView({ data, compact }: { data: MyDashboard; compact?: boolean }) {
   const { profile, currentMonth: current, previousMonths } = data;
-  const history = [...(previousMonths ?? [])]
-    .filter((p) => !current || p.month !== current.month)
-    .sort((a, b) => (a.month < b.month ? 1 : -1));
+  const history = [...(previousMonths ?? [])].sort((a, b) => (a.month < b.month ? 1 : -1));
 
   return (
     <div className="space-y-6">
