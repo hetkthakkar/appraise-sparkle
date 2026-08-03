@@ -28,7 +28,11 @@ function EmployeesPage() {
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "super_admin" && user.role !== "admin") return <Navigate to="/" />;
 
-  const scope = data ?? [];
+  const all = data ?? [];
+  const me = all.find((e) => e.email === user.email);
+  // Admins may only open/edit employees who report to them.
+  const scope =
+    user.role === "admin" ? all.filter((e) => me && e.teamLead === me.name) : all;
   const filtered = scope.filter((e) =>
     [e.name, e.email, e.employeeId, e.department].some((f) =>
       String(f ?? "").toLowerCase().includes(q.toLowerCase())
