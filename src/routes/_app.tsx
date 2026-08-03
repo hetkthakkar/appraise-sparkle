@@ -19,7 +19,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 function AppLayout() {
   const { user, loading } = useAuth();
-  const pathname = useRouterState((s) => s.location.pathname) as unknown as string;
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   if (loading) return <div className="min-h-screen bg-background" />;
   if (!user) return <Navigate to="/login" />;
