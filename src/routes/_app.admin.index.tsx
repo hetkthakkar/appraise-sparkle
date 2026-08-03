@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance } from "@/lib/sheetsApi";
+import { EmployeeOnboarding } from "@/components/employee-onboarding";
+import { getMyDashboard, listEmployees, listPerformance, monthToLabel } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/admin/")({
   component: AdminDashboard,
@@ -37,7 +38,25 @@ function AdminDashboard() {
     enabled: !!user && user.role === "admin",
   });
 
+  const meQ = useQuery({
+    queryKey: ["myDashboard", user?.email],
+    queryFn: () => getMyDashboard(user!.email),
+    enabled: !!user && user.role === "admin",
+  });
+
   if (!user || user.role !== "admin") return <Navigate to="/" />;
+
+  const myProfile = meQ.data?.profile;
+  const needsOnboarding =
+    !!myProfile &&
+    (!myProfile.department?.trim() ||
+      !myProfile.designation?.trim() ||
+      !myProfile.teamLead?.trim() ||
+      !myProfile.location?.trim() ||
+      !String(myProfile.joiningDate ?? "").trim());
+
+  if (needsOnboarding && myProfile) return <EmployeeOnboarding me={myProfile} />;
+
 
   const employees = empQ.data ?? [];
   const me = employees.find((e) => e.email === user.email);
@@ -68,7 +87,7 @@ function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Team Size" value={team.length} icon={Users} />
-        <StatCard label="Current Month" value={month} icon={CalendarCheck2} />
+        <StatCard label="Current Month" value={monthToLabel(month)} icon={CalendarCheck2} />
         <StatCard label="Upload Status" value={uploadStatus} icon={FileUp} />
       </div>
 
@@ -76,7 +95,7 @@ function AdminDashboard() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Current month performance</CardTitle>
-            <CardDescription>Snapshot of your team's {month} numbers.</CardDescription>
+            <CardDescription>Snapshot of your team's {monthToLabel(month)} numbers.</CardDescription>
           </div>
           <Button asChild size="sm">
             <Link to="/upload">Upload File</Link>
