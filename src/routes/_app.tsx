@@ -18,11 +18,13 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function AppLayout() {
-  const { user } = useAuth();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user, loading } = useAuth();
+  const pathname = useRouterState((s) => s.location.pathname) as unknown as string;
 
+  if (loading) return <div className="min-h-screen bg-background" />;
   if (!user) return <Navigate to="/login" />;
   if (user.role === "no_access") return <Navigate to="/pending" />;
+
 
   return (
     <SidebarProvider>
