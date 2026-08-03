@@ -9,11 +9,9 @@ export const Route = createFileRoute("/pending")({
 });
 
 function Pending() {
-  const { user, loading, signOut } = useAuth();
-  if (loading) return <div className="min-h-screen bg-background" />;
+  const { user, signOut } = useAuth();
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "no_access") return <Navigate to="/" />;
-
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">

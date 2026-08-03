@@ -13,11 +13,10 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, loading, signInWithCredential } = useAuth();
+  const { user, signInWithCredential } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <div className="min-h-screen bg-background" />;
   if (user) return <Navigate to="/" />;
 
   return (
@@ -42,17 +41,8 @@ function LoginPage() {
                 }
                 setBusy(true);
                 try {
-                  const authed = await signInWithCredential(resp.credential);
-                  const to =
-                    authed.role === "no_access"
-                      ? "/pending"
-                      : authed.role === "super_admin"
-                        ? "/dashboard"
-                        : authed.role === "admin"
-                          ? "/admin"
-                          : "/me";
-                  await navigate({ to, replace: true });
-
+                  await signInWithCredential(resp.credential);
+                  navigate({ to: "/" });
                 } catch (e) {
                   toast.error("Sign-in failed", {
                     description: e instanceof Error ? e.message : String(e),
