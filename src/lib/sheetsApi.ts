@@ -166,7 +166,7 @@ export function getMyDashboard(callerEmail: string) {
   return callSheetsApi<MyDashboard>("getMyDashboard", { callerEmail });
 }
 export function getEmployeeDetail(callerEmail: string, employeeId: string) {
-  return callSheetsApi<MyDashboard>("getEmployeeDetail", { callerEmail, employeeId });
+  return callSheetsApi<MyDashboard>("getEmployeeProfile", { callerEmail, employeeId });
 }
 export function adminUpdateEmployee(
   callerEmail: string,
