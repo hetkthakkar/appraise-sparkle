@@ -38,7 +38,25 @@ function AdminDashboard() {
     enabled: !!user && user.role === "admin",
   });
 
+  const meQ = useQuery({
+    queryKey: ["myDashboard", user?.email],
+    queryFn: () => getMyDashboard(user!.email),
+    enabled: !!user && user.role === "admin",
+  });
+
   if (!user || user.role !== "admin") return <Navigate to="/" />;
+
+  const myProfile = meQ.data?.profile;
+  const needsOnboarding =
+    !!myProfile &&
+    (!myProfile.department?.trim() ||
+      !myProfile.designation?.trim() ||
+      !myProfile.teamLead?.trim() ||
+      !myProfile.location?.trim() ||
+      !String(myProfile.joiningDate ?? "").trim());
+
+  if (needsOnboarding && myProfile) return <EmployeeOnboarding me={myProfile} />;
+
 
   const employees = empQ.data ?? [];
   const me = employees.find((e) => e.email === user.email);
