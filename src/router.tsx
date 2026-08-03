@@ -6,12 +6,14 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30_000,
+        staleTime: 0,
         refetchOnWindowFocus: true,
-        refetchInterval: 60_000,
+        refetchInterval: 5_000,
+        refetchIntervalInBackground: false,
       },
     },
   });
+
 
   const router = createRouter({
     routeTree,

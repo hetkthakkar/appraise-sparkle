@@ -70,7 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (credential: string) => {
       const { email, name } = decodeJwt(credential);
       if (!email) throw new Error("Google sign-in did not return an email");
-      const profile = await getUserProfile(email, name ?? email);
+      let profile = await getUserProfile(email, name ?? email);
+      // On the very first sign-in the backend may be creating the user row,
+      // returning an empty/No Access role. Re-read once so the correct role
+      // is picked up without requiring a sign-out / sign-in cycle.
+      if (normalizeRole(profile.role) === "no_access") {
+        try {
+          const retry = await getUserProfile(email, name ?? email);
+          if (normalizeRole(retry.role) !== "no_access") profile = retry;
+        } catch {}
+      }
       const authed: AuthUser = {
         email: profile.email ?? email,
         name: profile.name ?? name ?? email,
@@ -82,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [persist]
   );
+
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
