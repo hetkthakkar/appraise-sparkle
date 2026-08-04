@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/mock-auth";
 import { Toaster } from "@/components/ui/sonner";
+import { LiveRefresh } from "@/components/live-refresh";
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ?? "";
 
@@ -124,6 +125,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <LiveRefresh />
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <AuthProvider>
           <Outlet />

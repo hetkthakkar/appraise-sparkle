@@ -40,8 +40,12 @@ function UploadCenter() {
             ]}
             onUpload={async (rows) => {
               const result = await uploadEmployees(user.email, rows);
-              qc.invalidateQueries({ queryKey: ["employees"] });
-              qc.invalidateQueries({ queryKey: ["users"] });
+              await Promise.all([
+                qc.refetchQueries({ queryKey: ["employees"] }),
+                qc.refetchQueries({ queryKey: ["users"] }),
+                qc.refetchQueries({ queryKey: ["myDashboard"] }),
+                qc.refetchQueries({ queryKey: ["employeeDetail"] }),
+              ]);
               return result;
             }}
           />
@@ -65,8 +69,11 @@ function UploadCenter() {
           ]}
           onUpload={async (rows) => {
             const result = await uploadPerformance(user.email, rows);
-            qc.invalidateQueries({ queryKey: ["performance"] });
-            qc.invalidateQueries({ queryKey: ["myDashboard"] });
+            await Promise.all([
+              qc.refetchQueries({ queryKey: ["performance"] }),
+              qc.refetchQueries({ queryKey: ["myDashboard"] }),
+              qc.refetchQueries({ queryKey: ["employeeDetail"] }),
+            ]);
             return result;
           }}
         />

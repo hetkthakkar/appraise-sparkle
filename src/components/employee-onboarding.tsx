@@ -57,10 +57,12 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
         location,
         joiningDate
       ),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["employees"] }),
+        qc.refetchQueries({ queryKey: ["myDashboard"] }),
+      ]);
       toast.success("Profile completed");
-      qc.invalidateQueries({ queryKey: ["employees"] });
-      qc.invalidateQueries({ queryKey: ["myDashboard"] });
     },
     onError: (e) =>
       toast.error("Could not save", {
