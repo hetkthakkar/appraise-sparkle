@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     sync();
-    const id = window.setInterval(sync, 0_500);
+    const id = window.setInterval(sync, 500);
     const onVisible = () => {
       if (document.visibilityState === "visible") sync();
     };
