@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sync();
     
     // Poll every 1 second (1000ms) instead of 200ms - much less aggressive
-    const id = window.setInterval(sync, 1000);
+    const id = window.setInterval(sync, 500);
     
     // Sync immediately when tab becomes visible
     const onVisible = () => {
