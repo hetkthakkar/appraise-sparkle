@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
@@ -11,24 +11,28 @@ export const Route = createFileRoute("/pending")({
 
 function Pending() {
   const { user, signOut, refreshProfile } = useAuth();
+  const navigate = useNavigate();
 
-  // Check for role change immediately on mount + every 2 seconds
   useEffect(() => {
     if (!user) return;
     
     // Check immediately
     refreshProfile();
     
-    // Then check every 2 seconds while waiting
+    // Poll every 1 second while waiting (faster detection)
     const interval = setInterval(() => {
       refreshProfile();
-    }, 2000);
+    }, 1000);
     
     return () => clearInterval(interval);
   }, [user, refreshProfile]);
 
+  // If role changed, redirect immediately
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== "no_access") return <Navigate to="/" />;
+  if (user.role !== "no_access") {
+    navigate({ to: "/" });
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
