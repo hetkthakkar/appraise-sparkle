@@ -79,7 +79,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-// NEW: Watch for access revocation
+// Watch for access revocation
 function AccessRevokeWatcher() {
   const { user } = useAuth();
   const router = useRouter();
