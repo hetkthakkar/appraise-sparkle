@@ -10,29 +10,18 @@ export const Route = createFileRoute("/pending")({
 });
 
 function Pending() {
-  const { user, signOut, refreshProfile } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Redirect instantly when role is assigned (via global 500ms sync from mock-auth)
   useEffect(() => {
-    if (!user) return;
-    
-    // Check immediately
-    refreshProfile();
-    
-    // Poll every 1 second while waiting (faster detection)
-    const interval = setInterval(() => {
-      refreshProfile();
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [user, refreshProfile]);
+    if (user && user.role !== "no_access") {
+      navigate({ to: "/" });
+    }
+  }, [user?.role, navigate]);
 
-  // If role changed, redirect immediately
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== "no_access") {
-    navigate({ to: "/" });
-    return null;
-  }
+  if (user.role !== "no_access") return <Navigate to="/" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
