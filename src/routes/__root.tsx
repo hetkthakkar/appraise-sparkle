@@ -89,16 +89,15 @@ function AccessRevokeWatcher() {
 
     // Handle access revocation
     if (user.role === "no_access") {
-      router.navigate({ to: "/pending" });
+      // Force navigation and handle any errors
+      router.navigate({ to: "/pending", replace: true }).catch((err) => {
+        console.error("Navigation to /pending failed:", err);
+        // Fallback: reload page if navigation fails
+        window.location.href = "/pending";
+      });
       return;
     }
-
-    // Handle role escalation (admin → super_admin, etc.)
-    // Add your role-based redirects here
-    if (user.role === "super_admin") {
-      // Do something on super_admin access
-    }
-  }, [user, router]); // Watch entire user object, not just role
+  }, [user?.role]); // Only watch role, not router object (it changes identity)
 
   return null;
 }
