@@ -85,10 +85,10 @@ function ListSection({
 
   const m = useMutation({
     mutationFn: (name: string) => add(name),
-    onSuccess: () => {
-      toast.success(`${title.slice(0, -1)} added`);
+    onSuccess: async () => {
       setValue("");
-      qc.invalidateQueries({ queryKey: [queryKey] });
+      await qc.refetchQueries({ queryKey: [queryKey] });
+      toast.success(`${title.slice(0, -1)} added`);
     },
     onError: (e) =>
       toast.error("Could not add", {
