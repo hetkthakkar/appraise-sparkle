@@ -12,7 +12,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AuthProvider } from "@/lib/mock-auth";
+import { AuthProvider, useAuth } from "@/lib/mock-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { LiveRefresh } from "@/components/live-refresh";
 import { BusyTracker } from "@/components/busy-tracker";
@@ -67,7 +67,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
-          <a
+          
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
@@ -77,6 +77,21 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       </div>
     </div>
   );
+}
+
+// NEW: Watch for access revocation
+function AccessRevokeWatcher() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // If user was logged in but now has no access, redirect to pending
+    if (user && user.role === "no_access") {
+      router.navigate({ to: "/pending" });
+    }
+  }, [user?.role, router]);
+
+  return null;
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -130,6 +145,7 @@ function RootComponent() {
       <BusyTracker />
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <AuthProvider>
+          <AccessRevokeWatcher />
           <Outlet />
           <Toaster />
         </AuthProvider>
