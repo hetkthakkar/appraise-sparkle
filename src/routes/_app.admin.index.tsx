@@ -1,3 +1,4 @@
+import { PerformanceView } from "@/components/performance-view";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
