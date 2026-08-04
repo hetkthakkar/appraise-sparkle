@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { isBusy } from "./lib/busy";
 
 export const getRouter = () => {
   const queryClient = new QueryClient({
@@ -10,10 +11,12 @@ export const getRouter = () => {
         refetchOnWindowFocus: "always",
         refetchOnReconnect: "always",
         refetchOnMount: "always",
-        refetchInterval: 5_000,
+        // Calm 60s background poll, paused while a save/upload is in flight.
+        refetchInterval: () => (isBusy() ? false : 60_000),
       },
     },
   });
+
 
 
   const router = createRouter({

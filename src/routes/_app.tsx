@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { RefreshButton } from "@/components/refresh-button";
 import { useAuth } from "@/lib/mock-auth";
 
 export const Route = createFileRoute("/_app")({
@@ -32,6 +33,9 @@ function AppLayout() {
           <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
             <SidebarTrigger />
             <h1 className="text-sm font-semibold">{PAGE_TITLES[pathname] ?? "Appraise"}</h1>
+            <div className="ml-auto">
+              <RefreshButton />
+            </div>
           </header>
           <main className="flex-1 bg-muted/20 p-6">
             <Outlet />

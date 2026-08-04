@@ -1,12 +1,27 @@
 import type { Role } from "./types";
 
 const API_URL = import.meta.env.VITE_SHEETS_API_URL as string;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export async function callSheetsApi<T = unknown>(action: string, payload: object): Promise<T> {
   if (!API_URL) throw new Error("VITE_SHEETS_API_URL is not configured");
   const url = `${API_URL}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
-  const res = await fetch(url, { method: "GET" });
-  const text = await res.text();
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let text: string;
+  try {
+    const res = await fetch(url, { method: "GET", signal: controller.signal });
+    text = await res.text();
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Request timed out after 15 seconds. Please try again.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+
   let json: any;
   try {
     json = JSON.parse(text);
@@ -17,6 +32,7 @@ export async function callSheetsApi<T = unknown>(action: string, payload: object
   if (json && json.error) throw new Error(String(json.error));
   return json as T;
 }
+
 
 // --- Types returned by the Google Apps Script backend ---
 export interface SheetUser {

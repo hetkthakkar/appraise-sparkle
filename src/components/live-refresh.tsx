@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { isBusy } from "@/lib/busy";
 
 /**
  * Refetches every active query as soon as the tab regains focus or becomes
@@ -10,8 +11,10 @@ export function LiveRefresh() {
 
   useEffect(() => {
     const refetchAll = () => {
+      if (isBusy()) return;
       qc.refetchQueries({ type: "active" });
     };
+
     const onVisibility = () => {
       if (document.visibilityState === "visible") refetchAll();
     };

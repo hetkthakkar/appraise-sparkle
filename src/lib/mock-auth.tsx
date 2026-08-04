@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getUserProfile, normalizeRole } from "./sheetsApi";
+import { isBusy } from "./busy";
 import type { Role } from "./types";
 
 const STORAGE_KEY = "epa.auth.v2";
@@ -104,8 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const sync = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (isBusy()) return;
       try {
         const profile = await getUserProfile(email, name ?? email);
+
         if (cancelled) return;
         const next: AuthUser = {
           email: profile.email ?? email,
@@ -133,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     sync();
-    const id = window.setInterval(sync, 5000);
+    const id = window.setInterval(sync, 60_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") sync();
     };

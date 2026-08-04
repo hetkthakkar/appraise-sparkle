@@ -4,6 +4,7 @@ import { Upload, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { beginBusy } from "@/lib/busy";
 
 interface Props {
   title: string;
@@ -27,6 +28,7 @@ export function UploadCard({ title, description, columns, onUpload }: Props) {
       return;
     }
     setBusy(true);
+    const endBusy = beginBusy();
     try {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array" });
@@ -48,6 +50,7 @@ export function UploadCard({ title, description, columns, onUpload }: Props) {
         description: e instanceof Error ? e.message : String(e),
       });
     } finally {
+      endBusy();
       setBusy(false);
     }
   };
