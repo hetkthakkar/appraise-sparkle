@@ -85,15 +85,23 @@ function AccessRevokeWatcher() {
   const router = useRouter();
 
   useEffect(() => {
-    // If user was logged in but now has no access, redirect to pending
-    if (user && user.role === "no_access") {
+    if (!user) return;
+
+    // Handle access revocation
+    if (user.role === "no_access") {
       router.navigate({ to: "/pending" });
+      return;
     }
-  }, [user?.role, router]);
+
+    // Handle role escalation (admin → super_admin, etc.)
+    // Add your role-based redirects here
+    if (user.role === "super_admin") {
+      // Do something on super_admin access
+    }
+  }, [user, router]); // Watch entire user object, not just role
 
   return null;
 }
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
