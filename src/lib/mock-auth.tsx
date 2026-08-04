@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getUserProfile, normalizeRole } from "./sheetsApi";
-import { isBusy } from "./busy";
 import type { Role } from "./types";
 
 const STORAGE_KEY = "epa.auth.v2";
@@ -95,51 +94,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [user, persist]);
 
-  // Live role sync: poll the backend so role changes (e.g. No Access -> User)
-  // take effect for the signed-in user without a refresh or re-login.
+  // Live role sync: aggressive polling for instant role updates
   const email = user?.email;
   const name = user?.name;
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
+    let retries = 0;
 
     const sync = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      if (isBusy()) return;
+      
       try {
         const profile = await getUserProfile(email, name ?? email);
 
         if (cancelled) return;
+        
         const next: AuthUser = {
           email: profile.email ?? email,
           name: profile.name ?? name ?? email,
           role: normalizeRole(profile.role),
           employeeId: profile.employeeId,
         };
+        
         setUser((prev) => {
+          // Always update if role changed
+          if (prev && prev.role !== next.role) {
+            try {
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            } catch {}
+            return next;
+          }
+          
+          // Also update if other fields changed
           if (
             prev &&
-            prev.role === next.role &&
             prev.name === next.name &&
             prev.employeeId === next.employeeId
           ) {
             return prev;
           }
+          
           try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
           } catch {}
           return next;
         });
-      } catch {
-        /* ignore transient network errors */
+        
+        retries = 0; // Reset retries on success
+      } catch (err) {
+        // Retry up to 3 times on error, then give up
+        if (retries < 3) {
+          retries++;
+          console.warn("Auth sync failed, retrying...", err);
+        }
       }
     };
 
+    // Initial sync immediately
     sync();
-    const id = window.setInterval(sync, 500);
+    
+    // Aggressive polling: 200ms instead of 500ms for faster updates
+    const id = window.setInterval(sync, 200);
+    
+    // Sync when tab becomes visible
     const onVisible = () => {
-      if (document.visibilityState === "visible") sync();
+      if (document.visibilityState === "visible") {
+        retries = 0;
+        sync();
+      }
     };
+    
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", sync);
 
@@ -154,7 +179,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     persist(null);
   }, [persist]);
-
 
   const value = useMemo(
     () => ({ user, loading, signInWithCredential, refreshProfile, signOut }),
