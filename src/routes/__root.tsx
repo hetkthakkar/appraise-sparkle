@@ -87,17 +87,14 @@ function AccessRevokeWatcher() {
   useEffect(() => {
     if (!user) return;
 
-    // Handle access revocation
     if (user.role === "no_access") {
-      // Force navigation and handle any errors
       router.navigate({ to: "/pending", replace: true }).catch((err) => {
-        console.error("Navigation to /pending failed:", err);
-        // Fallback: reload page if navigation fails
+        console.error("Navigation failed:", err);
         window.location.href = "/pending";
       });
       return;
     }
-  }, [user?.role]); // Only watch role, not router object (it changes identity)
+  }, [user?.role]);
 
   return null;
 }
