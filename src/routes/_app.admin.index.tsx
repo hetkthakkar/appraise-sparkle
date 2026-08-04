@@ -5,6 +5,7 @@ import { Users, FileUp, CalendarCheck2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AdminOnboarding } from "@/components/admin-onboarding";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
@@ -40,8 +41,25 @@ function AdminDashboard() {
   if (!user || user.role !== "admin") return <Navigate to="/" />;
 
   const employees = empQ.data ?? [];
-  const me = employees.find((e) => e.email === user.email);
-  const team = me ? employees.filter((e) => e.teamLead === me.name) : employees;
+const me = employees.find((e) => e.email === user.email);
+
+const needsOnboarding =
+  !!me &&
+  (
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.teamLead?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim()
+  );
+
+if (me && needsOnboarding) {
+  return <AdminOnboarding me={me} />;
+}
+
+const team = me
+  ? employees.filter((e) => e.teamLead === me.name)
+  : employees;
   const teamPerf = (perfQ.data ?? []).filter((p) =>
     team.some((t) => t.employeeId === p.employeeId)
   );
