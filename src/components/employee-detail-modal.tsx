@@ -95,6 +95,7 @@ function EditForm({
   onDone: () => void;
 }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const deptQ = useQuery({ queryKey: ["departments"], queryFn: listDepartments });
   const desigQ = useQuery({ queryKey: ["designations"], queryFn: listDesignations });
   const locQ = useQuery({ queryKey: ["locations"], queryFn: listLocations });
@@ -117,7 +118,13 @@ function EditForm({
         location,
         joiningDate,
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["employeeDetail", employeeId] }),
+        qc.refetchQueries({ queryKey: ["employees"] }),
+        qc.refetchQueries({ queryKey: ["performance"] }),
+        qc.refetchQueries({ queryKey: ["myDashboard"] }),
+      ]);
       toast.success("Employee updated");
       onDone();
     },
