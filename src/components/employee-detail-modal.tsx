@@ -30,7 +30,6 @@ interface Props {
 
 export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
   const { user } = useAuth();
-  const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
 
   const detailQ = useQuery({
