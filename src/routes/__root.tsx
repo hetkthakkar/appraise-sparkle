@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/mock-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { LiveRefresh } from "@/components/live-refresh";
+import { BusyTracker } from "@/components/busy-tracker";
 
 const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ?? "";
 
