@@ -37,10 +37,8 @@ function UsersPage() {
     mutationFn: (vars: { email: string; role: Role }) =>
       updateUserRole(user!.email, vars.email, vars.role),
     onSuccess: async (_d, vars) => {
-      await Promise.all([
-        qc.refetchQueries({ queryKey: ["users"] }),
-        qc.refetchQueries({ queryKey: ["employees"] }),
-      ]);
+      qc.invalidateQueries({ queryKey: ["users", user?.email] });
+qc.invalidateQueries({ queryKey: ["employees", user?.email] });
       toast.success(`Role updated to ${ROLE_LABEL[vars.role]}`);
     },
     onError: (e) => toast.error("Failed to update role", { description: e instanceof Error ? e.message : String(e) }),
