@@ -94,15 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [user, persist]);
 
-  // Live role sync: aggressive polling for instant role updates
+  // Live role sync: poll for role updates at reasonable intervals
   const email = user?.email;
   const name = user?.name;
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
-    let retries = 0;
 
     const sync = async () => {
+      // Don't sync if tab is hidden
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       
       try {
@@ -117,42 +117,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           employeeId: profile.employeeId,
         };
         
-       setUser((prev) => {
-  const roleChanged = prev?.role !== next.role;
-  const nameChanged = prev?.name !== next.name;
-  const employeeIdChanged = prev?.employeeId !== next.employeeId;
-  const anyChanged = roleChanged || nameChanged || employeeIdChanged;
+        setUser((prev) => {
+          const roleChanged = prev?.role !== next.role;
+          const nameChanged = prev?.name !== next.name;
+          const employeeIdChanged = prev?.employeeId !== next.employeeId;
+          const anyChanged = roleChanged || nameChanged || employeeIdChanged;
 
-  if (anyChanged) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {}
-    return next;
-  }
-  
-  return prev;
-});
-
-retries = 0; // Reset retries on success
+          if (anyChanged) {
+            try {
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            } catch {}
+            return next;
+          }
+          
+          return prev;
+        });
       } catch (err) {
-        // Retry up to 3 times on error, then give up
-        if (retries < 3) {
-          retries++;
-          console.warn("Auth sync failed, retrying...", err);
-        }
+        // Silent fail on network errors - don't spam console
+        console.debug("Auth sync failed:", err);
       }
     };
 
-    // Initial sync immediately
+    // Initial sync
     sync();
     
-    // Aggressive polling: 200ms instead of 500ms for faster updates
-    const id = window.setInterval(sync, 200);
+    // Poll every 1 second (1000ms) instead of 200ms - much less aggressive
+    const id = window.setInterval(sync, 1000);
     
-    // Sync when tab becomes visible
+    // Sync immediately when tab becomes visible
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        retries = 0;
         sync();
       }
     };
@@ -167,7 +161,7 @@ retries = 0; // Reset retries on success
       window.removeEventListener("focus", sync);
     };
   }, [email, name]);
-
+  
   const signOut = useCallback(() => {
     persist(null);
   }, [persist]);
