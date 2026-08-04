@@ -94,9 +94,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [user, persist]);
 
+  // Live role sync: poll the backend so role changes (e.g. No Access -> User)
+  // take effect for the signed-in user without a refresh or re-login.
+  const email = user?.email;
+  const name = user?.name;
+  useEffect(() => {
+    if (!email) return;
+    let cancelled = false;
+
+    const sync = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const profile = await getUserProfile(email, name ?? email);
+        if (cancelled) return;
+        const next: AuthUser = {
+          email: profile.email ?? email,
+          name: profile.name ?? name ?? email,
+          role: normalizeRole(profile.role),
+          employeeId: profile.employeeId,
+        };
+        setUser((prev) => {
+          if (
+            prev &&
+            prev.role === next.role &&
+            prev.name === next.name &&
+            prev.employeeId === next.employeeId
+          ) {
+            return prev;
+          }
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      } catch {
+        /* ignore transient network errors */
+      }
+    };
+
+    sync();
+    const id = window.setInterval(sync, 5000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", sync);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", sync);
+    };
+  }, [email, name]);
+
   const signOut = useCallback(() => {
     persist(null);
   }, [persist]);
+
 
   const value = useMemo(
     () => ({ user, loading, signInWithCredential, refreshProfile, signOut }),
