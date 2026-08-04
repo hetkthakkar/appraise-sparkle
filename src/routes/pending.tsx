@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,23 @@ export const Route = createFileRoute("/pending")({
 });
 
 function Pending() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshProfile } = useAuth();
+
+  // Check for role change immediately on mount + every 2 seconds
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check immediately
+    refreshProfile();
+    
+    // Then check every 2 seconds while waiting
+    const interval = setInterval(() => {
+      refreshProfile();
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [user, refreshProfile]);
+
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "no_access") return <Navigate to="/" />;
 
