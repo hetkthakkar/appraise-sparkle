@@ -16,11 +16,11 @@ function MyPerformance() {
   const dashQ = useQuery({
     queryKey: ["myDashboard", user?.email],
     queryFn: () => getMyDashboard(user!.email),
-    enabled: !!user && user.role === "user",
+    enabled: !!user,
   });
 
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== "user") return <Navigate to="/" />;
+  if (!["user", "admin", "super_admin"].includes(user.role))   return <Navigate to="/" />;
 
   if (dashQ.isLoading) {
     return (
