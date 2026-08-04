@@ -27,11 +27,11 @@ function AdminDashboard() {
   const month = currentMonth();
   const [selected, setSelected] = useState<string | null>(null);
 
-  const meQ = useQuery({
-    queryKey: ["myDashboard", user?.email],
-    queryFn: () => getMyDashboard(user!.email),
-    enabled: !!user && user.role === "admin",
-  });
+  const empQ = useQuery({
+  queryKey: ["employees", user?.email],
+  queryFn: () => listEmployees(user!.email),
+  enabled: !!user && ["admin", "super_admin"].includes(user.role),
+});
 
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
@@ -39,14 +39,18 @@ function AdminDashboard() {
     enabled: !!user && user.role === "admin",
   });
 
-  const perfQ = useQuery({
-    queryKey: ["performance", user?.email, month],
-    queryFn: () => listPerformance(user!.email, month),
-    enabled: !!user && user.role === "admin",
-  });
+const perfQ = useQuery({
+  queryKey: ["performance", user?.email, month],
+  queryFn: () => listPerformance(user!.email, month),
+  enabled: !!user && ["admin", "super_admin"].includes(user.role),
+});
 
-  if (!user || user.role !== "admin") return <Navigate to="/" />;
-
+  if (
+  !user ||
+  !["admin", "super_admin"].includes(user.role)
+)
+  return <Navigate to="/" />;
+  
   if (meQ.isLoading) {
     return (
       <div className="mx-auto max-w-3xl space-y-2">
