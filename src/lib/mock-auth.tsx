@@ -137,13 +137,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onVisible = () => {
       if (document.visibilityState === "visible") sync();
     };
-    window.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", sync);
 
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      window.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", sync);
     };
   }, [email, name]);
