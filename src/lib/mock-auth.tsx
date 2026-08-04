@@ -117,31 +117,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           employeeId: profile.employeeId,
         };
         
-        setUser((prev) => {
-          // Always update if role changed
-          if (prev && prev.role !== next.role) {
-            try {
-              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-            } catch {}
-            return next;
-          }
-          
-          // Also update if other fields changed
-          if (
-            prev &&
-            prev.name === next.name &&
-            prev.employeeId === next.employeeId
-          ) {
-            return prev;
-          }
-          
-          try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-          } catch {}
-          return next;
-        });
-        
-        retries = 0; // Reset retries on success
+       setUser((prev) => {
+  const roleChanged = prev?.role !== next.role;
+  const nameChanged = prev?.name !== next.name;
+  const employeeIdChanged = prev?.employeeId !== next.employeeId;
+  const anyChanged = roleChanged || nameChanged || employeeIdChanged;
+
+  if (anyChanged) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+    return next;
+  }
+  
+  return prev;
+});
+
+retries = 0; // Reset retries on success
       } catch (err) {
         // Retry up to 3 times on error, then give up
         if (retries < 3) {
