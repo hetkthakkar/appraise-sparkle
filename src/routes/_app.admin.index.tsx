@@ -7,10 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { AdminOnboarding } from "@/components/admin-onboarding";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listEmployees, listPerformance, getMyDashboard } from "@/lib/sheetsApi";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { useAuth } from "@/lib/mock-auth";
+import { listEmployees, listPerformance, getMyDashboard } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/admin/")({
   component: AdminDashboard,
@@ -26,6 +26,12 @@ function AdminDashboard() {
   const month = currentMonth();
   const [selected, setSelected] = useState<string | null>(null);
 
+  const meQ = useQuery({
+    queryKey: ["myDashboard", user?.email],
+    queryFn: () => getMyDashboard(user!.email),
+    enabled: !!user && user.role === "admin",
+  });
+
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
@@ -39,52 +45,48 @@ function AdminDashboard() {
   });
 
   if (!user || user.role !== "admin") return <Navigate to="/" />;
+
   if (meQ.isLoading) {
-  return (
-    <div className="mx-auto max-w-3xl space-y-2">
-      <Skeleton className="h-40 w-full" />
-    </div>
-  );
-}
+    return (
+      <div className="mx-auto max-w-3xl space-y-2">
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
 
-  const meQ = useQuery({
-  queryKey: ["myDashboard", user?.email],
-  queryFn: () => getMyDashboard(user!.email),
-  enabled: !!user && user.role === "admin",
-});
+  const me = meQ.data?.profile;
 
-const me = meQ.data?.profile;
+  const needsOnboarding =
+    !me ||
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.teamLead?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim();
 
-const needsOnboarding =
-  !me ||
-  !me.department?.trim() ||
-  !me.designation?.trim() ||
-  !me.teamLead?.trim() ||
-  !me.location?.trim() ||
-  !String(me.joiningDate ?? "").trim();
-  
-const employees = empQ.data ?? [];
-const team = me
   if (needsOnboarding) {
-  return (
-    <AdminOnboarding
-      me={
-        me ?? {
-          employeeId: "",
-          name: user.name,
-          email: user.email,
-          department: "",
-          designation: "Team Lead",
-          teamLead: "",
-          location: "",
-          joiningDate: "",
+    return (
+      <AdminOnboarding
+        me={
+          me ?? {
+            employeeId: "",
+            name: user.name,
+            email: user.email,
+            department: "",
+            designation: "Team Lead",
+            teamLead: "",
+            location: "",
+            joiningDate: "",
+          }
         }
-      }
-    />
-  );
-}
-  ? employees.filter((e) => e.teamLead === me.name)
-  : employees;
+      />
+    );
+  }
+
+  const employees = empQ.data ?? [];
+  const team = me
+    ? employees.filter((e) => e.teamLead === me.name)
+    : employees;
   const teamPerf = (perfQ.data ?? []).filter((p) =>
     team.some((t) => t.employeeId === p.employeeId)
   );
