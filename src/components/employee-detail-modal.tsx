@@ -73,9 +73,8 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
                 initial={detailQ.data.profile}
                 onDone={() => {
                   setEditing(false);
-                  qc.invalidateQueries({ queryKey: ["employeeDetail", employeeId] });
-                  qc.invalidateQueries({ queryKey: ["employees"] });
                 }}
+
               />
             )}
             <PerformanceView data={detailQ.data} compact />
