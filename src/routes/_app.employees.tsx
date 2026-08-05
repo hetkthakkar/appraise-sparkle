@@ -38,21 +38,25 @@ function EmployeesPage() {
   const deptQ = useQuery({
     queryKey: ["departments"],
     queryFn: listDepartments,
+    retry: 1,
   });
 
   const desigQ = useQuery({
     queryKey: ["designations"],
     queryFn: listDesignations,
+    retry: 1,
   });
 
   const locQ = useQuery({
     queryKey: ["locations"],
     queryFn: listLocations,
+    retry: 1,
   });
 
   const leadQ = useQuery({
     queryKey: ["teamLeads"],
     queryFn: listTeamLeads,
+    retry: 1,
   });
 
   if (!user) return <Navigate to="/login" />;
