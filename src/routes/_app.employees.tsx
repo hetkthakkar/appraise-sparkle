@@ -35,29 +35,24 @@ function EmployeesPage() {
     enabled: !!user && (user.role === "super_admin" || user.role === "admin"),
   });
 
-  // Filters are optional - don't crash if they fail
   const deptQ = useQuery({
     queryKey: ["departments"],
     queryFn: listDepartments,
-    retry: 0,
   });
 
   const desigQ = useQuery({
     queryKey: ["designations"],
     queryFn: listDesignations,
-    retry: 0,
   });
 
   const locQ = useQuery({
     queryKey: ["locations"],
     queryFn: listLocations,
-    retry: 0,
   });
 
   const leadQ = useQuery({
     queryKey: ["teamLeads"],
     queryFn: listTeamLeads,
-    retry: 0,
   });
 
   if (!user) return <Navigate to="/login" />;
@@ -65,21 +60,12 @@ function EmployeesPage() {
 
   const scope = data ?? [];
   const filtered = scope.filter((e) => {
-    // Text search
     const matchesSearch = [e.name, e.email, e.employeeId, e.department].some((f) =>
       String(f ?? "").toLowerCase().includes(q.toLowerCase())
     );
-
-    // Filter by department
     const matchesDept = !filterDept || e.department === filterDept;
-
-    // Filter by designation
     const matchesDesig = !filterDesig || e.designation === filterDesig;
-
-    // Filter by team lead
     const matchesTeamLead = !filterTeamLead || e.teamLead === filterTeamLead;
-
-    // Filter by location
     const matchesLocation = !filterLocation || e.location === filterLocation;
 
     return matchesSearch && matchesDept && matchesDesig && matchesTeamLead && matchesLocation;
@@ -96,7 +82,6 @@ function EmployeesPage() {
             </CardDescription>
           </div>
 
-          {/* Search and Filters */}
           <div className="space-y-3">
             <Input
               placeholder="Search by name, ID, email…"
@@ -106,69 +91,53 @@ function EmployeesPage() {
             />
 
             <div className="grid gap-3 sm:grid-cols-4">
-              {!deptQ.isError && (
-                <Select value={filterDept} onValueChange={setFilterDept}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Departments</SelectItem>
-                    {(deptQ.data ?? []).map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={filterDept} onValueChange={setFilterDept}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Departments</SelectItem>
+                  {(deptQ.data ?? []).map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              {!desigQ.isError && (
-                <Select value={filterDesig} onValueChange={setFilterDesig}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Designations</SelectItem>
-                    {(desigQ.data ?? []).map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={filterDesig} onValueChange={setFilterDesig}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Designation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Designations</SelectItem>
+                  {(desigQ.data ?? []).map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              {!leadQ.isError && (
-                <Select value={filterTeamLead} onValueChange={setFilterTeamLead}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Team Lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Team Leads</SelectItem>
-                    {(leadQ.data ?? []).map((tl) => (
-                      <SelectItem key={tl} value={tl}>
-                        {tl}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={filterTeamLead} onValueChange={setFilterTeamLead}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Team Lead" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Team Leads</SelectItem>
+                  {(leadQ.data ?? []).map((tl) => (
+                    <SelectItem key={tl} value={tl}>{tl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              {!locQ.isError && (
-                <Select value={filterLocation} onValueChange={setFilterLocation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Locations</SelectItem>
-                    {(locQ.data ?? []).map((loc) => (
-                      <SelectItem key={loc} value={loc}>
-                        {loc}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={filterLocation} onValueChange={setFilterLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Locations</SelectItem>
+                  {(locQ.data ?? []).map((loc) => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -218,7 +187,7 @@ function EmployeesPage() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      No employees match your filters.
+                      No employees match your search.
                     </TableCell>
                   </TableRow>
                 )}
