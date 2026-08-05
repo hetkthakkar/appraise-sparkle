@@ -4,11 +4,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MetricRow } from "@/components/metric-row";
 import { monthToLabel, type MyDashboard } from "@/lib/sheetsApi";
 
-export function Field({ label, value }: { label: string; value?: string }) {
+export function Field({ label, value }: { label: string; value?: unknown }) {
+  const displayValue = value == null ? "" : String(value).trim();
+
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-medium">{value?.trim() ? value : "—"}</div>
+      <div className="mt-0.5 font-medium">{displayValue || "—"}</div>
     </div>
   );
 }
