@@ -32,22 +32,23 @@ function AdminDashboard() {
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
-    enabled: isAdmin,
+    enabled: !!user && ["admin", "super_admin"].includes(user.role),
   });
 
   const perfQ = useQuery({
     queryKey: ["performance", user?.email, month],
     queryFn: () => listPerformance(user!.email, month),
-    enabled: isAdmin,
+    enabled: !!user && ["admin", "super_admin"].includes(user.role),
   });
 
   const meQ = useQuery({
     queryKey: ["myDashboard", user?.email],
     queryFn: () => getMyDashboard(user!.email),
-    enabled: isAdmin,
+    enabled: !!user && ["admin", "super_admin"].includes(user.role),
   });
 
-  if (!isAdmin) return <Navigate to="/" />;
+ if (!user || !["admin", "super_admin"].includes(user.role))
+  return <Navigate to="/" />;
 
   
   if (meQ.isLoading) {
