@@ -43,8 +43,9 @@ function MyPerformance() {
     );
   }
 
-  const me = dashQ.data?.profile;
-  if (!me) {
+  const dashboard = dashQ.data;
+  const me = dashboard?.profile;
+  if (!dashboard || !me) {
     return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
   }
 
@@ -60,7 +61,7 @@ function MyPerformance() {
   return (
     <div className="mx-auto max-w-5xl">
       <PerformanceView
-        data={dashQ.data}
+        data={dashboard}
         onEditProfile={user.role === "admin" || user.role === "super_admin" ? () => setEditingProfile(true) : undefined}
       />
       {(user.role === "admin" || user.role === "super_admin") && (
