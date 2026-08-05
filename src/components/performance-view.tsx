@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MetricRow } from "@/components/metric-row";
 import { monthToLabel, type MyDashboard } from "@/lib/sheetsApi";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 
 export function Field({ label, value }: { label: string; value?: unknown }) {
   const displayValue = value == null ? "" : String(value).trim();
@@ -27,7 +29,7 @@ function ScoreBlock({ label, value, outOf }: { label: string; value: number; out
   );
 }
 
-export function PerformanceView({ data, compact }: { data: MyDashboard; compact?: boolean }) {
+export function PerformanceView({ data, compact, onEditProfile }: { data: MyDashboard; compact?: boolean; onEditProfile?: () => void }) {
   const profile = data?.profile ?? ({} as MyDashboard["profile"]);
   const current = data?.currentMonth;
   const previousMonths = data?.previousMonths;
@@ -36,9 +38,17 @@ export function PerformanceView({ data, compact }: { data: MyDashboard; compact?
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>{compact ? "Profile" : "My Profile"}</CardTitle>
-          <CardDescription>Details from the employee master.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle>{compact ? "Profile" : "My Profile"}</CardTitle>
+            <CardDescription>Details from the employee master.</CardDescription>
+          </div>
+          {onEditProfile && (
+            <Button variant="outline" size="sm" onClick={onEditProfile}>
+              <Pencil className="size-4" />
+              Edit profile
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
           <Field label="Employee ID" value={profile.employeeId} />

@@ -1,10 +1,12 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/mock-auth";
 import { getMyDashboard } from "@/lib/sheetsApi";
 import { EmployeeOnboarding } from "@/components/employee-onboarding";
 import { PerformanceView } from "@/components/performance-view";
+import { ProfileEditDialog } from "@/components/profile-edit-dialog";
 
 export const Route = createFileRoute("/_app/me")({
   component: MyPerformance,
@@ -12,6 +14,7 @@ export const Route = createFileRoute("/_app/me")({
 
 function MyPerformance() {
   const { user } = useAuth();
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const dashQ = useQuery({
     queryKey: ["myDashboard", user?.email],
@@ -56,7 +59,17 @@ function MyPerformance() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PerformanceView data={dashQ.data!} />
+      <PerformanceView
+        data={dashQ.data}
+        onEditProfile={user.role === "admin" || user.role === "super_admin" ? () => setEditingProfile(true) : undefined}
+      />
+      {(user.role === "admin" || user.role === "super_admin") && (
+        <ProfileEditDialog
+          open={editingProfile}
+          onOpenChange={setEditingProfile}
+          profile={me}
+        />
+      )}
     </div>
   );
 }
