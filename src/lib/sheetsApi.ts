@@ -201,6 +201,21 @@ export function adminUpdateEmployee(
     ...updates,
   });
 }
+export function updateMyProfile(
+  callerEmail: string,
+  updates: {
+    department: string;
+    designation: string;
+    teamLead: string;
+    location: string;
+    joiningDate: string;
+  }
+) {
+  return callSheetsApi<{ ok: true }>("updateMyProfile", {
+    callerEmail,
+    ...updates,
+  });
+}
 
 export function monthToLabel(month: string): string {
   const [y, m] = String(month ?? "").split("-");
