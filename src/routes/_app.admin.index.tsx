@@ -27,29 +27,28 @@ function AdminDashboard() {
   const month = currentMonth();
   const [selected, setSelected] = useState<string | null>(null);
 
-  const empQ = useQuery({
-  queryKey: ["employees", user?.email],
-  queryFn: () => listEmployees(user!.email),
-  enabled: !!user && ["admin", "super_admin"].includes(user.role),
-});
+  const isAdmin = !!user && ["admin", "super_admin"].includes(user.role);
 
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
-    enabled: !!user && user.role === "admin",
+    enabled: isAdmin,
   });
 
-const perfQ = useQuery({
-  queryKey: ["performance", user?.email, month],
-  queryFn: () => listPerformance(user!.email, month),
-  enabled: !!user && ["admin", "super_admin"].includes(user.role),
-});
+  const perfQ = useQuery({
+    queryKey: ["performance", user?.email, month],
+    queryFn: () => listPerformance(user!.email, month),
+    enabled: isAdmin,
+  });
 
-  if (
-  !user ||
-  !["admin", "super_admin"].includes(user.role)
-)
-  return <Navigate to="/" />;
+  const meQ = useQuery({
+    queryKey: ["myDashboard", user?.email],
+    queryFn: () => getMyDashboard(user!.email),
+    enabled: isAdmin,
+  });
+
+  if (!isAdmin) return <Navigate to="/" />;
+
   
   if (meQ.isLoading) {
     return (
