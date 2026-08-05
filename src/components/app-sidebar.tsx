@@ -24,23 +24,31 @@ export function AppSidebar() {
   if (!user) return null;
 
   const items: Item[] = [];
-  if (user.role === "super_admin") {
-    items.push(
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Employees", url: "/employees", icon: Users },
-      { title: "Users & Roles", url: "/users", icon: UserCog },
-      { title: "Manage Lists", url: "/admin/lists", icon: ListChecks },
-      { title: "Upload Center", url: "/upload", icon: Upload }
-    );
-  } else if (user.role === "admin") {
-    items.push(
-      { title: "Team Overview", url: "/admin", icon: BarChart3 },
-      { title: "My Team", url: "/employees", icon: Users },
-      { title: "Upload Center", url: "/upload", icon: Upload }
-    );
-  } else if (user.role === "user") {
-    items.push({ title: "My Performance", url: "/me", icon: User });
-  }
+ if (user.role === "super_admin") {
+  items.push(
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Employees", url: "/employees", icon: Users },
+    { title: "Users & Roles", url: "/users", icon: UserCog },
+    { title: "Manage Lists", url: "/admin/lists", icon: ListChecks },
+    { title: "Upload Center", url: "/upload", icon: Upload },
+
+    // Add this
+    { title: "My Performance", url: "/me", icon: User }
+  );
+} else if (user.role === "admin") {
+  items.push(
+    { title: "Team Overview", url: "/admin", icon: BarChart3 },
+    { title: "My Team", url: "/employees", icon: Users },
+    { title: "Upload Center", url: "/upload", icon: Upload },
+
+    // Add this
+    { title: "My Performance", url: "/me", icon: User }
+  );
+} else if (user.role === "user") {
+  items.push(
+    { title: "My Performance", url: "/me", icon: User }
+  );
+}
 
   return (
     <Sidebar collapsible="icon">
