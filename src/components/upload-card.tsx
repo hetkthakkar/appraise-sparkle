@@ -37,15 +37,97 @@ export function UploadCard({
   const [fileName, setFileName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const parseFile = async (
+    file: File
+  ): Promise<Record<string, unknown>[]> => {
+    const extension =
+      file.name.toLowerCase().split(".").pop() ?? "";
+
+    // ---------------------------------------------
+    // CSV FILE
+    // ---------------------------------------------
+    if (extension === "csv") {
+      const csvText = await file.text();
+
+      if (!csvText.trim()) {
+        throw new Error("The CSV file is empty.");
+      }
+
+      const workbook = XLSX.read(csvText, {
+        type: "string",
+        raw: false,
+        cellDates: true,
+      });
+
+      if (!workbook.SheetNames.length) {
+        throw new Error("No data found in the CSV file.");
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      if (!worksheet) {
+        throw new Error("Unable to read the CSV file.");
+      }
+
+      return XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        worksheet,
+        {
+          defval: "",
+          raw: false,
+          blankrows: false,
+        }
+      );
+    }
+
+    // ---------------------------------------------
+    // EXCEL FILE
+    // ---------------------------------------------
+    if (extension === "xlsx" || extension === "xls") {
+      const buffer = await file.arrayBuffer();
+
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        raw: false,
+        cellDates: true,
+      });
+
+      if (!workbook.SheetNames.length) {
+        throw new Error("No worksheet found in the Excel file.");
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      if (!worksheet) {
+        throw new Error("Unable to read the Excel file.");
+      }
+
+      return XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        worksheet,
+        {
+          defval: "",
+          raw: false,
+          blankrows: false,
+        }
+      );
+    }
+
+    throw new Error(
+      "Unsupported file type. Please upload .xlsx, .xls, or .csv."
+    );
+  };
+
   const onFile = async (file?: File) => {
     if (!file) return;
 
-    const fileExtension =
+    const extension =
       file.name.toLowerCase().split(".").pop() ?? "";
 
-    const supportedExtensions = ["xlsx", "xls", "csv"];
-
-    if (!supportedExtensions.includes(fileExtension)) {
+    // ---------------------------------------------
+    // Validate file type
+    // ---------------------------------------------
+    if (!["xlsx", "xls", "csv"].includes(extension)) {
       toast.error("Unsupported file type", {
         description:
           "Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.",
@@ -59,63 +141,59 @@ export function UploadCard({
     }
 
     setFileName(file.name);
-
-    if (!onUpload) {
-      toast.success(`${file.name} queued`);
-      return;
-    }
-
     setBusy(true);
+
     const endBusy = beginBusy();
 
     try {
-      const buf = await file.arrayBuffer();
+      // Parse CSV / Excel
+      const rows = await parseFile(file);
 
-      // XLSX.read supports both Excel files and CSV files.
-      const wb = XLSX.read(buf, {
-        type: "array",
-        cellDates: true,
-      });
-
-      if (!wb.SheetNames.length) {
-        throw new Error("The uploaded file does not contain any sheet/data.");
+      if (!rows.length) {
+        throw new Error(
+          "The uploaded file contains no data rows."
+        );
       }
 
-      const ws = wb.Sheets[wb.SheetNames[0]];
+      console.log(
+        `Parsed ${extension.toUpperCase()} file:`,
+        rows
+      );
 
-      if (!ws) {
-        throw new Error("Could not read the first sheet from the file.");
-      }
+      // ---------------------------------------------
+      // Send parsed rows to existing backend
+      // ---------------------------------------------
+      if (onUpload) {
+        const result = await onUpload(rows);
 
-      const rows =
-        XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
-          defval: "",
-          raw: false,
-          blankrows: false,
+        toast.success(
+          `${file.name} uploaded successfully`,
+          {
+            description: result
+              ? [
+                  `${result.inserted ?? 0} added`,
+                  `${result.updated ?? 0} updated`,
+                  ...(result.skipped
+                    ? [`${result.skipped} skipped`]
+                    : []),
+                  `${result.total ?? rows.length} rows processed`,
+                ].join(" · ")
+              : `${rows.length} rows uploaded`,
+          }
+        );
+      } else {
+        toast.success(`${file.name} loaded`, {
+          description: `${rows.length} rows found.`,
         });
-
-      if (rows.length === 0) {
-        throw new Error("The uploaded file is empty.");
       }
+    } catch (error) {
+      console.error("Upload failed:", error);
 
-      const result = await onUpload(rows);
-
-      toast.success(`${file.name} synced`, {
-        description: result
-          ? [
-              `${result.inserted ?? 0} added`,
-              `${result.updated ?? 0} updated`,
-              ...(result.skipped
-                ? [`${result.skipped} skipped`]
-                : []),
-              `${result.total ?? rows.length} rows read`,
-            ].join(" · ")
-          : `${rows.length} rows uploaded`,
-      });
-    } catch (e) {
       toast.error("Upload failed", {
         description:
-          e instanceof Error ? e.message : String(e),
+          error instanceof Error
+            ? error.message
+            : String(error),
       });
     } finally {
       endBusy();
@@ -124,6 +202,14 @@ export function UploadCard({
       if (inputRef.current) {
         inputRef.current.value = "";
       }
+    }
+  };
+
+  const clearFile = () => {
+    setFileName(null);
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
     }
   };
 
@@ -145,14 +231,18 @@ export function UploadCard({
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
+          onDragOver={(e) => {
+            e.preventDefault();
+          }}
           onDrop={(e) => {
             e.preventDefault();
 
             if (!busy) {
-              onFile(
-                e.dataTransfer.files?.[0]
-              );
+              const file = e.dataTransfer.files?.[0];
+
+              if (file) {
+                onFile(file);
+              }
             }
           }}
           className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 text-center transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60"
@@ -166,8 +256,8 @@ export function UploadCard({
           <span className="text-sm font-medium">
             {busy
               ? "Uploading…"
-              : (fileName ??
-                "Drop Excel or CSV file here or click to browse")}
+              : fileName ??
+                "Drop Excel or CSV file here or click to browse"}
           </span>
 
           <span className="text-xs text-muted-foreground">
@@ -180,11 +270,13 @@ export function UploadCard({
           type="file"
           accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
-          onChange={(e) =>
-            onFile(
-              e.target.files?.[0] ?? undefined
-            )
-          }
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+
+            if (file) {
+              onFile(file);
+            }
+          }}
         />
 
         <div className="rounded-md border bg-muted/30 p-3">
@@ -193,12 +285,12 @@ export function UploadCard({
           </p>
 
           <div className="flex flex-wrap gap-1.5">
-            {columns.map((c) => (
+            {columns.map((column) => (
               <span
-                key={c}
+                key={column}
                 className="rounded border bg-background px-2 py-0.5 text-xs"
               >
-                {c}
+                {column}
               </span>
             ))}
           </div>
@@ -208,13 +300,7 @@ export function UploadCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setFileName(null);
-
-              if (inputRef.current) {
-                inputRef.current.value = "";
-              }
-            }}
+            onClick={clearFile}
           >
             Clear
           </Button>
