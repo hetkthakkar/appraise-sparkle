@@ -60,9 +60,10 @@ function EmployeesPage() {
               ))}
             </div>
           ) : isError ? (
-            <p className="text-sm text-destructive">
-              Failed to load employees: {error instanceof Error ? error.message : String(error)}
-            </p>
+            <div className="space-y-2 text-sm text-destructive">
+  <p className="font-medium">Failed to load employees</p>
+  <p>{error instanceof Error ? error.message : String(error)}</p>
+</div>
           ) : (
             <Table>
               <TableHeader>
