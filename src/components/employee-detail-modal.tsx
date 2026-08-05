@@ -69,7 +69,7 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
             {editing && (
               <EditForm
                 employeeId={employeeId!}
-                initial={detailQ.data.profile}
+                initial={detailQ.data.profile ?? {}}
                 onDone={() => {
                   setEditing(false);
                 }}

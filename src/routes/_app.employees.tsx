@@ -103,15 +103,6 @@ function EmployeesPage() {
       (user.role === "super_admin" || user.role === "admin"),
   });
 
-  if (!user) return <Navigate to="/login" />;
-
-  if (
-    user.role !== "super_admin" &&
-    user.role !== "admin"
-  ) {
-    return <Navigate to="/" />;
-  }
-
   const scope = data ?? [];
 
   const filtered = useMemo(() => {
@@ -167,6 +158,16 @@ function EmployeesPage() {
     teamLeadFilter,
     locationFilter,
   ]);
+
+  if (!user) return <Navigate to="/login" />;
+
+  if (
+    user.role !== "super_admin" &&
+    user.role !== "admin"
+  ) {
+    return <Navigate to="/" />;
+  }
+
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
