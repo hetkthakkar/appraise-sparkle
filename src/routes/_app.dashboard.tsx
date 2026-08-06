@@ -56,14 +56,31 @@ function SuperAdminDashboard() {
 
   const me = meQ.data?.profile;
   const needsOnboarding =
-    !!me &&
-    (!me.department?.trim() ||
+    !me ||
+    !me.department?.trim() ||
       !me.designation?.trim() ||
       !me.teamLead?.trim() ||
       !me.location?.trim() ||
-      !String(me.joiningDate ?? "").trim());
+      !String(me.joiningDate ?? "").trim();
 
-  if (needsOnboarding) return <EmployeeOnboarding me={me} />;
+  if (needsOnboarding) {
+    return (
+      <EmployeeOnboarding
+        me={
+          me ?? {
+            employeeId: user.employeeId ?? "",
+            name: user.name,
+            email: user.email,
+            department: "",
+            designation: "",
+            teamLead: "",
+            location: "",
+            joiningDate: "",
+          }
+        }
+      />
+    );
+  }
 
   const employees = empQ.data ?? [];
   const perf = perfQ.data ?? [];
