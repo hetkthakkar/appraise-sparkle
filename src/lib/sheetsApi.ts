@@ -155,6 +155,7 @@ export interface SheetPerformance {
   month: string;
   employeeId: string;
   name: string;
+  location?: string;
   productionTarget: number;
   productionActual: number;
   ticketTarget: number;
@@ -480,6 +481,8 @@ export function adminUpdateEmployee(
   callerEmail: string,
   employeeId: string,
   updates: {
+    employeeId?: string;
+    email?: string;
     department?: string;
     designation?: string;
     teamLead?: string;

@@ -28,9 +28,10 @@ function UploadCenter() {
           <UploadCard
             title="Employee Master Upload"
             description="Onboard or update the employee directory."
+            templateFileName="employee-master-template.xlsx"
             columns={[
               "Employee ID",
-              "Employee Name",
+              "Name",
               "Email",
               "Department",
               "Designation",
@@ -53,18 +54,20 @@ function UploadCenter() {
         <UploadCard
           title="Monthly Performance Upload"
           description="Upload the current month's KPI sheet for your team."
+          templateFileName="monthly-performance-template.xlsx"
           columns={[
             "Month",
             "Employee ID",
-            "Employee Name",
+            "Name",
+            "Location",
             "Production Target",
             "Production Actual",
             "Ticket Target",
             "Ticket Actual",
-            "Internal Errors Target",
-            "Internal Errors Actual",
-            "Attendance Score",
-            "Behavior Score",
+            "Internal Errors/Rejection Target",
+            "Internal Errors/Rejection Actual",
+            "Attendance (0-10)",
+            "Behavior (0-5)",
             "Manager Remarks",
           ]}
           onUpload={async (rows) => {

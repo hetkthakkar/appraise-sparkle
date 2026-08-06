@@ -2,7 +2,7 @@ import { PerformanceView } from "@/components/performance-view";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, FileUp, CalendarCheck2 } from "lucide-react";
+import { Users, FileUp, CalendarCheck2, Download } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance, getMyDashboard } from "@/lib/sheetsApi";
+import { exportPerformance } from "@/lib/excel";
 
 export const Route = createFileRoute("/_app/admin/")({
   component: AdminDashboard,
@@ -128,9 +129,15 @@ function AdminDashboard() {
             <CardTitle>Current month performance</CardTitle>
             <CardDescription>Snapshot of your team's {month} numbers.</CardDescription>
           </div>
-          <Button asChild size="sm">
-            <Link to="/upload">Upload File</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => exportPerformance(teamPerf)} disabled={!teamPerf.length}>
+              <Download />
+              Export Data
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/upload">Upload File</Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {empQ.isLoading || perfQ.isLoading ? (

@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import {
   Table,
@@ -41,6 +43,7 @@ import {
 } from "@/lib/sheetsApi";
 
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
+import { exportEmployees } from "@/lib/excel";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -188,12 +191,18 @@ function EmployeesPage() {
               </CardDescription>
             </div>
 
-            <Input
-              placeholder="Search by name, ID, email…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="max-w-xs"
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                placeholder="Search by name, ID, email…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button variant="outline" onClick={() => exportEmployees(filtered)} disabled={!filtered.length}>
+                <Download />
+                Export Data
+              </Button>
+            </div>
           </div>
 
           {/* Filters */}
