@@ -6,11 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance } from "@/lib/sheetsApi";
+import { getMyDashboard, listEmployees, listPerformance } from "@/lib/sheetsApi";
 import { exportPerformance } from "@/lib/excel";
 import { Button } from "@/components/ui/button";
 import { EmployeeOnboarding } from "@/components/employee-onboarding";
-import { getMyDashboard } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: SuperAdminDashboard,
