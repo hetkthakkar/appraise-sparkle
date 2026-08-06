@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance } from "@/lib/sheetsApi";
 import { exportPerformance } from "@/lib/excel";
 import { Button } from "@/components/ui/button";
+import { EmployeeOnboarding } from "@/components/employee-onboarding";
+import { getMyDashboard } from "@/lib/sheetsApi";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: SuperAdminDashboard,
@@ -35,7 +37,33 @@ function SuperAdminDashboard() {
     enabled: !!user && user.role === "super_admin",
   });
 
+  const meQ = useQuery({
+    queryKey: ["myDashboard", user?.email],
+    queryFn: () => getMyDashboard(user!.email),
+    enabled: !!user && user.role === "super_admin",
+  });
+
   if (!user || user.role !== "super_admin") return <Navigate to="/" />;
+
+  if (meQ.isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  const me = meQ.data?.profile;
+  const needsOnboarding =
+    !!me &&
+    (!me.department?.trim() ||
+      !me.designation?.trim() ||
+      !me.teamLead?.trim() ||
+      !me.location?.trim() ||
+      !String(me.joiningDate ?? "").trim());
+
+  if (needsOnboarding) return <EmployeeOnboarding me={me} />;
 
   const employees = empQ.data ?? [];
   const perf = perfQ.data ?? [];
