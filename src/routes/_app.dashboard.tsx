@@ -1,12 +1,14 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Building2, UserCheck, CalendarCheck2 } from "lucide-react";
+import { Users, Building2, UserCheck, CalendarCheck2, Download } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/mock-auth";
 import { listEmployees, listPerformance } from "@/lib/sheetsApi";
+import { exportPerformance } from "@/lib/excel";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: SuperAdminDashboard,
@@ -82,9 +84,15 @@ function SuperAdminDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Current month coverage</CardTitle>
-            <CardDescription>Performance rows uploaded for {month}.</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle>Current month coverage</CardTitle>
+              <CardDescription>Performance rows uploaded for {month}.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => exportPerformance(perf)} disabled={!perf.length}>
+              <Download />
+              Export Data
+            </Button>
           </CardHeader>
           <CardContent>
             {loading ? (

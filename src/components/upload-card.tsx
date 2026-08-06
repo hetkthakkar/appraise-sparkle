@@ -11,11 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { beginBusy } from "@/lib/busy";
+import { downloadTemplate } from "@/lib/excel";
 
 interface Props {
   title: string;
   description: string;
   columns: string[];
+  templateFileName: string;
   onUpload?: (
     rows: Record<string, unknown>[]
   ) => Promise<{
@@ -30,6 +32,7 @@ export function UploadCard({
   title,
   description,
   columns,
+  templateFileName,
   onUpload,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -216,10 +219,20 @@ export function UploadCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5 text-primary" />
-          {title}
-        </CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
+            {title}
+          </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => downloadTemplate(templateFileName, columns)}
+          >
+            Download Template
+          </Button>
+        </div>
 
         <CardDescription>
           {description}

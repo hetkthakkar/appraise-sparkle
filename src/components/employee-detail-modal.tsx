@@ -90,7 +90,7 @@ function EditForm({
   onDone,
 }: {
   employeeId: string;
-  initial: { department?: string; designation?: string; teamLead?: string; location?: string; joiningDate?: string };
+  initial: { employeeId?: string; email?: string; department?: string; designation?: string; teamLead?: string; location?: string; joiningDate?: string };
   onDone: () => void;
 }) {
   const { user } = useAuth();
@@ -100,6 +100,8 @@ function EditForm({
   const locQ = useQuery({ queryKey: ["locations"], queryFn: listLocations });
   const leadQ = useQuery({ queryKey: ["teamLeads"], queryFn: listTeamLeads });
 
+  const [updatedEmployeeId, setUpdatedEmployeeId] = useState(initial.employeeId ?? employeeId);
+  const [email, setEmail] = useState(initial.email ?? "");
   const [department, setDepartment] = useState(initial.department ?? "");
   const [designation, setDesignation] = useState(initial.designation ?? "");
   const [teamLead, setTeamLead] = useState(initial.teamLead ?? "");
@@ -111,6 +113,7 @@ function EditForm({
   const m = useMutation({
     mutationFn: () =>
       adminUpdateEmployee(user!.email, employeeId, {
+        ...(user?.role === "super_admin" ? { employeeId: updatedEmployeeId, email } : {}),
         department,
         designation,
         teamLead,
@@ -141,6 +144,29 @@ function EditForm({
         m.mutate();
       }}
     >
+      {user?.role === "super_admin" && (
+        <>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="edit-employee-id">Employee ID</label>
+            <Input
+              id="edit-employee-id"
+              value={updatedEmployeeId}
+              onChange={(e) => setUpdatedEmployeeId(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="edit-email">Email</label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+        </>
+      )}
       <Picker label="Department" value={department} onChange={setDepartment} options={deptQ.data ?? []} />
       <Picker label="Designation" value={designation} onChange={setDesignation} options={desigQ.data ?? []} />
       <Picker label="Team Lead" value={teamLead} onChange={setTeamLead} options={leadQ.data ?? []} />
