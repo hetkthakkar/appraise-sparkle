@@ -2,6 +2,7 @@ import { createFileRoute, Navigate, Outlet, useRouterState } from "@tanstack/rea
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { RefreshButton } from "@/components/refresh-button";
+import { AcentricBadge } from "@/components/acentric-badge";
 import { useAuth } from "@/lib/mock-auth";
 
 export const Route = createFileRoute("/_app")({
@@ -34,6 +35,7 @@ function AppLayout() {
             <SidebarTrigger />
             <h1 className="text-sm font-semibold">{PAGE_TITLES[pathname] ?? "Appraise"}</h1>
             <div className="ml-auto">
+              <AcentricBadge />
               <RefreshButton />
             </div>
           </header>
