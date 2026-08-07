@@ -1,310 +1,211 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/mock-auth";
 import {
-  listDepartments,
-  listDesignations,
-  listLocations,
-  listTeamLeads,
-  updateEmployeeDetails,
-  type SheetEmployee,
+listDepartments,
+listDesignations,
+listLocations,
+listTeamLeads,
+updateEmployeeDetails,
+type SheetEmployee,
 } from "@/lib/sheetsApi";
 
 export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
-  const { user } = useAuth();
-  const qc = useQueryClient();
+const { user } = useAuth();
+const qc = useQueryClient();
 
-  const deptQ = useQuery({
-    queryKey: ["departments"],
-    queryFn: listDepartments,
-  });
+const deptQ = useQuery({ queryKey: ["departments"], queryFn: listDepartments });
+const desigQ = useQuery({ queryKey: ["designations"], queryFn: listDesignations });
+const locQ = useQuery({ queryKey: ["locations"], queryFn: listLocations });
+const leadQ = useQuery({ queryKey: ["teamLeads"], queryFn: listTeamLeads });
 
-  const desigQ = useQuery({
-    queryKey: ["designations"],
-    queryFn: listDesignations,
-  });
+const [department, setDepartment] = useState(me.department ?? "");
+const [designation, setDesignation] = useState(me.designation ?? "");
+const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
+const [location, setLocation] = useState(me.location ?? "");
+const [joiningDate, setJoiningDate] = useState(
+me.joiningDate ? String(me.joiningDate).slice(0, 10) : ""
+);
 
-  const locQ = useQuery({
-    queryKey: ["locations"],
-    queryFn: listLocations,
-  });
+const missing = useMemo(() => {
+const out: string[] = [];
+if ((deptQ.data ?? []).length === 0) out.push("Department");
+if ((desigQ.data ?? []).length === 0) out.push("Designation");
+if ((locQ.data ?? []).length === 0) out.push("Location");
+return out;
+}, [deptQ.data, desigQ.data, locQ.data]);
 
-  const leadQ = useQuery({
-    queryKey: ["teamLeads"],
-    queryFn: listTeamLeads,
-  });
+const m = useMutation({
+mutationFn: () =>
+updateEmployeeDetails(
+user!.email,
+department,
+designation,
+teamLead,
+location,
+joiningDate
+),
+onSuccess: async () => {
+await Promise.all([
+qc.refetchQueries({ queryKey: ["employees"] }),
+qc.refetchQueries({ queryKey: ["myDashboard"] }),
+]);
+toast.success("Profile completed");
+},
+onError: (e) =>
+toast.error("Could not save", {
+description: e instanceof Error ? e.message : String(e),
+}),
+});
 
-  const [department, setDepartment] = useState(me.department ?? "");
-  const [designation, setDesignation] = useState(me.designation ?? "");
-  const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
-  const [location, setLocation] = useState(me.location ?? "");
+const loading = deptQ.isLoading || desigQ.isLoading || locQ.isLoading || leadQ.isLoading;
 
-  const [joiningDate, setJoiningDate] = useState(
-    me.joiningDate ? String(me.joiningDate).slice(0, 10) : ""
-  );
+const isSuperAdmin = user?.role === "super_admin";
 
-  // Team Lead is optional ONLY for Super Admin
-  const isSuperAdmin = user?.role === "super_admin";
+const canSubmit =
+!!department &&
+!!designation &&
+(isSuperAdmin || !!teamLead) &&
+!!location &&
+!!joiningDate &&
+!m.isPending;
 
-  const missing = useMemo(() => {
-    const out: string[] = [];
+return (
 
-    if ((deptQ.data ?? []).length === 0) {
-      out.push("Department");
-    }
+Welcome, {me.name.split(" ")[0]}
 
-    if ((desigQ.data ?? []).length === 0) {
-      out.push("Designation");
-    }
+Please confirm your details to finish setting up your profile.
 
-    if ((locQ.data ?? []).length === 0) {
-      out.push("Location");
-    }
+  <Card>
+    <CardHeader>
+      <CardTitle>Your details</CardTitle>
+      <CardDescription>Select the values that apply to you.</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : missing.length > 0 ? (
+        <p className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
+          Your administrator hasn't set up {missing.join(" / ")} options yet. Please check
+          back later.
+        </p>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSubmit) m.mutate();
+          }}
+        >
+          <Picker
+            label="Department"
+            value={department}
+            onChange={setDepartment}
+            options={deptQ.data ?? []}
+          />
+          <Picker
+            label="Designation"
+            value={designation}
+            onChange={setDesignation}
+            options={desigQ.data ?? []}
+          />
+          <Picker
+            label="Team Lead"
+            value={teamLead}
+            onChange={setTeamLead}
+            options={leadQ.data ?? []}
+            emptyHint="No team leads available yet."
+          />
+          <Picker
+            label="Location"
+            value={location}
+            onChange={setLocation}
+            options={locQ.data ?? []}
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="joiningDate">
+              Joining Date
+            </label>
+            <Input
+              id="joiningDate"
+              type="date"
+              value={joiningDate}
+              onChange={(e) => setJoiningDate(e.target.value)}
+            />
+          </div>
 
-    // Team Lead is NOT required for Super Admin
-    if (!isSuperAdmin && (leadQ.data ?? []).length === 0) {
-      out.push("Team Lead");
-    }
+          <div className="flex justify-end">
+            <Button type="submit" disabled={!canSubmit}>
+              {m.isPending ? "Saving…" : "Save & continue"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </CardContent>
+  </Card>
+</div>
 
-    return out;
-  }, [
-    deptQ.data,
-    desigQ.data,
-    locQ.data,
-    leadQ.data,
-    isSuperAdmin,
-  ]);
 
-  const m = useMutation({
-    mutationFn: () =>
-      updateEmployeeDetails(
-        user!.email,
-        department,
-        designation,
-        teamLead,
-        location,
-        joiningDate
-      ),
-
-    onSuccess: async () => {
-      await Promise.all([
-        qc.refetchQueries({ queryKey: ["employees"] }),
-        qc.refetchQueries({ queryKey: ["myDashboard"] }),
-      ]);
-
-      toast.success("Profile completed");
-    },
-
-    onError: (e) =>
-      toast.error("Could not save", {
-        description: e instanceof Error ? e.message : String(e),
-      }),
-  });
-
-  const loading =
-    deptQ.isLoading ||
-    desigQ.isLoading ||
-    locQ.isLoading ||
-    leadQ.isLoading;
-
-  /*
-   * Super Admin:
-   * Team Lead can be blank.
-   *
-   * Admin / Team Lead / Employee:
-   * Team Lead must be selected.
-   */
-  const canSubmit =
-    !!department &&
-    !!designation &&
-    (isSuperAdmin || !!teamLead) &&
-    !!location &&
-    !!joiningDate &&
-    !m.isPending;
-
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Welcome, {me.name.split(" ")[0]}
-          </CardTitle>
-
-          <CardDescription>
-            Please confirm your details to finish setting up your profile.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : missing.length > 0 ? (
-            <p className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
-              Your administrator hasn't set up{" "}
-              {missing.join(" / ")} options yet. Please check back later.
-            </p>
-          ) : (
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-
-                if (canSubmit) {
-                  m.mutate();
-                }
-              }}
-            >
-              <Picker
-                label="Department"
-                value={department}
-                onChange={setDepartment}
-                options={deptQ.data ?? []}
-              />
-
-              <Picker
-                label="Designation"
-                value={designation}
-                onChange={setDesignation}
-                options={desigQ.data ?? []}
-              />
-
-              <Picker
-                label="Team Lead"
-                value={teamLead}
-                onChange={setTeamLead}
-                options={leadQ.data ?? []}
-                emptyHint="No team leads available yet."
-              />
-
-              <Picker
-                label="Location"
-                value={location}
-                onChange={setLocation}
-                options={locQ.data ?? []}
-              />
-
-              <div className="space-y-1.5">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="joiningDate"
-                >
-                  Joining Date
-                </label>
-
-                <Input
-                  id="joiningDate"
-                  type="date"
-                  value={joiningDate}
-                  onChange={(e) => setJoiningDate(e.target.value)}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={!canSubmit}
-                >
-                  {m.isPending
-                    ? "Saving…"
-                    : "Save & continue"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+);
 }
 
 function Picker({
-  label,
-  value,
-  onChange,
-  options,
-  emptyHint,
+label,
+value,
+onChange,
+options,
+emptyHint,
 }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  emptyHint?: string;
+label: string;
+value: string;
+onChange: (v: string) => void;
+options: string[];
+emptyHint?: string;
 }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium">
-        {label}
-      </label>
+return (
 
-      {options.length === 0 ? (
-        <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-          {emptyHint ??
-            `No ${label.toLowerCase()} options available.`}
-        </p>
-      ) : (
-        <Select
-          value={value}
-          onValueChange={onChange}
-        >
-          <SelectTrigger>
-            <SelectValue
-              placeholder={`Select ${label.toLowerCase()}`}
-            />
-          </SelectTrigger>
+{label}
+{options.length === 0 ? (
 
-          <SelectContent>
-            {options.map((o) => (
-              <SelectItem key={o} value={o}>
-                {o}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    </div>
-  );
+{emptyHint ?? No ${label.toLowerCase()} options available.}
+
+) : (
+
+<SelectValue placeholder={Select ${label.toLowerCase()}} />
+
+{options.map((o) => (
+
+{o}
+
+))}
+
+)}
+
+);
 }
 
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="text-xs uppercase text-muted-foreground">
-        {label}
-      </div>
+function Field({ label, value }: { label: string; value: string }) {
+return (
 
-      <div className="font-medium">
-        {value}
-      </div>
-    </div>
-  );
+{label}
+{value}
+
+);
 }
