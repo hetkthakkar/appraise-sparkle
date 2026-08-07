@@ -5,13 +5,13 @@ export function AcentricBadge() {
   const [visible, setVisible] = useState(true);
 
   return (
-    <div className="fixed bottom-3 right-3 z-50 flex items-center gap-2">
-      {/* Built by Acentric */}
+    <div className="fixed bottom-3 right-3 z-[9999] flex items-center overflow-hidden rounded-md bg-[#18181b] text-white shadow-lg">
+      {/* Clickable Acentric link */}
       <a
         href="https://acentric.in/"
         target="_blank"
         rel="noopener noreferrer"
-        className={`text-xs font-medium transition-opacity duration-200 ${
+        className={`px-3 py-1.5 text-[11px] font-medium transition-opacity duration-200 ${
           visible ? "opacity-100" : "opacity-20"
         }`}
       >
@@ -22,14 +22,13 @@ export function AcentricBadge() {
       <button
         type="button"
         onClick={() => setVisible((prev) => !prev)}
-        aria-label={visible ? "Reduce badge visibility" : "Show badge visibility"}
-        title={visible ? "Reduce visibility" : "Show visibility"}
-        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="flex h-7 w-7 items-center justify-center border-l border-white/10 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        aria-label={visible ? "Reduce visibility" : "Restore visibility"}
       >
         {visible ? (
-          <Eye className="h-4 w-4" />
+          <Eye className="h-3.5 w-3.5" />
         ) : (
-          <EyeOff className="h-4 w-4" />
+          <EyeOff className="h-3.5 w-3.5" />
         )}
       </button>
     </div>
