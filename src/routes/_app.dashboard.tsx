@@ -55,13 +55,12 @@ function SuperAdminDashboard() {
 
   const me = meQ.data?.profile;
   const needsOnboarding =
-    !me ||
-    !me.department?.trim() ||
-      !me.designation?.trim() ||
-      !me.teamLead?.trim() ||
-      !me.location?.trim() ||
-      !String(me.joiningDate ?? "").trim();
-
+  !me ||
+  !me.department?.trim() ||
+  !me.designation?.trim() ||
+  !me.location?.trim() ||
+  !String(me.joiningDate ?? "").trim();
+  
   if (needsOnboarding) {
     return (
       <EmployeeOnboarding
