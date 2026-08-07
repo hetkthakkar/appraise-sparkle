@@ -50,12 +50,12 @@ function MyPerformance() {
   }
 
   const needsOnboarding =
-    !me.department?.trim() ||
-    !me.designation?.trim() ||
-    !me.teamLead?.trim() ||
-    !me.location?.trim() ||
-    !String(me.joiningDate ?? "").trim();
-
+  !me ||
+  !me.department?.trim() ||
+  !me.designation?.trim() ||
+  !me.location?.trim() ||
+  !String(me.joiningDate ?? "").trim();
+  
   if (needsOnboarding) return <EmployeeOnboarding me={me} />;
 
   return (
