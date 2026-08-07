@@ -1,5 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Upload, UserCog, User, LogOut, BarChart3, ListChecks } from "lucide-react";
+import {
+  BarChart3,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  Upload,
+  User,
+  UserCog,
+  Users,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -47,16 +56,15 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
-  <div className="flex items-center gap-2 px-2 py-2 w-full">
-    <div className="flex h-8 w-8 min-w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-semibold">
-      JB
-    </div>
-    <div className="flex flex-col leading-tight min-w-0 group-data-[state=collapsed]:hidden">
-      <span className="text-sm font-semibold truncate">Appraise</span>
-      <span className="text-xs text-muted-foreground truncate">Performance Suite</span>
-    </div>
-  </div>
-</SidebarHeader>
+        <div className="flex w-full items-center gap-2 px-2 py-2">
+          <div className="flex h-8 w-8 min-w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+            JB
+          </div>
+          <div className="flex min-w-0 flex-col leading-tight group-data-[state=collapsed]:hidden">
+            <span className="truncate text-sm font-semibold">Appraise</span>
+            <span className="truncate text-xs text-muted-foreground">Performance Suite</span>
+          </div>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
