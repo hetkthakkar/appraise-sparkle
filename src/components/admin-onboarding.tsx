@@ -107,12 +107,11 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
 
   // ALL FIVE fields are mandatory.
   const canSubmit =
-    !!department.trim() &&
-    !!designation.trim() &&
-    !!teamLead.trim() &&
-    !!location.trim() &&
-    !!joiningDate.trim() &&
-    !mutation.isPending;
+  !!department.trim() &&
+  !!designation.trim() &&
+  !!location.trim() &&
+  !!joiningDate.trim() &&
+  !mutation.isPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
