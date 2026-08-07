@@ -2,31 +2,31 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 export function AcentricBadge() {
-  const [isVisible, setIsVisible] = useState(true);
+  const [visible, setVisible] = useState(true);
 
   return (
-    <div className="fixed bottom-3 right-3 z-50 flex items-center gap-1">
-      {/* Built by Acentric link */}
+    <div className="fixed bottom-3 right-3 z-50 flex items-center gap-2">
+      {/* Built by Acentric */}
       <a
-        href="https://www.acentric.in/"
+        href="https://acentric.in/"
         target="_blank"
         rel="noopener noreferrer"
-        className={`rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-sm transition-opacity duration-200 ${
-          isVisible ? "opacity-100" : "opacity-20"
+        className={`text-xs font-medium transition-opacity duration-200 ${
+          visible ? "opacity-100" : "opacity-20"
         }`}
       >
         Built by Acentric
       </a>
 
-      {/* Visibility toggle */}
+      {/* Eye toggle */}
       <button
         type="button"
-        onClick={() => setIsVisible((prev) => !prev)}
-        aria-label={isVisible ? "Make Acentric badge less visible" : "Show Acentric badge"}
-        title={isVisible ? "Make less visible" : "Show badge"}
-        className="flex h-7 w-7 items-center justify-center rounded-md border bg-background shadow-sm transition-colors hover:bg-muted"
+        onClick={() => setVisible((prev) => !prev)}
+        aria-label={visible ? "Reduce badge visibility" : "Show badge visibility"}
+        title={visible ? "Reduce visibility" : "Show visibility"}
+        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
-        {isVisible ? (
+        {visible ? (
           <Eye className="h-4 w-4" />
         ) : (
           <EyeOff className="h-4 w-4" />
