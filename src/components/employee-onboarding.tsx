@@ -71,8 +71,16 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   });
 
   const loading = deptQ.isLoading || desigQ.isLoading || locQ.isLoading || leadQ.isLoading;
-  const canSubmit =
-    !!department && !!designation && !!teamLead && !!location && !!joiningDate && !m.isPending;
+  
+  const isSuperAdmin = user?.role === "super_admin";
+
+const canSubmit =
+  !!department &&
+  !!designation &&
+  (isSuperAdmin || !!teamLead) &&
+  !!location &&
+  !!joiningDate &&
+  !m.isPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
