@@ -55,7 +55,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-semibold">
-            EP
+            JB
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold">Appraise</span>
