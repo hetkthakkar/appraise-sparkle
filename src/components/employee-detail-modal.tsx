@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -44,7 +44,6 @@ export function EmployeeDetailModal({
 }: Props) {
   const { user } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [selectedYear, setSelectedYear] = useState("all");
 
   const detailQ = useQuery({
     queryKey: ["employeeDetail", employeeId],
@@ -58,62 +57,10 @@ export function EmployeeDetailModal({
       !!employeeId,
   });
 
-  // Reset editor and year filter whenever another employee is opened.
+  // Reset editor when another employee is opened.
   useEffect(() => {
     setEditing(false);
-    setSelectedYear("all");
   }, [employeeId]);
-
-  // Get all years available in this employee's history.
-  const availableYears = useMemo(() => {
-    const months =
-      detailQ.data?.previousMonths ?? [];
-
-    const years = months
-      .map((item) =>
-        String(item.month ?? "")
-          .slice(0, 4)
-      )
-      .filter((year) =>
-        /^\d{4}$/.test(year)
-      );
-
-    return Array.from(
-      new Set(years)
-    ).sort(
-      (a, b) =>
-        Number(b) - Number(a)
-    );
-  }, [detailQ.data]);
-
-  // Filter only Previous Months.
-  // Current Month remains unchanged.
-  const filteredData = useMemo(() => {
-    if (!detailQ.data) {
-      return null;
-    }
-
-    const previousMonths =
-      detailQ.data.previousMonths ?? [];
-
-    if (selectedYear === "all") {
-      return detailQ.data;
-    }
-
-    return {
-      ...detailQ.data,
-      previousMonths:
-        previousMonths.filter(
-          (item) =>
-            String(item.month ?? "")
-              .slice(0, 4) ===
-            selectedYear
-        ),
-    };
-  }, [
-    detailQ.data,
-    selectedYear,
-  ]);
 
   return (
     <Dialog
@@ -174,52 +121,11 @@ export function EmployeeDetailModal({
               />
             )}
 
-            {/* Year filter */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">
-                  Performance History
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Filter previous months by year.
-                </p>
-              </div>
-
-              <Select
-                value={selectedYear}
-                onValueChange={setSelectedYear}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="all">
-                    All Years
-                  </SelectItem>
-
-                  {availableYears.map(
-                    (year) => (
-                      <SelectItem
-                        key={year}
-                        value={year}
-                      >
-                        {year}
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Performance */}
-            {filteredData && (
-              <PerformanceView
-                data={filteredData}
-                compact
-              />
-            )}
+            <PerformanceView
+              data={detailQ.data}
+              compact
+            />
           </div>
         ) : null}
       </DialogContent>
@@ -267,11 +173,13 @@ function EditForm({
     queryFn: listTeamLeads,
   });
 
-  const [updatedEmployeeId, setUpdatedEmployeeId] =
-    useState(
-      initial.employeeId ??
-        employeeId
-    );
+  const [
+    updatedEmployeeId,
+    setUpdatedEmployeeId,
+  ] = useState(
+    initial.employeeId ??
+      employeeId
+  );
 
   const [email, setEmail] =
     useState(
