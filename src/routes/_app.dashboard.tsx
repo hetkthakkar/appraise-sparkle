@@ -30,10 +30,67 @@ function SuperAdminDashboard() {
     enabled: !!user && user.role === "super_admin",
   });
 
-  const perfQ = useQuery({
-    queryKey: ["performance", user?.email, month],
-    queryFn: () => listPerformance(user!.email, month),
-    enabled: !!user && user.role === "super_admin",
+ const perfQ = useQuery({
+  queryKey: ["performance", user?.email, month],
+  queryFn: async () => {
+    const rows = await listPerformance(
+      user!.email,
+      month
+    );
+
+    // Normalize the month on the frontend as a safety check.
+    // This prevents the Dashboard from showing 0 even when
+    // the backend has returned the correct current-month rows.
+    const normalizeMonth = (value: unknown) => {
+      if (!value) return "";
+
+      const s = String(value).trim();
+
+      const match = s.match(
+        /^(?:[A-Za-z]+)[-\s\/](\d{4})$/i
+      );
+
+      if (match) {
+        const monthNames = [
+          "jan", "feb", "mar", "apr", "may", "jun",
+          "jul", "aug", "sep", "oct", "nov", "dec",
+        ];
+
+        const name =
+          s.split(/[-\s\/]/)[0].toLowerCase();
+
+        const index = monthNames.indexOf(
+          name.slice(0, 3)
+        );
+
+        if (index !== -1) {
+          return `${match[1]}-${String(index + 1).padStart(2, "0")}`;
+        }
+      }
+
+      const ym = s.match(
+        /^(\d{4})[-\/](\d{1,2})/
+      );
+
+      if (ym) {
+        return `${ym[1]}-${String(ym[2]).padStart(2, "0")}`;
+      }
+
+      return s;
+    };
+
+    const normalizedCurrentMonth =
+      normalizeMonth(month);
+
+    return rows.filter(
+      row =>
+        normalizeMonth(row.month) ===
+        normalizedCurrentMonth
+    );
+  },
+  enabled:
+    !!user &&
+    user.role === "super_admin",
   });
 
   const meQ = useQuery({
