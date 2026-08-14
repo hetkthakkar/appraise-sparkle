@@ -18,11 +18,6 @@ export async function callSheetsApi<T = unknown>(
   }, REQUEST_TIMEOUT_MS);
 
   try {
-    /*
-     * Use GET for normal small requests.
-     * Use POST for requests that contain larger payloads,
-     * especially Excel/CSV uploads.
-     */
     const isUpload =
       action === "uploadEmployees" ||
       action === "uploadPerformance";
@@ -30,20 +25,13 @@ export async function callSheetsApi<T = unknown>(
     let res: Response;
 
     if (isUpload) {
-      /*
-       * IMPORTANT:
-       * Do not put the rows in the URL.
-       *
-       * CSV/Excel uploads can contain many rows and make the
-       * GET URL too large, resulting in "Failed to fetch".
-       *
-       * Apps Script receives this as e.parameter.payload.
-       */
       const url =
         `${API_URL}?action=${encodeURIComponent(action)}`;
 
       const body =
-        `payload=${encodeURIComponent(JSON.stringify(payload))}`;
+        `payload=${encodeURIComponent(
+          JSON.stringify(payload)
+        )}`;
 
       res = await fetch(url, {
         method: "POST",
@@ -55,12 +43,11 @@ export async function callSheetsApi<T = unknown>(
         signal: controller.signal,
       });
     } else {
-      /*
-       * Keep normal API calls as GET.
-       */
       const url =
         `${API_URL}?action=${encodeURIComponent(action)}` +
-        `&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+        `&payload=${encodeURIComponent(
+          JSON.stringify(payload)
+        )}`;
 
       res = await fetch(url, {
         method: "GET",
@@ -113,9 +100,9 @@ export async function callSheetsApi<T = unknown>(
 }
 
 
-// -----------------------------------------------------
-// Types returned by Google Apps Script
-// -----------------------------------------------------
+// =====================================================
+// TYPES RETURNED BY GOOGLE APPS SCRIPT
+// =====================================================
 
 export interface SheetUser {
   email: string;
@@ -124,6 +111,7 @@ export interface SheetUser {
   location?: string;
   status?: string;
 }
+
 
 export interface SheetEmployee {
   employeeId: string;
@@ -136,41 +124,179 @@ export interface SheetEmployee {
   joiningDate?: string;
 }
 
-export interface UploadResult {
-  success?: boolean;
-  inserted?: number;
-  updated?: number;
-  skipped?: number;
-  total?: number;
-  count?: number;
-}
 
-export interface MyDashboard {
-  profile: SheetEmployee;
-  currentMonth: SheetPerformance | null;
-  previousMonths: SheetPerformance[];
-}
+// =====================================================
+// PERFORMANCE
+// =====================================================
 
 export interface SheetPerformance {
   month: string;
+
   employeeId: string;
+
   name: string;
+
   location?: string;
+
   productionTarget: number;
+
   productionActual: number;
+
   ticketTarget: number;
+
   ticketActual: number;
+
   errorTarget: number;
+
   errorActual: number;
+
   attendance: number;
+
   behavior: number;
+
   managerRemarks: string;
 }
 
 
-// -----------------------------------------------------
-// Role normalization
-// -----------------------------------------------------
+// =====================================================
+// TEAM / HIERARCHY
+// =====================================================
+
+/*
+ * A single employee's performance together with
+ * their employee-master information.
+ */
+export interface TeamMemberPerformance {
+  employee: SheetEmployee;
+
+  performance: SheetPerformance | null;
+}
+
+
+/*
+ * Represents one level of the reporting hierarchy.
+ *
+ * Example:
+ *
+ * Head TL
+ *   ├── TL A
+ *   │     ├── Operator 1
+ *   │     └── Operator 2
+ *   │
+ *   └── TL B
+ *         ├── Operator 3
+ *         └── Operator 4
+ */
+export interface TeamHierarchyNode {
+  employee: SheetEmployee;
+
+  children: TeamHierarchyNode[];
+}
+
+
+/*
+ * Aggregated team performance.
+ *
+ * This is what the popup will use for:
+ *
+ * Team Lead
+ * Head Team Lead
+ *
+ * Operators will continue to use their own
+ * individual performance.
+ */
+export interface TeamPerformanceSummary {
+  employeeCount: number;
+
+  production: number;
+
+  tickets: number;
+
+  quality: number;
+
+  attendance: number;
+
+  behavior: number;
+
+  overall: number;
+}
+
+
+/*
+ * Complete team information returned by
+ * getEmployeeDetail().
+ */
+export interface EmployeeTeamData {
+  /*
+   * Whether the selected employee has
+   * subordinate employees.
+   */
+  hasTeam: boolean;
+
+  /*
+   * Number of all employees underneath
+   * this employee, including indirect reports.
+   */
+  teamSize: number;
+
+  /*
+   * Complete reporting hierarchy.
+   */
+  hierarchy: TeamHierarchyNode | null;
+
+  /*
+   * Current-month aggregated team performance.
+   */
+  currentMonthSummary:
+    | TeamPerformanceSummary
+    | null;
+
+  /*
+   * Historical aggregated team performance.
+   */
+  previousMonthSummaries:
+    | TeamPerformanceSummary[]
+    | null;
+}
+
+
+// =====================================================
+// DASHBOARD
+// =====================================================
+
+export interface MyDashboard {
+  profile: SheetEmployee;
+
+  currentMonth: SheetPerformance | null;
+
+  previousMonths: SheetPerformance[];
+
+  /*
+   * Team information is optional so the normal
+   * employee dashboard continues to work.
+   */
+  team?: EmployeeTeamData | null;
+}
+
+
+export interface UploadResult {
+  success?: boolean;
+
+  inserted?: number;
+
+  updated?: number;
+
+  skipped?: number;
+
+  total?: number;
+
+  count?: number;
+}
+
+
+// =====================================================
+// ROLE NORMALIZATION
+// =====================================================
 
 export function normalizeRole(
   raw: string | undefined | null
@@ -201,6 +327,7 @@ export function normalizeRole(
   return "no_access";
 }
 
+
 export function roleToDisplay(
   role: Role
 ): string {
@@ -220,9 +347,9 @@ export function roleToDisplay(
 }
 
 
-// -----------------------------------------------------
-// Typed wrappers
-// -----------------------------------------------------
+// =====================================================
+// USER
+// =====================================================
 
 export function getUserProfile(
   email: string,
@@ -242,6 +369,7 @@ export function getUserProfile(
   );
 }
 
+
 export function listUsers(
   callerEmail: string
 ) {
@@ -252,6 +380,7 @@ export function listUsers(
     }
   );
 }
+
 
 export function updateUserRole(
   callerEmail: string,
@@ -268,6 +397,11 @@ export function updateUserRole(
   );
 }
 
+
+// =====================================================
+// EMPLOYEES
+// =====================================================
+
 export function listEmployees(
   callerEmail: string
 ) {
@@ -280,9 +414,9 @@ export function listEmployees(
 }
 
 
-// -----------------------------------------------------
-// Master Data Upload
-// -----------------------------------------------------
+// =====================================================
+// MASTER DATA UPLOAD
+// =====================================================
 
 export function uploadEmployees(
   callerEmail: string,
@@ -298,9 +432,9 @@ export function uploadEmployees(
 }
 
 
-// -----------------------------------------------------
-// Monthly Performance Upload
-// -----------------------------------------------------
+// =====================================================
+// MONTHLY PERFORMANCE
+// =====================================================
 
 export function listPerformance(
   callerEmail: string,
@@ -314,6 +448,7 @@ export function listPerformance(
     }
   );
 }
+
 
 export function uploadPerformance(
   callerEmail: string,
@@ -329,9 +464,9 @@ export function uploadPerformance(
 }
 
 
-// -----------------------------------------------------
-// Remarks
-// -----------------------------------------------------
+// =====================================================
+// REMARKS
+// =====================================================
 
 export function updateRemarks(
   callerEmail: string,
@@ -351,9 +486,9 @@ export function updateRemarks(
 }
 
 
-// -----------------------------------------------------
-// Lookup lists
-// -----------------------------------------------------
+// =====================================================
+// LOOKUPS
+// =====================================================
 
 export function listDepartments() {
   return callSheetsApi<string[]>(
@@ -361,6 +496,7 @@ export function listDepartments() {
     {}
   );
 }
+
 
 export function addDepartment(
   callerEmail: string,
@@ -375,12 +511,14 @@ export function addDepartment(
   );
 }
 
+
 export function listDesignations() {
   return callSheetsApi<string[]>(
     "listDesignations",
     {}
   );
 }
+
 
 export function addDesignation(
   callerEmail: string,
@@ -395,12 +533,14 @@ export function addDesignation(
   );
 }
 
+
 export function listLocations() {
   return callSheetsApi<string[]>(
     "listLocations",
     {}
   );
 }
+
 
 export function addLocation(
   callerEmail: string,
@@ -415,6 +555,7 @@ export function addLocation(
   );
 }
 
+
 export function listTeamLeads() {
   return callSheetsApi<string[]>(
     "listTeamLeads",
@@ -423,9 +564,9 @@ export function listTeamLeads() {
 }
 
 
-// -----------------------------------------------------
-// Employee details
-// -----------------------------------------------------
+// =====================================================
+// EMPLOYEE DETAILS
+// =====================================================
 
 export function updateEmployeeDetails(
   callerEmail: string,
@@ -443,15 +584,16 @@ export function updateEmployeeDetails(
       designation,
       teamLead,
       location,
-      joiningDate: joiningDate ?? "",
-    }
+      joiningDate:
+        joiningDate ?? "",
+    },
   );
 }
 
 
-// -----------------------------------------------------
-// Dashboard / detail views
-// -----------------------------------------------------
+// =====================================================
+// DASHBOARD / DETAIL VIEWS
+// =====================================================
 
 export function getMyDashboard(
   callerEmail: string
@@ -464,6 +606,16 @@ export function getMyDashboard(
   );
 }
 
+
+/*
+ * Employee detail now supports both:
+ *
+ * 1. Individual employee performance
+ * 2. Team / umbrella performance
+ *
+ * The response remains MyDashboard-compatible,
+ * so existing dashboard code does not break.
+ */
 export function getEmployeeDetail(
   callerEmail: string,
   employeeId: string
@@ -476,6 +628,7 @@ export function getEmployeeDetail(
     }
   );
 }
+
 
 export function adminUpdateEmployee(
   callerEmail: string,
@@ -501,16 +654,18 @@ export function adminUpdateEmployee(
 }
 
 
-// -----------------------------------------------------
-// Month label
-// -----------------------------------------------------
+// =====================================================
+// MONTH LABEL
+// =====================================================
 
 export function monthToLabel(
   month: string
 ): string {
-  const [y, m] = String(month ?? "").split("-");
+  const [y, m] =
+    String(month ?? "").split("-");
 
-  const idx = Number(m) - 1;
+  const idx =
+    Number(m) - 1;
 
   const names = [
     "January",
