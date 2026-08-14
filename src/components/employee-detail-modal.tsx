@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -25,25 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-
-import {
-  Building2,
-  CalendarDays,
-  CheckCircle2,
-  Edit3,
-  IdCard,
-  Mail,
-  MapPin,
-  UserRound,
-  Users,
-  X,
-} from "lucide-react";
-
 import { toast } from "sonner";
 
-import { PerformanceView } from "@/components/performance-view";
 import { useAuth } from "@/lib/mock-auth";
 
 import {
@@ -60,6 +43,27 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+interface PerformanceItem {
+  month?: string;
+  employeeId?: string;
+  name?: string;
+  location?: string;
+
+  productionTarget?: number | string;
+  productionActual?: number | string;
+
+  ticketTarget?: number | string;
+  ticketActual?: number | string;
+
+  errorTarget?: number | string;
+  errorActual?: number | string;
+
+  attendance?: number | string;
+  behavior?: number | string;
+
+  managerRemarks?: string;
+}
+
 interface EmployeeProfile {
   employeeId?: string;
   name?: string;
@@ -71,9 +75,11 @@ interface EmployeeProfile {
   joiningDate?: string;
 }
 
-/* ============================================================
-   MAIN MODAL
-   ============================================================ */
+interface EmployeeDetailData {
+  profile: EmployeeProfile;
+  currentMonth?: PerformanceItem | null;
+  previousMonths?: PerformanceItem[];
+}
 
 export function EmployeeDetailModal({
   employeeId,
@@ -82,460 +88,736 @@ export function EmployeeDetailModal({
   const { user } = useAuth();
 
   const [editing, setEditing] = useState(false);
+  const [selectedYear, setSelectedYear] = useState("all");
 
-  const detailQ = useQuery({
+  const detailQ = useQuery<EmployeeDetailData>({
     queryKey: ["employeeDetail", employeeId],
-
     queryFn: () =>
       getEmployeeDetail(
         user!.email,
         employeeId!
       ),
-
     enabled:
       !!user &&
       !!employeeId,
   });
 
-  /*
-   * Close edit mode whenever:
-   * - another employee is opened
-   * - modal is closed
-   */
   useEffect(() => {
     setEditing(false);
+    setSelectedYear("all");
   }, [employeeId]);
 
-  function handleOpenChange(open: boolean) {
-    if (!open) {
-      setEditing(false);
+  const availableYears = useMemo(() => {
+    const months =
+      detailQ.data?.previousMonths ?? [];
+
+    const years = months
+      .map((item) =>
+        String(item.month ?? "").slice(0, 4)
+      )
+      .filter((year) =>
+        /^\d{4}$/.test(year)
+      );
+
+    return Array.from(new Set(years)).sort(
+      (a, b) => Number(b) - Number(a)
+    );
+  }, [detailQ.data]);
+
+  const previousMonths = useMemo(() => {
+    const months =
+      detailQ.data?.previousMonths ?? [];
+
+    if (selectedYear === "all") {
+      return months;
     }
 
-    onOpenChange(open);
-  }
+    return months.filter(
+      (item) =>
+        String(item.month ?? "").slice(0, 4) ===
+        selectedYear
+    );
+  }, [
+    detailQ.data,
+    selectedYear,
+  ]);
 
   const profile =
     detailQ.data?.profile;
 
-  const initials =
-    profile?.name
-      ?.trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) =>
-        part.charAt(0).toUpperCase()
-      )
-      .join("") || "E";
+  const currentMonth =
+    detailQ.data?.currentMonth;
 
   return (
     <Dialog
       open={!!employeeId}
-      onOpenChange={handleOpenChange}
+      onOpenChange={onOpenChange}
     >
-      <DialogContent
-        className="
-          max-h-[92vh]
-          w-[calc(100%-1rem)]
-          max-w-5xl
-          overflow-hidden
-          p-0
-        "
-      >
-        {/* ==================================================
+      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
+        {/* ================================
             HEADER
-            ================================================== */}
-
-        <div className="border-b bg-background">
-          <DialogHeader className="p-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex items-start gap-4 pr-8">
-              {/* Avatar */}
-              <div
-                className="
-                  flex
-                  size-14
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-2xl
-                  bg-primary/10
-                  text-lg
-                  font-semibold
-                  text-primary
-                  ring-1
-                  ring-primary/10
-                "
-              >
-                {initials}
-              </div>
-
-              {/* Name / role */}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
-                    {profile?.name ??
-                      "Employee detail"}
-                  </DialogTitle>
-
-                  {profile?.designation && (
-                    <Badge
-                      variant="secondary"
-                      className="font-normal"
-                    >
-                      {profile.designation}
-                    </Badge>
-                  )}
-                </div>
+        ================================= */}
+        <div className="border-b bg-background px-6 py-5">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4 pr-8">
+              <div className="min-w-0">
+                <DialogTitle className="text-xl font-semibold tracking-tight">
+                  {profile?.name ||
+                    "Employee Detail"}
+                </DialogTitle>
 
                 <DialogDescription className="mt-1">
-                  Employee profile, current performance
-                  and performance history.
+                  Employee information, team
+                  details and performance history.
                 </DialogDescription>
-
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                  {profile?.employeeId && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <IdCard className="size-3.5" />
-                      {profile.employeeId}
-                    </span>
-                  )}
-
-                  {profile?.email && (
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <Mail className="size-3.5" />
-                      <span className="truncate">
-                        {profile.email}
-                      </span>
-                    </span>
-                  )}
-                </div>
               </div>
+
+              {profile?.designation && (
+                <div className="shrink-0 rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+                  {profile.designation}
+                </div>
+              )}
             </div>
           </DialogHeader>
-
-          {/* ==================================================
-              ACTION BAR
-              ================================================== */}
-
-          {detailQ.data && (
-            <div className="flex items-center justify-between gap-3 border-t bg-muted/20 px-5 py-3 sm:px-6">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CheckCircle2 className="size-4 text-emerald-600" />
-                <span>Employee record loaded</span>
-              </div>
-
-              <Button
-                variant={
-                  editing
-                    ? "secondary"
-                    : "outline"
-                }
-                size="sm"
-                onClick={() =>
-                  setEditing(
-                    (value) => !value
-                  )
-                }
-              >
-                {editing ? (
-                  <>
-                    <X className="size-4" />
-                    Close editor
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="size-4" />
-                    Edit details
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* ==================================================
-            SCROLLABLE BODY
-            ================================================== */}
+        {/* ================================
+            CONTENT
+        ================================= */}
+        <div className="space-y-6 px-6 py-6">
+          {detailQ.isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-48 w-full rounded-xl" />
+              <Skeleton className="h-40 w-full rounded-xl" />
+              <Skeleton className="h-52 w-full rounded-xl" />
+            </div>
+          ) : detailQ.isError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+              <p className="text-sm font-medium text-destructive">
+                Failed to load employee details.
+              </p>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="p-5 sm:p-6">
-            {/* Loading */}
-            {detailQ.isLoading && (
-              <div className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Skeleton className="h-24 rounded-xl" />
-                  <Skeleton className="h-24 rounded-xl" />
-                  <Skeleton className="h-24 rounded-xl" />
-                  <Skeleton className="h-24 rounded-xl" />
-                </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {detailQ.error instanceof Error
+                  ? detailQ.error.message
+                  : String(detailQ.error)}
+              </p>
+            </div>
+          ) : profile ? (
+            <>
+              {/* ================================
+                  1. EMPLOYEE DETAILS
+              ================================= */}
+              <section className="space-y-3">
+                <SectionHeading
+                  title="Employee Details"
+                  description="Basic information from the employee master."
+                />
 
-                <Skeleton className="h-48 w-full rounded-xl" />
-
-                <Skeleton className="h-64 w-full rounded-xl" />
-              </div>
-            )}
-
-            {/* Error */}
-            {detailQ.isError && (
-              <div
-                className="
-                  rounded-xl
-                  border
-                  border-destructive/20
-                  bg-destructive/5
-                  p-5
-                "
-              >
-                <div className="font-medium text-destructive">
-                  Unable to load employee
-                </div>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {detailQ.error instanceof Error
-                    ? detailQ.error.message
-                    : String(detailQ.error)}
-                </p>
-
-                <Button
-                  className="mt-4"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    detailQ.refetch()
-                  }
-                >
-                  Try again
-                </Button>
-              </div>
-            )}
-
-            {/* =================================================
-                LOADED CONTENT
-                ================================================= */}
-
-            {detailQ.data && profile && (
-              <div className="space-y-6">
-                {/* =================================================
-                    PROFILE SUMMARY
-                    ================================================= */}
-
-                <section>
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold">
-                        Employee information
-                      </h3>
-
-                      <p className="text-xs text-muted-foreground">
-                        Details from the employee master.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <InfoCard
-                      icon={IdCard}
+                <div className="rounded-xl border bg-card">
+                  <div className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+                    <InfoItem
                       label="Employee ID"
-                      value={
-                        profile.employeeId
-                      }
+                      value={profile.employeeId}
                     />
 
-                    <InfoCard
-                      icon={Mail}
+                    <InfoItem
+                      label="Name"
+                      value={profile.name}
+                    />
+
+                    <InfoItem
                       label="Email"
-                      value={
-                        profile.email
-                      }
+                      value={profile.email}
                     />
 
-                    <InfoCard
-                      icon={Building2}
-                      label="Department"
-                      value={
-                        profile.department
-                      }
-                    />
-
-                    <InfoCard
-                      icon={UserRound}
-                      label="Designation"
-                      value={
-                        profile.designation
-                      }
-                    />
-
-                    <InfoCard
-                      icon={Users}
-                      label="Team Lead"
-                      value={
-                        profile.teamLead
-                      }
-                    />
-
-                    <InfoCard
-                      icon={MapPin}
-                      label="Location"
-                      value={
-                        profile.location
-                      }
-                    />
-
-                    <InfoCard
-                      icon={CalendarDays}
+                    <InfoItem
                       label="Joining Date"
-                      value={
-                        profile.joiningDate
-                          ? String(
-                              profile.joiningDate
-                            ).slice(
-                              0,
-                              10
-                            )
-                          : ""
-                      }
-                    />
-
-                    <InfoCard
-                      icon={CheckCircle2}
-                      label="Status"
-                      value="Active"
-                      valueClassName="text-emerald-600"
+                      value={formatDate(profile.joiningDate)}
                     />
                   </div>
-                </section>
+                </div>
 
-                {/* =================================================
-                    EDIT FORM
-                    ================================================= */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setEditing((v) => !v)
+                    }
+                  >
+                    {editing
+                      ? "Close editor"
+                      : "Edit details"}
+                  </Button>
+                </div>
 
                 {editing && (
-                  <>
-                    <Separator />
-
-                    <section>
-                      <div className="mb-4">
-                        <h3 className="text-sm font-semibold">
-                          Edit employee details
-                        </h3>
-
-                        <p className="text-xs text-muted-foreground">
-                          Update the employee master information.
-                        </p>
-                      </div>
-
-                      <EditForm
-                        employeeId={
-                          employeeId!
-                        }
-                        initial={
-                          profile
-                        }
-                        onDone={() => {
-                          setEditing(false);
-
-                          /*
-                           * Refresh the detail query after
-                           * the save is completed.
-                           */
-                          detailQ.refetch();
-                        }}
-                      />
-                    </section>
-                  </>
+                  <EditForm
+                    employeeId={employeeId!}
+                    initial={profile}
+                    onDone={() => {
+                      setEditing(false);
+                    }}
+                  />
                 )}
+              </section>
 
-                {/* =================================================
-                    PERFORMANCE
-                    ================================================= */}
+              {/* ================================
+                  2. TEAM & REPORTING
+              ================================= */}
+              <section className="space-y-3">
+                <SectionHeading
+                  title="Team & Reporting"
+                  description="Where this employee sits in the organisation."
+                />
 
-                <Separator />
+                <div className="rounded-xl border bg-card p-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <InfoCard
+                      label="Team Lead"
+                      value={
+                        profile.teamLead ||
+                        "Not assigned"
+                      }
+                      highlight
+                    />
 
-                <section>
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold">
-                      Performance
-                    </h3>
+                    <InfoCard
+                      label="Department"
+                      value={
+                        profile.department ||
+                        "Not assigned"
+                      }
+                    />
 
-                    <p className="text-xs text-muted-foreground">
-                      Current month KPIs and historical performance.
-                    </p>
+                    <InfoCard
+                      label="Designation"
+                      value={
+                        profile.designation ||
+                        "Not assigned"
+                      }
+                    />
+
+                    <InfoCard
+                      label="Location"
+                      value={
+                        profile.location ||
+                        "Not assigned"
+                      }
+                    />
                   </div>
 
-                  <PerformanceView
-                    data={detailQ.data}
-                    compact
+                  {/* Clear reporting relationship */}
+                  <div className="mt-5 rounded-lg border bg-muted/30 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Reporting To
+                    </div>
+
+                    <div className="mt-1 text-base font-semibold">
+                      {profile.teamLead ||
+                        "No team lead assigned"}
+                    </div>
+
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      This employee reports to the
+                      team lead shown above.
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* ================================
+                  3. CURRENT MONTH
+              ================================= */}
+              <section className="space-y-3">
+                <SectionHeading
+                  title="Current Month"
+                  description="Live performance snapshot for the current month."
+                />
+
+                {currentMonth ? (
+                  <PerformanceMonthCard
+                    item={currentMonth}
+                    current
                   />
-                </section>
-              </div>
-            )}
-          </div>
+                ) : (
+                  <EmptyState
+                    title="No current-month performance"
+                    description="No performance data has been uploaded for the current month yet."
+                  />
+                )}
+              </section>
+
+              {/* ================================
+                  4. PREVIOUS MONTHS
+              ================================= */}
+              <section className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <SectionHeading
+                    title="Previous Months"
+                    description="Historical performance records for this employee."
+                  />
+
+                  {availableYears.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Year
+                      </span>
+
+                      <Select
+                        value={selectedYear}
+                        onValueChange={
+                          setSelectedYear
+                        }
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Select year" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          <SelectItem value="all">
+                            All Years
+                          </SelectItem>
+
+                          {availableYears.map(
+                            (year) => (
+                              <SelectItem
+                                key={year}
+                                value={year}
+                              >
+                                {year}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                {previousMonths.length > 0 ? (
+                  <PreviousMonthsTable
+                    months={previousMonths}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No previous performance history"
+                    description="There are no previous monthly performance records for this employee."
+                  />
+                )}
+              </section>
+            </>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
+/* =========================================================
+   SECTION HEADING
+========================================================= */
 
-/* ============================================================
-   INFO CARD
-   ============================================================ */
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold">
+        {title}
+      </h3>
 
-function InfoCard({
-  icon: Icon,
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   SIMPLE INFO ITEM
+========================================================= */
+
+function InfoItem({
   label,
   value,
-  valueClassName = "",
 }: {
-  icon: React.ComponentType<{
-    className?: string;
-  }>;
   label: string;
-  value?: unknown;
-  valueClassName?: string;
+  value?: string;
 }) {
-  const displayValue =
-    value == null ||
-    String(value).trim() === ""
-      ? "—"
-      : String(value).trim();
-
   return (
-    <div
-      className="
-        min-w-0
-        rounded-xl
-        border
-        bg-card
-        p-4
-        transition-colors
-        hover:bg-muted/30
-      "
-    >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-3.5 shrink-0" />
-        <span>{label}</span>
+    <div className="p-4">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
       </div>
 
-      <div
-        className={`
-          mt-2
-          truncate
-          text-sm
-          font-medium
-          ${valueClassName}
-        `}
-        title={displayValue}
-      >
-        {displayValue}
+      <div className="mt-1.5 truncate text-sm font-medium">
+        {value || "—"}
       </div>
     </div>
   );
 }
 
+/* =========================================================
+   TEAM INFO CARD
+========================================================= */
 
-/* ============================================================
+function InfoCard({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-lg border p-4",
+        highlight
+          ? "bg-primary/[0.04] border-primary/20"
+          : "bg-background",
+      ].join(" ")}
+    >
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+
+      <div
+        className={[
+          "mt-1.5 text-sm font-semibold",
+          highlight
+            ? "text-primary"
+            : "text-foreground",
+        ].join(" ")}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   CURRENT MONTH PERFORMANCE CARD
+========================================================= */
+
+function PerformanceMonthCard({
+  item,
+  current = false,
+}: {
+  item: PerformanceItem;
+  current?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h4 className="text-base font-semibold">
+            {formatMonth(item.month)}
+          </h4>
+
+          <p className="text-xs text-muted-foreground">
+            {current
+              ? "Current performance snapshot"
+              : "Monthly performance"}
+          </p>
+        </div>
+
+        {current && (
+          <span className="w-fit rounded-full border bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
+            Current
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Production"
+          actual={item.productionActual}
+          target={item.productionTarget}
+        />
+
+        <MetricCard
+          label="Tickets"
+          actual={item.ticketActual}
+          target={item.ticketTarget}
+        />
+
+        <MetricCard
+          label="Errors / Rejection"
+          actual={item.errorActual}
+          target={item.errorTarget}
+          reverse
+        />
+
+        <ScoreCard
+          label="Attendance"
+          value={item.attendance}
+          max="10"
+        />
+
+        <ScoreCard
+          label="Behavior"
+          value={item.behavior}
+          max="5"
+        />
+      </div>
+
+      {item.managerRemarks && (
+        <div className="mt-5 rounded-lg border bg-muted/30 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Manager Remarks
+          </div>
+
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+            {item.managerRemarks}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   METRIC CARD
+========================================================= */
+
+function MetricCard({
+  label,
+  actual,
+  target,
+  reverse = false,
+}: {
+  label: string;
+  actual?: number | string;
+  target?: number | string;
+  reverse?: boolean;
+}) {
+  const actualValue = toNumber(actual);
+  const targetValue = toNumber(target);
+
+  let percentage: number | null = null;
+
+  if (
+    targetValue !== null &&
+    targetValue !== 0 &&
+    actualValue !== null
+  ) {
+    percentage =
+      (actualValue / targetValue) * 100;
+  }
+
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="text-xs text-muted-foreground">
+        {label}
+      </div>
+
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="text-lg font-semibold">
+          {displayValue(actual)}
+        </span>
+
+        <span className="text-xs text-muted-foreground">
+          / {displayValue(target)}
+        </span>
+      </div>
+
+      {percentage !== null && (
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          {reverse
+            ? "Lower is better"
+            : `${Math.round(percentage)}% of target`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   SCORE CARD
+========================================================= */
+
+function ScoreCard({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value?: number | string;
+  max: string;
+}) {
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="text-xs text-muted-foreground">
+        {label}
+      </div>
+
+      <div className="mt-2 flex items-baseline gap-1">
+        <span className="text-lg font-semibold">
+          {displayValue(value)}
+        </span>
+
+        <span className="text-xs text-muted-foreground">
+          / {max}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PREVIOUS MONTH TABLE
+========================================================= */
+
+function PreviousMonthsTable({
+  months,
+}: {
+  months: PerformanceItem[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Month
+              </th>
+
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Production
+              </th>
+
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Tickets
+              </th>
+
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Errors
+              </th>
+
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Attendance
+              </th>
+
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                Behavior
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {months.map((item, index) => (
+              <tr
+                key={`${item.month}-${index}`}
+                className="border-b last:border-b-0"
+              >
+                <td className="px-4 py-3 font-medium">
+                  {formatMonth(item.month)}
+                </td>
+
+                <td className="px-4 py-3">
+                  <MetricText
+                    actual={item.productionActual}
+                    target={item.productionTarget}
+                  />
+                </td>
+
+                <td className="px-4 py-3">
+                  <MetricText
+                    actual={item.ticketActual}
+                    target={item.ticketTarget}
+                  />
+                </td>
+
+                <td className="px-4 py-3">
+                  <MetricText
+                    actual={item.errorActual}
+                    target={item.errorTarget}
+                  />
+                </td>
+
+                <td className="px-4 py-3">
+                  {displayValue(item.attendance)}
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    / 10
+                  </span>
+                </td>
+
+                <td className="px-4 py-3">
+                  {displayValue(item.behavior)}
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    / 5
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   TABLE METRIC
+========================================================= */
+
+function MetricText({
+  actual,
+  target,
+}: {
+  actual?: number | string;
+  target?: number | string;
+}) {
+  return (
+    <span>
+      <span className="font-medium">
+        {displayValue(actual)}
+      </span>
+
+      <span className="text-xs text-muted-foreground">
+        {" "}
+        / {displayValue(target)}
+      </span>
+    </span>
+  );
+}
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-8 text-center">
+      <p className="text-sm font-medium">
+        {title}
+      </p>
+
+      <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
    EDIT FORM
-   ============================================================ */
+========================================================= */
 
 function EditForm({
   employeeId,
@@ -548,10 +830,6 @@ function EditForm({
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-
-  /* ----------------------------------------------------------
-     LOOKUPS
-     ---------------------------------------------------------- */
 
   const deptQ = useQuery({
     queryKey: ["departments"],
@@ -573,22 +851,14 @@ function EditForm({
     queryFn: listTeamLeads,
   });
 
-  /* ----------------------------------------------------------
-     FORM STATE
-     ---------------------------------------------------------- */
-
-  const [
-    updatedEmployeeId,
-    setUpdatedEmployeeId,
-  ] = useState(
-    initial.employeeId ??
-      employeeId
-  );
+  const [updatedEmployeeId, setUpdatedEmployeeId] =
+    useState(
+      initial.employeeId ??
+        employeeId
+    );
 
   const [email, setEmail] =
-    useState(
-      initial.email ?? ""
-    );
+    useState(initial.email ?? "");
 
   const [department, setDepartment] =
     useState(
@@ -619,87 +889,53 @@ function EditForm({
         : ""
     );
 
-  /* ----------------------------------------------------------
-     UPDATE EMPLOYEE
-     ---------------------------------------------------------- */
-
-  const m = useMutation({
-    mutationFn: () => {
-      if (!user) {
-        throw new Error(
-          "User session not found."
-        );
-      }
-
-      return adminUpdateEmployee(
-        user.email,
+  const mutation = useMutation({
+    mutationFn: () =>
+      adminUpdateEmployee(
+        user!.email,
         employeeId,
         {
-          /*
-           * Super Admin can edit Employee ID
-           * and Email.
-           */
-          ...(user.role ===
+          ...(user?.role ===
           "super_admin"
             ? {
                 employeeId:
-                  updatedEmployeeId.trim(),
-
-                email:
-                  email.trim(),
+                  updatedEmployeeId,
+                email,
               }
             : {}),
 
-          department:
-            department.trim(),
-
-          designation:
-            designation.trim(),
-
-          teamLead:
-            teamLead.trim(),
-
-          location:
-            location.trim(),
-
-          joiningDate:
-            joiningDate || "",
+          department,
+          designation,
+          teamLead,
+          location,
+          joiningDate,
         }
-      );
-    },
+      ),
 
     onSuccess: async () => {
-      /*
-       * Refresh everything that can be affected
-       * by employee master changes.
-       */
       await Promise.all([
-        qc.invalidateQueries({
+        qc.refetchQueries({
           queryKey: [
             "employeeDetail",
             employeeId,
           ],
         }),
 
-        qc.invalidateQueries({
+        qc.refetchQueries({
           queryKey: ["employees"],
         }),
 
-        qc.invalidateQueries({
+        qc.refetchQueries({
           queryKey: ["performance"],
         }),
 
-        qc.invalidateQueries({
+        qc.refetchQueries({
           queryKey: ["myDashboard"],
-        }),
-
-        qc.invalidateQueries({
-          queryKey: ["teamLeads"],
         }),
       ]);
 
       toast.success(
-        "Employee updated successfully"
+        "Employee updated"
       );
 
       onDone();
@@ -718,73 +954,26 @@ function EditForm({
     },
   });
 
-  /* ----------------------------------------------------------
-     SUBMIT
-     ---------------------------------------------------------- */
-
-  function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
-
-    if (!user) {
-      toast.error(
-        "User session not found"
-      );
-      return;
-    }
-
-    if (
-      user.role ===
-        "super_admin" &&
-      !updatedEmployeeId.trim()
-    ) {
-      toast.error(
-        "Employee ID is required"
-      );
-      return;
-    }
-
-    if (
-      user.role ===
-        "super_admin" &&
-      !email.trim()
-    ) {
-      toast.error(
-        "Email is required"
-      );
-      return;
-    }
-
-    m.mutate();
-  }
-
-  /* ----------------------------------------------------------
-     RENDER
-     ---------------------------------------------------------- */
-
   return (
     <form
-      className="space-y-5"
-      onSubmit={handleSubmit}
+      className="rounded-xl border bg-muted/20 p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
     >
-      <div
-        className="
-          grid
-          gap-4
-          rounded-xl
-          border
-          bg-muted/20
-          p-4
-          sm:grid-cols-2
-        "
-      >
-        {/* ==================================================
-            SUPER ADMIN ONLY
-            ================================================== */}
+      <div className="mb-5">
+        <h4 className="text-sm font-semibold">
+          Edit Employee Details
+        </h4>
 
-        {user?.role ===
-          "super_admin" && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Update the employee master information.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {user?.role === "super_admin" && (
           <>
             <div className="space-y-1.5">
               <label
@@ -806,10 +995,6 @@ function EditForm({
                 }
                 required
               />
-
-              <p className="text-xs text-muted-foreground">
-                Super Admin only.
-              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -831,77 +1016,45 @@ function EditForm({
                 }
                 required
               />
-
-              <p className="text-xs text-muted-foreground">
-                Super Admin only.
-              </p>
             </div>
           </>
         )}
 
-        {/* ==================================================
-            DEPARTMENT
-            ================================================== */}
-
         <Picker
           label="Department"
           value={department}
-          onChange={
-            setDepartment
-          }
+          onChange={setDepartment}
           options={
             deptQ.data ?? []
           }
         />
 
-        {/* ==================================================
-            DESIGNATION
-            ================================================== */}
-
         <Picker
           label="Designation"
           value={designation}
-          onChange={
-            setDesignation
-          }
+          onChange={setDesignation}
           options={
             desigQ.data ?? []
           }
         />
 
-        {/* ==================================================
-            TEAM LEAD
-            ================================================== */}
-
         <Picker
           label="Team Lead"
           value={teamLead}
-          onChange={
-            setTeamLead
-          }
+          onChange={setTeamLead}
           options={
             leadQ.data ?? []
           }
         />
 
-        {/* ==================================================
-            LOCATION
-            ================================================== */}
-
         <Picker
           label="Location"
           value={location}
-          onChange={
-            setLocation
-          }
+          onChange={setLocation}
           options={
             locQ.data ?? []
           }
         />
-
-        {/* ==================================================
-            JOINING DATE
-            ================================================== */}
 
         <div className="space-y-1.5">
           <label
@@ -924,29 +1077,14 @@ function EditForm({
         </div>
       </div>
 
-      {/* ==================================================
-          FORM ACTIONS
-          ================================================== */}
-
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onDone}
-          disabled={
-            m.isPending
-          }
-        >
-          Cancel
-        </Button>
-
+      <div className="mt-5 flex justify-end">
         <Button
           type="submit"
           disabled={
-            m.isPending
+            mutation.isPending
           }
         >
-          {m.isPending
+          {mutation.isPending
             ? "Saving…"
             : "Save changes"}
         </Button>
@@ -955,10 +1093,9 @@ function EditForm({
   );
 }
 
-
-/* ============================================================
+/* =========================================================
    PICKER
-   ============================================================ */
+========================================================= */
 
 function Picker({
   label,
@@ -973,36 +1110,6 @@ function Picker({
   ) => void;
   options: string[];
 }) {
-  /*
-   * Remove duplicates and empty values.
-   */
-  const uniqueOptions =
-    Array.from(
-      new Set(
-        (options ?? [])
-          .map((option) =>
-            String(option).trim()
-          )
-          .filter(Boolean)
-      )
-    );
-
-  /*
-   * If the employee currently has a value that is
-   * no longer present in the lookup, keep it visible
-   * so the Select does not lose the existing value.
-   */
-  if (
-    value.trim() &&
-    !uniqueOptions.includes(
-      value.trim()
-    )
-  ) {
-    uniqueOptions.unshift(
-      value.trim()
-    );
-  }
-
   return (
     <div className="space-y-1.5">
       <label className="text-sm font-medium">
@@ -1010,10 +1117,8 @@ function Picker({
       </label>
 
       <Select
-        value={value || undefined}
-        onValueChange={
-          onChange
-        }
+        value={value}
+        onValueChange={onChange}
       >
         <SelectTrigger>
           <SelectValue
@@ -1022,18 +1127,101 @@ function Picker({
         </SelectTrigger>
 
         <SelectContent>
-          {uniqueOptions.map(
-            (option) => (
-              <SelectItem
-                key={option}
-                value={option}
-              >
-                {option}
-              </SelectItem>
-            )
-          )}
+          {options.map((option) => (
+            <SelectItem
+              key={option}
+              value={option}
+            >
+              {option}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function displayValue(
+  value?: number | string | null
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return "—";
+  }
+
+  return String(value);
+}
+
+function toNumber(
+  value?: number | string | null
+): number | null {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const n = Number(value);
+
+  return Number.isFinite(n)
+    ? n
+    : null;
+}
+
+function formatDate(
+  value?: string
+) {
+  if (!value) {
+    return "—";
+  }
+
+  const s = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [year, month, day] =
+      s.split("-");
+
+    return `${day}/${month}/${year}`;
+  }
+
+  return s;
+}
+
+function formatMonth(
+  value?: string
+) {
+  if (!value) {
+    return "—";
+  }
+
+  const match = String(value).match(
+    /^(\d{4})-(\d{2})$/
+  );
+
+  if (!match) {
+    return String(value);
+  }
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    1
+  );
+
+  return date.toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    }
   );
 }
