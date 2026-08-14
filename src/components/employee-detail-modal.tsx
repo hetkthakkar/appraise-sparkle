@@ -4,6 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+
 import {
   Dialog,
   DialogContent,
@@ -11,9 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+
 import {
   Select,
   SelectContent,
@@ -21,9 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { toast } from "sonner";
+
 import { PerformanceView } from "@/components/performance-view";
 import { useAuth } from "@/lib/mock-auth";
+
 import {
   adminUpdateEmployee,
   getEmployeeDetail,
@@ -38,26 +44,40 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+interface EmployeeProfile {
+  employeeId?: string;
+  name?: string;
+  email?: string;
+  department?: string;
+  designation?: string;
+  teamLead?: string;
+  location?: string;
+  joiningDate?: string;
+}
+
 export function EmployeeDetailModal({
   employeeId,
   onOpenChange,
 }: Props) {
   const { user } = useAuth();
+
   const [editing, setEditing] = useState(false);
 
   const detailQ = useQuery({
     queryKey: ["employeeDetail", employeeId],
+
     queryFn: () =>
       getEmployeeDetail(
         user!.email,
         employeeId!
       ),
+
     enabled:
       !!user &&
       !!employeeId,
   });
 
-  // Reset editor when another employee is opened.
+  // Reset editor whenever a different employee is opened.
   useEffect(() => {
     setEditing(false);
   }, [employeeId]);
@@ -79,27 +99,35 @@ export function EmployeeDetailModal({
           </DialogDescription>
         </DialogHeader>
 
-        {detailQ.isLoading ? (
+        {/* Loading */}
+        {detailQ.isLoading && (
           <div className="space-y-3">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-48 w-full" />
           </div>
-        ) : detailQ.isError ? (
+        )}
+
+        {/* Error */}
+        {detailQ.isError && (
           <p className="text-sm text-destructive">
             Failed to load:{" "}
             {detailQ.error instanceof Error
               ? detailQ.error.message
               : String(detailQ.error)}
           </p>
-        ) : detailQ.data ? (
+        )}
+
+        {/* Content */}
+        {detailQ.data && (
           <div className="space-y-4">
+
             {/* Edit button */}
             <div className="flex justify-end">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setEditing((v) => !v)
+                  setEditing((value) => !value)
                 }
               >
                 {editing
@@ -127,11 +155,16 @@ export function EmployeeDetailModal({
               compact
             />
           </div>
-        ) : null}
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
+
+/* ============================================================
+   EDIT FORM
+   ============================================================ */
 
 function EditForm({
   employeeId,
@@ -139,19 +172,15 @@ function EditForm({
   onDone,
 }: {
   employeeId: string;
-  initial: {
-    employeeId?: string;
-    email?: string;
-    department?: string;
-    designation?: string;
-    teamLead?: string;
-    location?: string;
-    joiningDate?: string;
-  };
+  initial: EmployeeProfile;
   onDone: () => void;
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
+
+  /* ----------------------------------------------------------
+     LOOKUPS
+     ---------------------------------------------------------- */
 
   const deptQ = useQuery({
     queryKey: ["departments"],
@@ -168,10 +197,33 @@ function EditForm({
     queryFn: listLocations,
   });
 
+  /*
+   * IMPORTANT:
+   * Team Lead is treated as a parent/reporting field.
+   *
+   * For example:
+   *
+   * HEAD TL
+   *   ├── TL A
+   *   │    ├── Operator 1
+   *   │    └── Operator 2
+   *   │
+   *   └── TL B
+   *        ├── Operator 3
+   *        └── Operator 4
+   *
+   * The dropdown gets its available parent names
+   * from the Team Leads lookup.
+   */
   const leadQ = useQuery({
     queryKey: ["teamLeads"],
     queryFn: listTeamLeads,
   });
+
+
+  /* ----------------------------------------------------------
+     FORM STATE
+     ---------------------------------------------------------- */
 
   const [
     updatedEmployeeId,
@@ -215,17 +267,28 @@ function EditForm({
         : ""
     );
 
+
+  /* ----------------------------------------------------------
+     UPDATE EMPLOYEE
+     ---------------------------------------------------------- */
+
   const m = useMutation({
+
     mutationFn: () =>
       adminUpdateEmployee(
         user!.email,
         employeeId,
         {
+          /*
+           * Super Admin can edit Employee ID and Email.
+           * Admin cannot edit these fields.
+           */
           ...(user?.role ===
           "super_admin"
             ? {
                 employeeId:
                   updatedEmployeeId,
+
                 email,
               }
             : {}),
@@ -239,7 +302,12 @@ function EditForm({
       ),
 
     onSuccess: async () => {
+
+      /*
+       * Refresh all affected areas after save.
+       */
       await Promise.all([
+
         qc.refetchQueries({
           queryKey: [
             "employeeDetail",
@@ -264,6 +332,17 @@ function EditForm({
             "myDashboard",
           ],
         }),
+
+        /*
+         * Refresh Team Lead lookup because
+         * changing designation/team assignment
+         * can change the hierarchy.
+         */
+        qc.refetchQueries({
+          queryKey: [
+            "teamLeads",
+          ],
+        }),
       ]);
 
       toast.success(
@@ -273,7 +352,7 @@ function EditForm({
       onDone();
     },
 
-    onError: (e) =>
+    onError: (e) => {
       toast.error(
         "Update failed",
         {
@@ -282,21 +361,50 @@ function EditForm({
               ? e.message
               : String(e),
         }
-      ),
+      );
+    },
   });
+
+
+  /* ----------------------------------------------------------
+     SUBMIT
+     ---------------------------------------------------------- */
+
+  function handleSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    if (!user) {
+      toast.error(
+        "User session not found"
+      );
+      return;
+    }
+
+    m.mutate();
+  }
+
+
+  /* ----------------------------------------------------------
+     RENDER
+     ---------------------------------------------------------- */
 
   return (
     <form
       className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        m.mutate();
-      }}
+      onSubmit={handleSubmit}
     >
+
+      {/* ------------------------------------------------------
+          SUPER ADMIN ONLY
+          ------------------------------------------------------ */}
+
       {user?.role ===
         "super_admin" && (
         <>
           <div className="space-y-1.5">
+
             <label
               className="text-sm font-medium"
               htmlFor="edit-employee-id"
@@ -318,7 +426,9 @@ function EditForm({
             />
           </div>
 
+
           <div className="space-y-1.5">
+
             <label
               className="text-sm font-medium"
               htmlFor="edit-email"
@@ -337,9 +447,15 @@ function EditForm({
               }
               required
             />
+
           </div>
         </>
       )}
+
+
+      {/* ------------------------------------------------------
+          DEPARTMENT
+          ------------------------------------------------------ */}
 
       <Picker
         label="Department"
@@ -352,6 +468,11 @@ function EditForm({
         }
       />
 
+
+      {/* ------------------------------------------------------
+          DESIGNATION
+          ------------------------------------------------------ */}
+
       <Picker
         label="Designation"
         value={designation}
@@ -362,6 +483,11 @@ function EditForm({
           desigQ.data ?? []
         }
       />
+
+
+      {/* ------------------------------------------------------
+          TEAM LEAD / REPORTING MANAGER
+          ------------------------------------------------------ */}
 
       <Picker
         label="Team Lead"
@@ -374,6 +500,11 @@ function EditForm({
         }
       />
 
+
+      {/* ------------------------------------------------------
+          LOCATION
+          ------------------------------------------------------ */}
+
       <Picker
         label="Location"
         value={location}
@@ -385,7 +516,13 @@ function EditForm({
         }
       />
 
+
+      {/* ------------------------------------------------------
+          JOINING DATE
+          ------------------------------------------------------ */}
+
       <div className="space-y-1.5">
+
         <label
           className="text-sm font-medium"
           htmlFor="edit-joining"
@@ -403,9 +540,16 @@ function EditForm({
             )
           }
         />
+
       </div>
 
+
+      {/* ------------------------------------------------------
+          SAVE
+          ------------------------------------------------------ */}
+
       <div className="flex items-end justify-end sm:col-span-2">
+
         <Button
           type="submit"
           disabled={
@@ -416,10 +560,17 @@ function EditForm({
             ? "Saving…"
             : "Save changes"}
         </Button>
+
       </div>
+
     </form>
   );
 }
+
+
+/* ============================================================
+   PICKER
+   ============================================================ */
 
 function Picker({
   label,
@@ -434,8 +585,24 @@ function Picker({
   ) => void;
   options: string[];
 }) {
+
+  /*
+   * Remove duplicate values from the dropdown.
+   */
+  const uniqueOptions = Array.from(
+    new Set(
+      (options ?? [])
+        .map((option) =>
+          String(option).trim()
+        )
+        .filter(Boolean)
+    )
+  );
+
+
   return (
     <div className="space-y-1.5">
+
       <label className="text-sm font-medium">
         {label}
       </label>
@@ -446,6 +613,7 @@ function Picker({
           onChange
         }
       >
+
         <SelectTrigger>
           <SelectValue
             placeholder={`Select ${label.toLowerCase()}`}
@@ -453,18 +621,22 @@ function Picker({
         </SelectTrigger>
 
         <SelectContent>
-          {options.map(
-            (o) => (
+
+          {uniqueOptions.map(
+            (option) => (
               <SelectItem
-                key={o}
-                value={o}
+                key={option}
+                value={option}
               >
-                {o}
+                {option}
               </SelectItem>
             )
           )}
+
         </SelectContent>
+
       </Select>
+
     </div>
   );
 }
