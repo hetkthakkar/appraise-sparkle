@@ -158,19 +158,13 @@ function safeNumber(value: unknown): number {
 }
 
 
-/*
- * KPI percentage.
- *
- * Production / Tickets:
- *     actual / target
- *
- * Quality / Errors:
- *     lower actual is better.
- *
- * If error target is zero:
- *     zero errors = 100%
- *     otherwise = 0%
- */
+/* ============================================================
+   INTERNAL PERCENTAGE CALCULATIONS
+
+   These are retained only for calculating Overall.
+   They are NOT displayed as KPI values.
+   ============================================================ */
+
 function productionPercent(
   performance: SheetPerformance | null | undefined
 ): number {
@@ -357,24 +351,10 @@ function getPerformanceForMonth(
 }
 
 
-/*
- * Returns every descendant under a manager.
- *
- * Example:
- *
- * Head TL
- *   ├── TL A
- *   │    ├── Employee 1
- *   │    └── Employee 2
- *   └── TL B
- *        └── Employee 3
- *
- * For Head TL:
- *     returns TL A, TL B, Employee 1, Employee 2, Employee 3
- *
- * For TL A:
- *     returns Employee 1, Employee 2
- */
+/* ============================================================
+   TEAM RELATIONSHIP
+   ============================================================ */
+
 function getDescendants(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -427,18 +407,6 @@ function getDescendants(
 }
 
 
-/*
- * Direct reports only.
- *
- * This is important for Head TL:
- *
- * Head TL
- *   -> TL A
- *   -> TL B
- *
- * We don't display all operators directly under
- * the Head TL in the compact team list.
- */
 function getDirectReports(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -489,10 +457,6 @@ export function EmployeeDetailModal({
   });
 
 
-  /*
-   * Employees are used only for calculating
-   * the correct team relationship.
-   */
   const employeesQ = useQuery({
     queryKey: [
       "employees",
@@ -514,10 +478,6 @@ export function EmployeeDetailModal({
   });
 
 
-  /*
-   * We need all accessible performance rows
-   * to calculate team performance.
-   */
   const performanceQ = useQuery({
     queryKey: [
       "performance",
@@ -565,16 +525,10 @@ export function EmployeeDetailModal({
     );
 
 
-  /*
-   * Employees available to this logged-in user.
-   */
   const allEmployees =
     employeesQ.data ?? [];
 
 
-  /*
-   * Direct reports.
-   */
   const directReports =
     useMemo(() => {
       if (!profile) return [];
@@ -589,14 +543,6 @@ export function EmployeeDetailModal({
     ]);
 
 
-  /*
-   * All descendants.
-   *
-   * Head TL uses all descendants for the
-   * overall team calculation.
-   *
-   * TL uses direct reports.
-   */
   const teamEmployees =
     useMemo(() => {
       if (!profile) return [];
@@ -622,22 +568,10 @@ export function EmployeeDetailModal({
     ]);
 
 
-  /*
-   * Team performance rows.
-   */
   const performanceRows =
     performanceQ.data ?? [];
 
 
-  /*
-   * Determine the month used for team performance.
-   *
-   * First preference:
-   * current calendar month.
-   *
-   * If no team data exists for current month,
-   * fallback to latest available team month.
-   */
   const teamMonth =
     useMemo(() => {
       if (!teamEmployees.length) {
@@ -691,9 +625,19 @@ export function EmployeeDetailModal({
     ]);
 
 
-  /*
-   * Team performance calculation.
-   */
+  /* ============================================================
+     TEAM SUMMARY
+
+     Raw values are retained:
+       Production = Actual / Target
+       Tickets = Actual / Target
+       Quality = Actual / Target
+       Attendance = Average / 10
+       Behavior = Average / 5
+
+     Percentage calculations are used ONLY for Overall.
+     ============================================================ */
+
   const teamSummary =
     useMemo(() => {
       if (!teamEmployees.length) {
@@ -720,6 +664,7 @@ export function EmployeeDetailModal({
         return null;
       }
 
+
       const productionTarget =
         rows.reduce(
           (sum, row) =>
@@ -729,6 +674,7 @@ export function EmployeeDetailModal({
             ),
           0
         );
+
 
       const productionActual =
         rows.reduce(
@@ -740,6 +686,7 @@ export function EmployeeDetailModal({
           0
         );
 
+
       const ticketTarget =
         rows.reduce(
           (sum, row) =>
@@ -749,6 +696,7 @@ export function EmployeeDetailModal({
             ),
           0
         );
+
 
       const ticketActual =
         rows.reduce(
@@ -760,6 +708,7 @@ export function EmployeeDetailModal({
           0
         );
 
+
       const errorTarget =
         rows.reduce(
           (sum, row) =>
@@ -769,6 +718,7 @@ export function EmployeeDetailModal({
             ),
           0
         );
+
 
       const errorActual =
         rows.reduce(
@@ -780,6 +730,7 @@ export function EmployeeDetailModal({
           0
         );
 
+
       const attendance =
         rows.reduce(
           (sum, row) =>
@@ -789,6 +740,7 @@ export function EmployeeDetailModal({
             ),
           0
         ) / rows.length;
+
 
       const behavior =
         rows.reduce(
@@ -801,6 +753,10 @@ export function EmployeeDetailModal({
         ) / rows.length;
 
 
+      /* ========================================================
+         INTERNAL OVERALL CALCULATION
+         ======================================================== */
+
       const production =
         productionTarget > 0
           ? Math.min(
@@ -808,8 +764,7 @@ export function EmployeeDetailModal({
               (
                 productionActual /
                 productionTarget
-              ) *
-                100
+              ) * 100
             )
           : 0;
 
@@ -821,8 +776,7 @@ export function EmployeeDetailModal({
               (
                 ticketActual /
                 ticketTarget
-              ) *
-                100
+              ) * 100
             )
           : 0;
 
@@ -839,8 +793,7 @@ export function EmployeeDetailModal({
                 (
                   errorTarget /
                   errorActual
-                ) *
-                  100
+                ) * 100
               );
 
 
@@ -850,8 +803,7 @@ export function EmployeeDetailModal({
           (
             attendance /
             10
-          ) *
-            100
+          ) * 100
         );
 
 
@@ -861,8 +813,7 @@ export function EmployeeDetailModal({
           (
             behavior /
             5
-          ) *
-            100
+          ) * 100
         );
 
 
@@ -883,17 +834,17 @@ export function EmployeeDetailModal({
         employeesWithPerformance:
           rows.length,
 
-        production,
+        productionActual,
+        productionTarget,
 
-        tickets,
+        ticketActual,
+        ticketTarget,
 
-        quality,
+        errorActual,
+        errorTarget,
 
-        attendance:
-          attendancePct,
-
-        behavior:
-          behaviorPct,
+        attendance,
+        behavior,
 
         overall,
       };
@@ -904,35 +855,16 @@ export function EmployeeDetailModal({
     ]);
 
 
-  /*
-   * Current performance for selected employee.
-   */
   const currentPerformance =
     detailQ.data?.currentMonth ??
     null;
 
 
-  /*
-   * Previous month only.
-   *
-   * User asked for current + previous month,
-   * so we intentionally show the latest previous
-   * month rather than a long history table.
-   */
   const previousPerformance =
     detailQ.data?.previousMonths?.[0] ??
     null;
 
 
-  /*
-   * Team member compact performance cards.
-   *
-   * For Head TL:
-   *     show direct TLs.
-   *
-   * For TL:
-   *     show direct employees.
-   */
   const directTeamPerformance =
     useMemo(() => {
       const month =
@@ -1070,19 +1002,6 @@ export function EmployeeDetailModal({
           profile && (
             <div className="space-y-7 px-6 py-6">
 
-              {/* =================================================
-                  HEAD TEAM LEADER
-                  
-                  IMPORTANT:
-                  Head TL does NOT get the normal employee
-                  profile/current month layout.
-
-                  It gets:
-                      Header
-                      Team
-                      Team performance
-                  ================================================= */}
-
               {headTL ? (
                 <HeadTeamLeaderView
                   profile={profile}
@@ -1107,10 +1026,6 @@ export function EmployeeDetailModal({
                 />
               ) : (
                 <>
-                  {/* =================================================
-                      EMPLOYEE DETAILS
-                      FIRST
-                      ================================================= */}
 
                   <EmployeeDetailsSection
                     profile={profile}
@@ -1132,10 +1047,6 @@ export function EmployeeDetailModal({
                   />
 
 
-                  {/* =================================================
-                      EDIT
-                      ================================================= */}
-
                   {editing && (
                     <EditForm
                       employeeId={
@@ -1152,12 +1063,6 @@ export function EmployeeDetailModal({
                     />
                   )}
 
-
-                  {/* =================================================
-                      TEAM
-                      
-                      ONLY FOR TEAM LEAD
-                      ================================================= */}
 
                   {teamLeader && (
                     <TeamSection
@@ -1186,20 +1091,12 @@ export function EmployeeDetailModal({
                   )}
 
 
-                  {/* =================================================
-                      CURRENT MONTH
-                      ================================================= */}
-
                   <EmployeeCurrentMonth
                     performance={
                       currentPerformance
                     }
                   />
 
-
-                  {/* =================================================
-                      PREVIOUS MONTH
-                      ================================================= */}
 
                   <EmployeePreviousMonth
                     performance={
@@ -1417,7 +1314,6 @@ function HeadTeamLeaderView({
   return (
     <div className="space-y-6">
 
-      {/* Header identity only */}
       <Card>
         <CardContent className="p-6">
           <div
@@ -1456,7 +1352,6 @@ function HeadTeamLeaderView({
       </Card>
 
 
-      {/* Team */}
       <TeamSection
         profile={profile}
         directReports={directReports}
@@ -1484,11 +1379,19 @@ function HeadTeamLeaderView({
 interface TeamSummary {
   people: number;
   employeesWithPerformance: number;
-  production: number;
-  tickets: number;
-  quality: number;
+
+  productionActual: number;
+  productionTarget: number;
+
+  ticketActual: number;
+  ticketTarget: number;
+
+  errorActual: number;
+  errorTarget: number;
+
   attendance: number;
   behavior: number;
+
   overall: number;
 }
 
@@ -1561,9 +1464,9 @@ function TeamSection({
             ================================================= */}
 
         {performanceLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {Array.from({
-              length: 5,
+              length: 6,
             }).map((_, index) => (
               <Skeleton
                 key={index}
@@ -1573,14 +1476,17 @@ function TeamSection({
           </div>
         ) : teamSummary ? (
           <>
+
             <div
               className="
                 grid
                 gap-3
                 sm:grid-cols-2
-                lg:grid-cols-5
+                lg:grid-cols-3
+                xl:grid-cols-6
               "
             >
+
               <TeamMetricCard
                 icon={
                   <Users className="size-4" />
@@ -1592,16 +1498,21 @@ function TeamSection({
                 suffix=""
               />
 
+
               <TeamMetricCard
                 icon={
                   <TrendingUp className="size-4" />
                 }
                 label="Production"
                 value={
-                  teamSummary.production
+                  teamSummary.productionActual
                 }
-                suffix="%"
+                secondaryValue={
+                  teamSummary.productionTarget
+                }
+                suffix=""
               />
+
 
               <TeamMetricCard
                 icon={
@@ -1609,10 +1520,14 @@ function TeamSection({
                 }
                 label="Tickets"
                 value={
-                  teamSummary.tickets
+                  teamSummary.ticketActual
                 }
-                suffix="%"
+                secondaryValue={
+                  teamSummary.ticketTarget
+                }
+                suffix=""
               />
+
 
               <TeamMetricCard
                 icon={
@@ -1620,10 +1535,14 @@ function TeamSection({
                 }
                 label="Quality"
                 value={
-                  teamSummary.quality
+                  teamSummary.errorActual
                 }
-                suffix="%"
+                secondaryValue={
+                  teamSummary.errorTarget
+                }
+                suffix=""
               />
+
 
               <TeamMetricCard
                 icon={
@@ -1633,13 +1552,30 @@ function TeamSection({
                 value={
                   teamSummary.attendance
                 }
-                suffix="%"
+                secondaryValue={10}
+                suffix=""
+                decimals
               />
+
+
+              <TeamMetricCard
+                icon={
+                  <Brain className="size-4" />
+                }
+                label="Behavior"
+                value={
+                  teamSummary.behavior
+                }
+                secondaryValue={5}
+                suffix=""
+                decimals
+              />
+
             </div>
 
 
             {/* =================================================
-                OVERALL TEAM CHART
+                OVERALL TEAM PERFORMANCE
                 ================================================= */}
 
             <div
@@ -1650,6 +1586,7 @@ function TeamSection({
                 p-5
               "
             >
+
               <div className="mb-5">
                 <p className="text-sm font-semibold">
                   Overall Team Performance
@@ -1662,41 +1599,59 @@ function TeamSection({
                 </p>
               </div>
 
+
               <div className="space-y-4">
 
-                <PerformanceBar
+                <ActualTargetRow
                   label="Production"
-                  value={
-                    teamSummary.production
+                  actual={
+                    teamSummary.productionActual
+                  }
+                  target={
+                    teamSummary.productionTarget
                   }
                 />
 
-                <PerformanceBar
+
+                <ActualTargetRow
                   label="Tickets"
-                  value={
-                    teamSummary.tickets
+                  actual={
+                    teamSummary.ticketActual
+                  }
+                  target={
+                    teamSummary.ticketTarget
                   }
                 />
 
-                <PerformanceBar
+
+                <ActualTargetRow
                   label="Quality"
-                  value={
-                    teamSummary.quality
+                  actual={
+                    teamSummary.errorActual
+                  }
+                  target={
+                    teamSummary.errorTarget
                   }
                 />
 
-                <PerformanceBar
+
+                <ActualTargetRow
                   label="Attendance"
-                  value={
+                  actual={
                     teamSummary.attendance
                   }
+                  target={10}
+                  decimals
                 />
 
-                <PerformanceBar
+
+                <ActualTargetRow
                   label="Behavior"
-                  value={
+                  actual={
                     teamSummary.behavior
                   }
+                  target={5}
+                  decimals
                 />
 
               </div>
@@ -1718,7 +1673,6 @@ function TeamSection({
                   {Math.round(
                     teamSummary.overall
                   )}
-                  %
                 </p>
 
                 <p className="text-xs font-medium text-muted-foreground">
@@ -1727,7 +1681,9 @@ function TeamSection({
                   )}
                 </p>
               </div>
+
             </div>
+
           </>
         ) : (
           <div
@@ -1790,9 +1746,12 @@ function TeamSection({
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border">
+
               <Table>
+
                 <TableHeader>
                   <TableRow>
+
                     <TableHead>
                       Name
                     </TableHead>
@@ -1824,19 +1783,24 @@ function TeamSection({
                     <TableHead>
                       Overall
                     </TableHead>
+
                   </TableRow>
                 </TableHeader>
 
+
                 <TableBody>
+
                   {directTeamPerformance.map(
                     ({
                       employee,
                       performance,
                     }) => {
+
                       const overall =
                         overallPercent(
                           performance
                         );
+
 
                       return (
                         <TableRow
@@ -1844,44 +1808,50 @@ function TeamSection({
                             employee.employeeId
                           }
                         >
+
                           <TableCell className="font-medium">
                             {employee.name}
                           </TableCell>
+
 
                           <TableCell>
                             {employee.designation ||
                               "—"}
                           </TableCell>
 
-                          <TableCell>
-                            {performance
-                              ? `${Math.round(
-                                  productionPercent(
-                                    performance
-                                  )
-                                )}%`
-                              : "—"}
-                          </TableCell>
 
                           <TableCell>
                             {performance
-                              ? `${Math.round(
-                                  ticketPercent(
-                                    performance
-                                  )
-                                )}%`
+                              ? `${safeNumber(
+                                  performance.productionActual
+                                )} / ${safeNumber(
+                                  performance.productionTarget
+                                )}`
                               : "—"}
                           </TableCell>
 
+
                           <TableCell>
                             {performance
-                              ? `${Math.round(
-                                  qualityPercent(
-                                    performance
-                                  )
-                                )}%`
+                              ? `${safeNumber(
+                                  performance.ticketActual
+                                )} / ${safeNumber(
+                                  performance.ticketTarget
+                                )}`
                               : "—"}
                           </TableCell>
+
+
+                          <TableCell>
+                            {performance
+                              ? `${safeNumber(
+                                  performance.errorActual
+                                )} / ${safeNumber(
+                                  performance.errorTarget
+                                )}`
+                              : "—"}
+                          </TableCell>
+
 
                           <TableCell>
                             {performance
@@ -1893,6 +1863,7 @@ function TeamSection({
                               : "—"}
                           </TableCell>
 
+
                           <TableCell>
                             {performance
                               ? `${safeNumber(
@@ -1903,21 +1874,27 @@ function TeamSection({
                               : "—"}
                           </TableCell>
 
+
                           <TableCell>
                             {performance
-                              ? `${Math.round(
+                              ? Math.round(
                                   overall
-                                )}%`
+                                )
                               : "—"}
                           </TableCell>
+
                         </TableRow>
                       );
                     }
                   )}
+
                 </TableBody>
+
               </Table>
+
             </div>
           )}
+
         </div>
 
       </CardContent>
@@ -1934,13 +1911,29 @@ function TeamMetricCard({
   icon,
   label,
   value,
+  secondaryValue,
   suffix,
+  decimals = false,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
+  secondaryValue?: number;
   suffix: string;
+  decimals?: boolean;
 }) {
+
+  const formatValue = (
+    number: number
+  ) => {
+    if (decimals) {
+      return number.toFixed(1);
+    }
+
+    return Math.round(number);
+  };
+
+
   return (
     <div
       className="
@@ -1950,6 +1943,7 @@ function TeamMetricCard({
         p-4
       "
     >
+
       <div
         className="
           flex
@@ -1966,33 +1960,72 @@ function TeamMetricCard({
         {label}
       </div>
 
+
       <div className="mt-2 text-2xl font-bold">
-        {suffix
-          ? Math.round(value)
-          : value}
+
+        {formatValue(value)}
+
+        {secondaryValue !== undefined && (
+          <>
+            {" / "}
+            {formatValue(
+              secondaryValue
+            )}
+          </>
+        )}
+
         {suffix}
+
       </div>
+
     </div>
   );
 }
 
 
 /* ============================================================
-   PERFORMANCE BAR
+   ACTUAL / TARGET ROW
    ============================================================ */
 
-function PerformanceBar({
+function ActualTargetRow({
   label,
-  value,
+  actual,
+  target,
+  decimals = false,
 }: {
   label: string;
-  value: number;
+  actual: number;
+  target: number;
+  decimals?: boolean;
 }) {
-  const display =
-    Math.round(value);
+
+  const formatValue = (
+    value: number
+  ) => {
+    return decimals
+      ? value.toFixed(1)
+      : Math.round(value);
+  };
+
+
+  const progressValue =
+    target > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (
+              actual /
+              target
+            ) * 100
+          )
+        )
+      : 0;
+
 
   return (
     <div>
+
       <div
         className="
           mb-1.5
@@ -2002,24 +2035,27 @@ function PerformanceBar({
           text-sm
         "
       >
+
         <span className="font-medium">
           {label}
         </span>
 
+
         <span className="font-semibold">
-          {display}%
+          {formatValue(actual)}
+          {" / "}
+          {formatValue(target)}
         </span>
+
       </div>
 
+
       <Progress
-        value={Math.min(
-          100,
-          Math.max(
-            0,
-            display
-          )
-        )}
+        value={
+          progressValue
+        }
       />
+
     </div>
   );
 }
@@ -2036,7 +2072,9 @@ function EmployeeCurrentMonth({
 }) {
   return (
     <Card>
+
       <CardHeader>
+
         <div
           className="
             flex
@@ -2045,7 +2083,9 @@ function EmployeeCurrentMonth({
             gap-4
           "
         >
+
           <div>
+
             <CardTitle>
               Current Month
             </CardTitle>
@@ -2053,7 +2093,9 @@ function EmployeeCurrentMonth({
             <CardDescription>
               Live performance snapshot.
             </CardDescription>
+
           </div>
+
 
           {performance && (
             <Badge variant="secondary">
@@ -2062,10 +2104,14 @@ function EmployeeCurrentMonth({
               )}
             </Badge>
           )}
+
         </div>
+
       </CardHeader>
 
+
       <CardContent>
+
         {!performance ? (
           <div
             className="
@@ -2076,6 +2122,7 @@ function EmployeeCurrentMonth({
               text-center
             "
           >
+
             <p className="text-sm font-medium">
               No performance data for the current month.
             </p>
@@ -2083,8 +2130,10 @@ function EmployeeCurrentMonth({
             <p className="mt-1 text-xs text-muted-foreground">
               Monthly performance has not been uploaded yet.
             </p>
+
           </div>
         ) : (
+
           <div className="space-y-6">
 
             <div
@@ -2095,59 +2144,60 @@ function EmployeeCurrentMonth({
                 lg:grid-cols-4
               "
             >
+
               <PerformanceStat
                 label="Production"
-                value={`${performance.productionActual} / ${performance.productionTarget}`}
-                helper={`${Math.round(
-                  productionPercent(
-                    performance
-                  )
-                )}% achievement`}
+                value={`${safeNumber(
+                  performance.productionActual
+                )} / ${safeNumber(
+                  performance.productionTarget
+                )}`}
+                helper="Actual / Target"
                 icon={
                   <TrendingUp className="size-4" />
                 }
               />
 
+
               <PerformanceStat
                 label="Tickets"
-                value={`${performance.ticketActual} / ${performance.ticketTarget}`}
-                helper={`${Math.round(
-                  ticketPercent(
-                    performance
-                  )
-                )}% achievement`}
+                value={`${safeNumber(
+                  performance.ticketActual
+                )} / ${safeNumber(
+                  performance.ticketTarget
+                )}`}
+                helper="Actual / Target"
                 icon={
                   <Ticket className="size-4" />
                 }
               />
 
+
               <PerformanceStat
                 label="Errors / Rejection"
-                value={`${performance.errorActual} / ${performance.errorTarget}`}
-                helper={`${Math.round(
-                  qualityPercent(
-                    performance
-                  )
-                )}% quality`}
+                value={`${safeNumber(
+                  performance.errorActual
+                )} / ${safeNumber(
+                  performance.errorTarget
+                )}`}
+                helper="Actual / Target"
                 icon={
                   <ShieldCheck className="size-4" />
                 }
               />
+
 
               <PerformanceStat
                 label="Attendance"
                 value={`${safeNumber(
                   performance.attendance
                 ).toFixed(1)} / 10`}
-                helper={`${Math.round(
-                  attendancePercent(
-                    performance
-                  )
-                )}%`}
+                helper="Actual / Maximum"
                 icon={
                   <CalendarCheck className="size-4" />
                 }
               />
+
             </div>
 
 
@@ -2158,20 +2208,18 @@ function EmployeeCurrentMonth({
                 sm:grid-cols-2
               "
             >
+
               <PerformanceStat
                 label="Behavior"
                 value={`${safeNumber(
                   performance.behavior
                 ).toFixed(1)} / 5`}
-                helper={`${Math.round(
-                  behaviorPercent(
-                    performance
-                  )
-                )}%`}
+                helper="Actual / Maximum"
                 icon={
                   <Brain className="size-4" />
                 }
               />
+
 
               <PerformanceStat
                 label="Overall"
@@ -2179,7 +2227,7 @@ function EmployeeCurrentMonth({
                   overallPercent(
                     performance
                   )
-                )}%`}
+                )}`}
                 helper={
                   overallLabel(
                     overallPercent(
@@ -2191,10 +2239,12 @@ function EmployeeCurrentMonth({
                   <TrendingUp className="size-4" />
                 }
               />
+
             </div>
 
 
             <div>
+
               <p className="text-sm font-semibold">
                 Manager Remarks
               </p>
@@ -2213,11 +2263,15 @@ function EmployeeCurrentMonth({
                 {performance.managerRemarks ||
                   "No manager remarks added."}
               </p>
+
             </div>
 
           </div>
+
         )}
+
       </CardContent>
+
     </Card>
   );
 }
@@ -2246,6 +2300,7 @@ function PerformanceStat({
         p-4
       "
     >
+
       <div
         className="
           flex
@@ -2262,13 +2317,16 @@ function PerformanceStat({
         {label}
       </div>
 
+
       <div className="mt-2 text-lg font-bold">
         {value}
       </div>
 
+
       <div className="mt-1 text-xs text-muted-foreground">
         {helper}
       </div>
+
     </div>
   );
 }
@@ -2285,7 +2343,9 @@ function EmployeePreviousMonth({
 }) {
   return (
     <Card>
+
       <CardHeader>
+
         <div
           className="
             flex
@@ -2294,7 +2354,9 @@ function EmployeePreviousMonth({
             gap-4
           "
         >
+
           <div>
+
             <CardTitle>
               Previous Month
             </CardTitle>
@@ -2302,7 +2364,9 @@ function EmployeePreviousMonth({
             <CardDescription>
               Latest completed monthly performance.
             </CardDescription>
+
           </div>
+
 
           {performance && (
             <Badge variant="outline">
@@ -2311,11 +2375,16 @@ function EmployeePreviousMonth({
               )}
             </Badge>
           )}
+
         </div>
+
       </CardHeader>
 
+
       <CardContent>
+
         {!performance ? (
+
           <div
             className="
               rounded-xl
@@ -2325,11 +2394,15 @@ function EmployeePreviousMonth({
               text-center
             "
           >
+
             <p className="text-sm text-muted-foreground">
               No previous month performance available.
             </p>
+
           </div>
+
         ) : (
+
           <div className="space-y-5">
 
             <div
@@ -2340,46 +2413,52 @@ function EmployeePreviousMonth({
                 lg:grid-cols-5
               "
             >
+
               <MiniMetric
                 label="Production"
-                value={`${Math.round(
-                  productionPercent(
-                    performance
-                  )
-                )}%`}
+                value={`${safeNumber(
+                  performance.productionActual
+                )} / ${safeNumber(
+                  performance.productionTarget
+                )}`}
               />
+
 
               <MiniMetric
                 label="Tickets"
-                value={`${Math.round(
-                  ticketPercent(
-                    performance
-                  )
-                )}%`}
+                value={`${safeNumber(
+                  performance.ticketActual
+                )} / ${safeNumber(
+                  performance.ticketTarget
+                )}`}
               />
+
 
               <MiniMetric
                 label="Quality"
-                value={`${Math.round(
-                  qualityPercent(
-                    performance
-                  )
-                )}%`}
+                value={`${safeNumber(
+                  performance.errorActual
+                )} / ${safeNumber(
+                  performance.errorTarget
+                )}`}
               />
+
 
               <MiniMetric
                 label="Attendance"
                 value={`${safeNumber(
                   performance.attendance
-                ).toFixed(1)}/10`}
+                ).toFixed(1)} / 10`}
               />
+
 
               <MiniMetric
                 label="Behavior"
                 value={`${safeNumber(
                   performance.behavior
-                ).toFixed(1)}/5`}
+                ).toFixed(1)} / 5`}
               />
+
             </div>
 
 
@@ -2391,10 +2470,13 @@ function EmployeePreviousMonth({
                 p-4
               "
             >
+
               <div className="flex items-center justify-between">
+
                 <span className="text-sm font-medium">
                   Overall
                 </span>
+
 
                 <span className="text-lg font-bold">
                   {Math.round(
@@ -2402,9 +2484,10 @@ function EmployeePreviousMonth({
                       performance
                     )
                   )}
-                  %
                 </span>
+
               </div>
+
 
               <Progress
                 className="mt-3"
@@ -2418,11 +2501,15 @@ function EmployeePreviousMonth({
                   )
                 )}
               />
+
             </div>
 
           </div>
+
         )}
+
       </CardContent>
+
     </Card>
   );
 }
@@ -2437,6 +2524,7 @@ function MiniMetric({
 }) {
   return (
     <div className="rounded-xl border p-4">
+
       <p className="text-xs text-muted-foreground">
         {label}
       </p>
@@ -2444,6 +2532,7 @@ function MiniMetric({
       <p className="mt-1 text-lg font-bold">
         {value}
       </p>
+
     </div>
   );
 }
@@ -2456,6 +2545,7 @@ function MiniMetric({
 function overallLabel(
   value: number
 ): string {
+
   if (value >= 95) {
     return "Excellent";
   }
@@ -2697,7 +2787,9 @@ function EditForm({
 
   return (
     <Card>
+
       <CardHeader>
+
         <CardTitle>
           Edit Employee
         </CardTitle>
@@ -2705,9 +2797,12 @@ function EditForm({
         <CardDescription>
           Update employee master information.
         </CardDescription>
+
       </CardHeader>
 
+
       <CardContent>
+
         <form
           className="
             grid
@@ -2722,7 +2817,9 @@ function EditForm({
           {user?.role ===
             "super_admin" && (
             <>
+
               <div className="space-y-1.5">
+
                 <label
                   className="text-sm font-medium"
                   htmlFor="edit-employee-id"
@@ -2742,10 +2839,12 @@ function EditForm({
                   }
                   required
                 />
+
               </div>
 
 
               <div className="space-y-1.5">
+
                 <label
                   className="text-sm font-medium"
                   htmlFor="edit-email"
@@ -2766,7 +2865,9 @@ function EditForm({
                   }
                   required
                 />
+
               </div>
+
             </>
           )}
 
@@ -2832,6 +2933,7 @@ function EditForm({
 
 
           <div className="space-y-1.5">
+
             <label
               className="text-sm font-medium"
               htmlFor="edit-joining"
@@ -2851,6 +2953,7 @@ function EditForm({
                 )
               }
             />
+
           </div>
 
 
@@ -2863,6 +2966,7 @@ function EditForm({
               sm:col-span-2
             "
           >
+
             <Button
               type="button"
               variant="outline"
@@ -2872,6 +2976,7 @@ function EditForm({
             >
               Cancel
             </Button>
+
 
             <Button
               type="submit"
@@ -2883,10 +2988,13 @@ function EditForm({
                 ? "Saving…"
                 : "Save changes"}
             </Button>
+
           </div>
 
         </form>
+
       </CardContent>
+
     </Card>
   );
 }
@@ -2909,6 +3017,7 @@ function Picker({
   ) => void;
   options: string[];
 }) {
+
   const uniqueOptions =
     Array.from(
       new Set(
@@ -2928,9 +3037,11 @@ function Picker({
 
   return (
     <div className="space-y-1.5">
+
       <label className="text-sm font-medium">
         {label}
       </label>
+
 
       <Select
         value={
@@ -2940,13 +3051,16 @@ function Picker({
           onChange
         }
       >
+
         <SelectTrigger>
           <SelectValue
             placeholder={`Select ${label.toLowerCase()}`}
           />
         </SelectTrigger>
 
+
         <SelectContent>
+
           {uniqueOptions.map(
             (option) => (
               <SelectItem
@@ -2957,8 +3071,11 @@ function Picker({
               </SelectItem>
             )
           )}
+
         </SelectContent>
+
       </Select>
+
     </div>
   );
 }
@@ -2971,14 +3088,17 @@ function Picker({
 function formatJoiningDate(
   value: unknown
 ): string {
+
   if (!value) {
     return "—";
   }
+
 
   const date =
     new Date(
       String(value)
     );
+
 
   if (
     Number.isNaN(
@@ -2989,6 +3109,7 @@ function formatJoiningDate(
       value
     );
   }
+
 
   return date.toLocaleDateString(
     "en-GB"
