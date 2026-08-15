@@ -141,10 +141,6 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/* ============================================================
-   INTERNAL PERCENTAGE CALCULATIONS
-   ============================================================ */
-
 function productionPercent(
   performance: SheetPerformance | null | undefined
 ): number {
@@ -236,10 +232,6 @@ function getPerformanceForMonth(
   );
 }
 
-/* ============================================================
-   TEAM RELATIONSHIP
-   ============================================================ */
-
 function getDescendants(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -303,11 +295,13 @@ export function EmployeeDetailModal({
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(employeeId);
   const [history, setHistory] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
+  const [yearFilter, setYearFilter] = useState("all");
 
   useEffect(() => {
     setActiveEmployeeId(employeeId);
     setHistory([]);
     setEditing(false);
+    setYearFilter("all");
   }, [employeeId]);
 
   const detailQ = useQuery({
@@ -435,7 +429,24 @@ export function EmployeeDetailModal({
   }, [teamEmployees, directReports, performanceRows, teamMonth]);
 
   const currentPerformance = detailQ.data?.currentMonth ?? null;
-  const previousPerformance = detailQ.data?.previousMonths?.[0] ?? null;
+  const previousMonths = detailQ.data?.previousMonths ?? [];
+
+  // Extract available years for the year filter dropdown
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    previousMonths.forEach((p) => {
+      if (p.month) {
+        const y = String(p.month).slice(0, 4);
+        if (y && !isNaN(Number(y))) years.add(y);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [previousMonths]);
+
+  const filteredPreviousMonths = useMemo(() => {
+    if (yearFilter === "all") return previousMonths;
+    return previousMonths.filter((p) => String(p.month ?? "").startsWith(yearFilter));
+  }, [previousMonths, yearFilter]);
 
   const directTeamPerformance = useMemo(() => {
     return directReports.map((employee) => {
@@ -508,6 +519,8 @@ export function EmployeeDetailModal({
     }
   };
 
+  const canEdit = !!user && (user.role === "super_admin" || user.role === "admin");
+
   return (
     <Dialog open={!!employeeId} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
@@ -520,22 +533,29 @@ export function EmployeeDetailModal({
                 </Button>
               )}
               <div>
-                <DialogTitle className="text-xl font-semibold uppercase">
+                <DialogTitle className="text-xl font-semibold">
                   {profile?.name ?? "Employee detail"}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   {headTL
-                    ? "Head Team Leader · Team performance"
+                    ? "Profile and team performance."
                     : teamLeader
-                      ? "Team Leader · Employee and team performance"
-                      : "Employee information and performance history"}
+                      ? "Profile and employee performance history."
+                      : "Profile and performance history."}
                 </DialogDescription>
               </div>
             </div>
 
-            <Badge variant="secondary" className="shrink-0">
-              {profile?.designation ?? "Employee"}
-            </Badge>
+            {canEdit && !headTL && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-medium"
+                onClick={() => setEditing((v) => !v)}
+              >
+                Edit details
+              </Button>
+            )}
           </div>
         </DialogHeader>
 
@@ -557,7 +577,28 @@ export function EmployeeDetailModal({
         )}
 
         {detailQ.data && profile && (
-          <div className="space-y-7 px-6 py-6">
+          <div className="space-y-6 px-6 py-6">
+            {/* Top Filter Bar */}
+            {!headTL && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">Performance History</h4>
+                  <p className="text-[11px] text-muted-foreground">Filter previous months by year.</p>
+                </div>
+                <Select value={yearFilter} onValueChange={setYearFilter}>
+                  <SelectTrigger className="w-[125px] h-8 text-xs bg-background">
+                    <SelectValue placeholder="All Years" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All Years</SelectItem>
+                    {availableYears.map((yr) => (
+                      <SelectItem key={yr} value={yr} className="text-xs">{yr}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {headTL ? (
               <HeadTeamLeaderView
                 profile={profile}
@@ -570,11 +611,7 @@ export function EmployeeDetailModal({
               />
             ) : (
               <>
-                <EmployeeDetailsSection
-                  profile={profile}
-                  onEdit={() => setEditing((value) => !value)}
-                  canEdit={!!user && (user.role === "super_admin" || user.role === "admin")}
-                />
+                <ProfileSection profile={profile} />
 
                 {editing && (
                   <EditForm
@@ -597,7 +634,8 @@ export function EmployeeDetailModal({
                 )}
 
                 <EmployeeCurrentMonth performance={currentPerformance} />
-                <EmployeePreviousMonth performance={previousPerformance} />
+
+                <EmployeePreviousMonthsTable performanceList={filteredPreviousMonths} />
               </>
             )}
           </div>
@@ -608,70 +646,84 @@ export function EmployeeDetailModal({
 }
 
 /* ============================================================
-   EMPLOYEE DETAILS
+   PROFILE SECTION
    ============================================================ */
 
-function EmployeeDetailsSection({
-  profile,
-  onEdit,
-  canEdit,
-}: {
-  profile: SheetEmployee;
-  onEdit: () => void;
-  canEdit: boolean;
-}) {
+function ProfileSection({ profile }: { profile: SheetEmployee }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <CardTitle>Employee Details</CardTitle>
-            <CardDescription>Basic information from the employee master.</CardDescription>
-          </div>
-
-          {canEdit && (
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Pencil className="mr-2 size-4" />
-              Edit details
-            </Button>
-          )}
-        </div>
+    <Card className="border border-border/70 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold text-foreground">Profile</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Details from the employee master.
+        </CardDescription>
       </CardHeader>
 
-      <CardContent>
-        <div className="grid overflow-hidden rounded-xl border sm:grid-cols-2 lg:grid-cols-4">
-          <InfoCell label="Employee ID" value={profile.employeeId} />
-          <InfoCell label="Name" value={profile.name} />
-          <InfoCell label="Email" value={profile.email} />
-          <InfoCell label="Joining Date" value={formatJoiningDate(profile.joiningDate)} />
-        </div>
-
-        <div className="mt-5">
-          <div className="mb-3">
-            <p className="text-sm font-semibold">Team & Reporting</p>
-            <p className="text-xs text-muted-foreground">Where this employee sits in the organization.</p>
+      <CardContent className="pt-2">
+        <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3">
+          {/* Row 1 */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              EMPLOYEE ID
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.employeeId || "—"}</p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoCell label="Team Lead" value={profile.teamLead} />
-            <InfoCell label="Department" value={profile.department} />
-            <InfoCell label="Designation" value={profile.designation} />
-            <InfoCell label="Location" value={profile.location} />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              NAME
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.name || "—"}</p>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              EMAIL
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.email || "—"}</p>
+          </div>
+
+          {/* Row 2 */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              DEPARTMENT
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.department || "—"}</p>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              DESIGNATION
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.designation || "—"}</p>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              TEAM LEAD
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.teamLead || "—"}</p>
+          </div>
+
+          {/* Row 3 */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              LOCATION
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{profile.location || "—"}</p>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              JOINING DATE
+            </p>
+            <p className="text-xs font-bold text-foreground mt-0.5">
+              {formatJoiningDate(profile.joiningDate)}
+            </p>
           </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function InfoCell({ label, value }: { label: string; value?: unknown }) {
-  return (
-    <div className="border-b border-r p-4 last:border-r-0">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-semibold">{String(value ?? "").trim() || "—"}</div>
-    </div>
   );
 }
 
@@ -702,17 +754,19 @@ function HeadTeamLeaderView({
 }) {
   return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
+      <Card className="border border-border/70 shadow-sm">
+        <CardContent className="p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Head Team Leader
               </p>
-              <h2 className="mt-1 text-xl font-bold">{profile.name}</h2>
+              <h2 className="mt-1 text-xl font-bold text-foreground">{profile.name}</h2>
             </div>
 
-            <Badge variant="secondary">{directReports.length} Team Leaders</Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+              {directReports.length} Team Leaders
+            </Badge>
           </div>
         </CardContent>
       </Card>
@@ -773,19 +827,23 @@ function TeamSection({
   onSelectMember?: (id: string) => void;
 }) {
   return (
-    <Card>
+    <Card className="border border-border/70 shadow-sm">
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle>{headView ? "Team Overall Performance" : "Team"}</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-base font-bold text-foreground">
+              {headView ? "Team Overall Performance" : "Team"}
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
               {headView
                 ? `TLs reporting to ${profile.name} and their team performance.`
                 : `Employees reporting to ${profile.name}.`}
             </CardDescription>
           </div>
 
-          <Badge variant="outline">{monthToLabel(teamMonth)}</Badge>
+          <Badge variant="outline" className="text-xs">
+            {monthToLabel(teamMonth)}
+          </Badge>
         </div>
       </CardHeader>
 
@@ -926,14 +984,14 @@ function TeamSection({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Designation</TableHead>
-                    <TableHead>Production</TableHead>
-                    <TableHead>Tickets</TableHead>
-                    <TableHead>Quality</TableHead>
-                    <TableHead>Attendance</TableHead>
-                    <TableHead>Behavior</TableHead>
-                    <TableHead>Overall</TableHead>
+                    <TableHead className="text-xs font-semibold">Name</TableHead>
+                    <TableHead className="text-xs font-semibold">Designation</TableHead>
+                    <TableHead className="text-xs font-semibold">Production</TableHead>
+                    <TableHead className="text-xs font-semibold">Tickets</TableHead>
+                    <TableHead className="text-xs font-semibold">Quality</TableHead>
+                    <TableHead className="text-xs font-semibold">Attendance</TableHead>
+                    <TableHead className="text-xs font-semibold">Behavior</TableHead>
+                    <TableHead className="text-xs font-semibold">Overall</TableHead>
                     {headView && <TableHead className="w-10"></TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -952,40 +1010,40 @@ function TeamSection({
                           }
                         }}
                       >
-                        <TableCell className="font-medium">{employee.name}</TableCell>
-                        <TableCell>{employee.designation || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium text-xs">{employee.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{employee.designation || "—"}</TableCell>
+                        <TableCell className="text-xs">
                           {performance
                             ? `${safeNumber(performance.productionActual)} / ${safeNumber(
                                 performance.productionTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs">
                           {performance
                             ? `${safeNumber(performance.ticketActual)} / ${safeNumber(
                                 performance.ticketTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs">
                           {performance
                             ? `${safeNumber(performance.errorActual)} / ${safeNumber(
                                 performance.errorTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs">
                           {performance
                             ? `${safeNumber(performance.attendance).toFixed(1)}/10`
                             : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs">
                           {performance
                             ? `${safeNumber(performance.behavior).toFixed(1)}/5`
                             : "—"}
                         </TableCell>
-                        <TableCell>{performance ? `${Math.round(overall)}%` : "—"}</TableCell>
+                        <TableCell className="text-xs font-bold">{performance ? `${Math.round(overall)}%` : "—"}</TableCell>
                         {headView && (
                           <TableCell>
                             <ChevronRight className="size-4 text-muted-foreground" />
@@ -1118,8 +1176,8 @@ function EmployeeCurrentMonth({
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <CardTitle className="text-base font-bold text-foreground">
-              Current Month — {performance?.month ? monthToLabel(performance.month) : "August 2026"}
+            <CardTitle className="text-sm font-bold text-foreground">
+              Current Month — {performance?.month ? monthToLabel(performance.month) : "——"}
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               Live snapshot of KPIs.
@@ -1135,10 +1193,7 @@ function EmployeeCurrentMonth({
       <CardContent>
         {!performance ? (
           <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm font-medium">No performance data for the current month.</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Monthly performance has not been uploaded yet.
-            </p>
+            <p className="text-sm font-medium">No performance data uploaded for this month yet.</p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
@@ -1146,9 +1201,9 @@ function EmployeeCurrentMonth({
             <div className="space-y-5">
               {/* Production */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-foreground">Production</span>
-                  <span className="text-xs font-semibold">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground font-bold">Production</span>
+                  <span>
                     <span className="text-emerald-600 font-bold">{prodActual}</span>
                     <span className="text-muted-foreground font-normal"> / {prodTarget}</span>
                   </span>
@@ -1163,9 +1218,9 @@ function EmployeeCurrentMonth({
 
               {/* Tickets */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-foreground">Tickets</span>
-                  <span className="text-xs font-semibold">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground font-bold">Tickets</span>
+                  <span>
                     <span className="text-emerald-600 font-bold">{ticketActual}</span>
                     <span className="text-muted-foreground font-normal"> / {ticketTarget}</span>
                   </span>
@@ -1180,9 +1235,9 @@ function EmployeeCurrentMonth({
 
               {/* Internal Errors / Rejections */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-foreground">Internal Errors / Rejections</span>
-                  <span className="text-xs font-semibold">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground font-bold">Internal Errors / Rejections</span>
+                  <span>
                     <span className="text-amber-600 font-bold">{errorActual}</span>
                     <span className="text-muted-foreground font-normal"> / {errorTarget}</span>
                   </span>
@@ -1230,106 +1285,84 @@ function EmployeeCurrentMonth({
 }
 
 /* ============================================================
-   PREVIOUS MONTH
+   PREVIOUS MONTHS PERFORMANCE TABLE
    ============================================================ */
 
-function EmployeePreviousMonth({
-  performance,
+function EmployeePreviousMonthsTable({
+  performanceList,
 }: {
-  performance: SheetPerformance | null;
+  performanceList: SheetPerformance[];
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <CardTitle>Previous Month</CardTitle>
-            <CardDescription>Latest completed monthly performance.</CardDescription>
-          </div>
-
-          {performance && (
-            <Badge variant="outline">{monthToLabel(performance.month)}</Badge>
-          )}
-        </div>
+    <Card className="border border-border/70 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold text-foreground">Previous Months</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Performance history.
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
-        {!performance ? (
-          <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No previous month performance available.
-            </p>
+        {performanceList.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-8 text-center">
+            <p className="text-xs text-muted-foreground">No history yet.</p>
           </div>
         ) : (
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <MiniMetric
-                label="Production"
-                value={`${safeNumber(performance.productionActual)} / ${safeNumber(
-                  performance.productionTarget
-                )}`}
-              />
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/60 hover:bg-transparent">
+                  <TableHead className="text-xs font-medium text-muted-foreground pl-0">Month</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Production</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Tickets</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Errors</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Attendance</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Behavior</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {performanceList.map((row, idx) => {
+                  const prodAct = safeNumber(row.productionActual);
+                  const prodTar = safeNumber(row.productionTarget);
 
-              <MiniMetric
-                label="Tickets"
-                value={`${safeNumber(performance.ticketActual)} / ${safeNumber(
-                  performance.ticketTarget
-                )}`}
-              />
+                  const tickAct = safeNumber(row.ticketActual);
+                  const tickTar = safeNumber(row.ticketTarget);
 
-              <MiniMetric
-                label="Quality"
-                value={`${safeNumber(performance.errorActual)} / ${safeNumber(
-                  performance.errorTarget
-                )}`}
-              />
+                  const errAct = safeNumber(row.errorActual);
+                  const errTar = safeNumber(row.errorTarget);
 
-              <MiniMetric
-                label="Attendance"
-                value={`${safeNumber(performance.attendance).toFixed(1)} / 10`}
-              />
+                  const att = safeNumber(row.attendance);
+                  const beh = safeNumber(row.behavior);
 
-              <MiniMetric
-                label="Behavior"
-                value={`${safeNumber(performance.behavior).toFixed(1)} / 5`}
-              />
-            </div>
-
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Overall</span>
-                <span className="text-lg font-bold">
-                  {Math.round(overallPercent(performance))}%
-                </span>
-              </div>
-
-              <Progress
-                className="mt-3"
-                value={Math.min(
-                  100,
-                  Math.max(0, overallPercent(performance))
-                )}
-              />
-            </div>
+                  return (
+                    <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30">
+                      <TableCell className="text-xs font-medium text-foreground pl-0 py-3">
+                        {row.month ? monthToLabel(row.month) : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground py-3">
+                        {prodTar > 0 || prodAct > 0 ? `${prodAct} / ${prodTar}` : "/"}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground py-3">
+                        {tickTar > 0 || tickAct > 0 ? `${tickAct} / ${tickTar}` : "/"}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground py-3">
+                        {errTar > 0 || errAct > 0 ? `${errAct} / ${errTar}` : "/"}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground py-3">
+                        {att > 0 ? att.toFixed(1) : "0.0"}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground py-3">
+                        {beh > 0 ? beh.toFixed(1) : "0.0"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function MiniMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-bold">{value}</p>
-    </div>
   );
 }
 
@@ -1422,8 +1455,10 @@ function EditForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Edit Employee</CardTitle>
-        <CardDescription>Update employee master information.</CardDescription>
+        <CardTitle className="text-sm font-bold">Edit Employee</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Update employee master information.
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -1431,7 +1466,7 @@ function EditForm({
           {user?.role === "super_admin" && (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="edit-employee-id">
+                <label className="text-xs font-medium" htmlFor="edit-employee-id">
                   Employee ID
                 </label>
                 <Input
@@ -1443,7 +1478,7 @@ function EditForm({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="edit-email">
+                <label className="text-xs font-medium" htmlFor="edit-email">
                   Email
                 </label>
                 <Input
@@ -1486,7 +1521,7 @@ function EditForm({
           />
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="edit-joining">
+            <label className="text-xs font-medium" htmlFor="edit-joining">
               Joining Date
             </label>
             <Input
@@ -1498,10 +1533,10 @@ function EditForm({
           </div>
 
           <div className="flex items-end justify-end gap-2 sm:col-span-2">
-            <Button type="button" variant="outline" onClick={onDone}>
+            <Button type="button" variant="outline" size="sm" onClick={onDone}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" size="sm" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>
@@ -1532,16 +1567,16 @@ function Picker({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">{label}</label>
+      <label className="text-xs font-medium">{label}</label>
 
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger className="h-9 text-xs">
           <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
         </SelectTrigger>
 
         <SelectContent>
           {uniqueOptions.map((option) => (
-            <SelectItem key={option} value={option}>
+            <SelectItem key={option} value={option} className="text-xs">
               {option}
             </SelectItem>
           ))}
@@ -1559,5 +1594,5 @@ function formatJoiningDate(value: unknown): string {
   if (!value) return "—";
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString("en-GB");
+  return date.toISOString().slice(0, 10);
 }
