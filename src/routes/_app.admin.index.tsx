@@ -28,8 +28,6 @@ function AdminDashboard() {
   const month = currentMonth();
   const [selected, setSelected] = useState<string | null>(null);
 
-  const isAdmin = !!user && ["admin", "super_admin"].includes(user.role);
-
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
@@ -48,13 +46,13 @@ function AdminDashboard() {
     enabled: !!user && ["admin", "super_admin"].includes(user.role),
   });
 
- if (!user || !["admin", "super_admin"].includes(user.role))
-  return <Navigate to="/" />;
+  if (!user || !["admin", "super_admin"].includes(user.role)) {
+    return <Navigate to="/" />;
+  }
 
-  
   if (meQ.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-2">
+      <div className="mx-auto max-w-3xl space-y-2 p-6">
         <Skeleton className="h-40 w-full" />
       </div>
     );
@@ -62,13 +60,14 @@ function AdminDashboard() {
 
   const me = meQ.data?.profile;
 
-// Team lead is required only for junior roles, not mandatory for top-level leads/managers
-const needsOnboarding =
-  !me ||
-  !me.department?.trim() ||
-  !me.designation?.trim() ||
-  !me.location?.trim() ||
-  !String(me.joiningDate ?? "").trim();
+  // Onboarding only requires Department, Designation, Location, and Joining Date.
+  // Team Lead is NOT mandatory for Team Leads / Admins.
+  const needsOnboarding =
+    !me ||
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim();
 
   if (needsOnboarding) {
     return (
@@ -91,10 +90,11 @@ const needsOnboarding =
 
   const employees = empQ.data ?? [];
   const team = me
-    ? employees.filter((e) => e.teamLead === me.name)
+    ? employees.filter((e) => e.teamLead?.trim().toLowerCase() === me.name?.trim().toLowerCase())
     : employees;
+
   const teamPerf = (perfQ.data ?? []).filter((p) =>
-    team.some((t) => t.employeeId === p.employeeId)
+    team.some((t) => String(t.employeeId).trim() === String(p.employeeId).trim())
   );
 
   const uploadStatus =
@@ -131,7 +131,7 @@ const needsOnboarding =
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => exportPerformance(teamPerf)} disabled={!teamPerf.length}>
-              <Download />
+              <Download className="mr-2 h-4 w-4" />
               Export Data
             </Button>
             <Button asChild size="sm">
@@ -163,7 +163,7 @@ const needsOnboarding =
                   <TableRow
                     key={p.employeeId}
                     onClick={() => setSelected(p.employeeId)}
-                    className="cursor-pointer"
+                    className="cursor-pointer hover:bg-muted/50"
                   >
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
@@ -175,7 +175,7 @@ const needsOnboarding =
                 ))}
                 {teamPerf.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
                       No data yet for this month.
                     </TableCell>
                   </TableRow>
