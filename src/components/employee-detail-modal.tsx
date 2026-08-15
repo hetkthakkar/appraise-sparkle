@@ -97,7 +97,7 @@ interface EmployeeProfile {
 }
 
 /* ============================================================
-   HELPERS
+   ROLE & DESIGNATION HELPERS
    ============================================================ */
 
 function normalizeText(value: unknown): string {
@@ -105,6 +105,11 @@ function normalizeText(value: unknown): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+function isManager(designation: unknown): boolean {
+  const value = normalizeText(designation);
+  return value.includes("manager");
 }
 
 function isHeadTeamLeader(designation: unknown): boolean {
@@ -119,7 +124,7 @@ function isHeadTeamLeader(designation: unknown): boolean {
 
 function isTeamLeader(designation: unknown): boolean {
   const value = normalizeText(designation);
-  if (isHeadTeamLeader(value)) {
+  if (isHeadTeamLeader(value) || isManager(value)) {
     return false;
   }
 
@@ -127,19 +132,45 @@ function isTeamLeader(designation: unknown): boolean {
     value.includes("team leader") ||
     value.includes("team lead") ||
     value.includes("assistant team lead") ||
+    value.includes("supervisior") ||
+    value.includes("supervisor") ||
     value === "tl" ||
     value.startsWith("tl ")
   );
 }
 
+/**
+ * Robust Name Matching:
+ * Handles full names vs short names (e.g., "CHIRAG RAJENDRABHAI VASAVA" matches "Chirag Vasava")
+ */
 function samePerson(a: unknown, b: unknown): boolean {
-  return normalizeText(a) === normalizeText(b);
+  const strA = normalizeText(a);
+  const strB = normalizeText(b);
+
+  if (!strA || !strB) return false;
+  if (strA === strB) return true;
+  if (strA.includes(strB) || strB.includes(strA)) return true;
+
+  const wordsA = strA.split(" ").filter((w) => w.length > 1);
+  const wordsB = strB.split(" ").filter((w) => w.length > 1);
+
+  if (wordsA.length >= 2 && wordsB.length >= 2) {
+    if (wordsA[0] === wordsB[0] && wordsA[wordsA.length - 1] === wordsB[wordsB.length - 1]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function safeNumber(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
+
+/* ============================================================
+   PERCENTAGE CALCULATIONS
+   ============================================================ */
 
 function productionPercent(
   performance: SheetPerformance | null | undefined
@@ -233,7 +264,7 @@ function getPerformanceForMonth(
 }
 
 /* ============================================================
-   TEAM RELATIONSHIP
+   HIERARCHY ENGINE
    ============================================================ */
 
 function getDescendants(
@@ -266,22 +297,30 @@ function getDirectReports(
   manager: SheetEmployee,
   employees: SheetEmployee[]
 ): SheetEmployee[] {
+  const isMgr = isManager(manager.designation);
   const isHead = isHeadTeamLeader(manager.designation);
   const isTL = isTeamLeader(manager.designation);
 
   return employees.filter((employee) => {
     const isDirect =
       samePerson(employee.teamLead, manager.name) &&
-      !samePerson(employee.employeeId, manager.employeeId);
+      String(employee.employeeId).trim() !== String(manager.employeeId).trim();
 
     if (!isDirect) return false;
 
+    if (isMgr) {
+      // Manager -> Direct Head TLs and TLs
+      return isHeadTeamLeader(employee.designation) || isTeamLeader(employee.designation);
+    }
     if (isHead) {
+      // Head TL -> Direct Team Leaders only
       return isTeamLeader(employee.designation);
     }
     if (isTL) {
-      return !isTeamLeader(employee.designation) && !isHeadTeamLeader(employee.designation);
+      // TL -> Direct regular staff/executives only
+      return !isTeamLeader(employee.designation) && !isHeadTeamLeader(employee.designation) && !isManager(employee.designation);
     }
+
     return false;
   });
 }
@@ -328,8 +367,11 @@ export function EmployeeDetailModal({
 
   const profile = detailQ.data?.profile;
   const designation = profile?.designation ?? "";
+  const managerRole = isManager(designation);
   const headTL = isHeadTeamLeader(designation);
   const teamLeader = isTeamLeader(designation);
+  const hasSubordinates = managerRole || headTL || teamLeader;
+
   const allEmployees = employeesQ.data ?? [];
 
   const directReports = useMemo(() => {
@@ -339,10 +381,10 @@ export function EmployeeDetailModal({
 
   const teamEmployees = useMemo(() => {
     if (!profile) return [];
-    if (headTL) return getDescendants(profile, allEmployees);
+    if (managerRole || headTL) return getDescendants(profile, allEmployees);
     if (teamLeader) return directReports;
     return [];
-  }, [profile, allEmployees, directReports, headTL, teamLeader]);
+  }, [profile, allEmployees, directReports, managerRole, headTL, teamLeader]);
 
   const performanceRows = performanceQ.data ?? [];
 
@@ -365,34 +407,14 @@ export function EmployeeDetailModal({
 
     if (!rows.length) return null;
 
-    const productionTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.productionTarget),
-      0
-    );
-    const productionActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.productionActual),
-      0
-    );
-    const ticketTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.ticketTarget),
-      0
-    );
-    const ticketActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.ticketActual),
-      0
-    );
-    const errorTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.errorTarget),
-      0
-    );
-    const errorActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.errorActual),
-      0
-    );
-    const attendance =
-      rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / rows.length;
-    const behavior =
-      rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rows.length;
+    const productionTarget = rows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+    const productionActual = rows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+    const ticketTarget = rows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+    const ticketActual = rows.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+    const errorTarget = rows.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+    const errorActual = rows.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+    const attendance = rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / rows.length;
+    const behavior = rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rows.length;
 
     const production =
       productionTarget > 0
@@ -406,12 +428,8 @@ export function EmployeeDetailModal({
 
     const quality =
       errorTarget <= 0
-        ? errorActual <= 0
-          ? 100
-          : 0
-        : errorActual <= 0
-          ? 100
-          : Math.min(150, (errorTarget / errorActual) * 100);
+        ? errorActual <= 0 ? 100 : 0
+        : errorActual <= 0 ? 100 : Math.min(150, (errorTarget / errorActual) * 100);
 
     const attendancePct = Math.min(100, (attendance / 10) * 100);
     const behaviorPct = Math.min(100, (behavior / 5) * 100);
@@ -453,9 +471,9 @@ export function EmployeeDetailModal({
 
   const directTeamPerformance = useMemo(() => {
     return directReports.map((employee) => {
-      const isSubTL = isTeamLeader(employee.designation);
+      const isSubLead = isHeadTeamLeader(employee.designation) || isTeamLeader(employee.designation);
 
-      if (isSubTL) {
+      if (isSubLead) {
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
         const subRows = performanceRows.filter(
@@ -540,16 +558,12 @@ export function EmployeeDetailModal({
                   {profile?.name ?? "Employee detail"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  {headTL
-                    ? "Profile and team performance."
-                    : teamLeader
-                      ? "Profile and employee performance history."
-                      : "Profile and performance history."}
+                  Profile and employee performance history.
                 </DialogDescription>
               </div>
             </div>
 
-            {canEdit && !headTL && (
+            {canEdit && (
               <Button
                 variant="outline"
                 size="sm"
@@ -581,50 +595,42 @@ export function EmployeeDetailModal({
 
         {detailQ.data && profile && (
           <div className="space-y-6 px-6 py-6">
-            {headTL ? (
-              <HeadTeamLeaderView
+            {/* 1. Profile Section for ALL Employees & Leads */}
+            <ProfileSection profile={profile} />
+
+            {/* 2. Edit Dialog Card */}
+            {editing && (
+              <EditForm
+                employeeId={activeEmployeeId!}
+                initial={profile}
+                onDone={() => setEditing(false)}
+              />
+            )}
+
+            {/* 3. Team Performance Section (Managers, Head TLs, and TLs) */}
+            {hasSubordinates && (
+              <TeamSection
                 profile={profile}
                 directReports={directReports}
                 teamSummary={teamSummary}
                 directTeamPerformance={directTeamPerformance}
                 teamMonth={teamMonth}
                 performanceLoading={performanceQ.isLoading}
-                onSelectTL={handleSelectDrilldown}
+                headView={managerRole || headTL}
+                onSelectMember={handleSelectDrilldown}
               />
-            ) : (
-              <>
-                <ProfileSection profile={profile} />
-
-                {editing && (
-                  <EditForm
-                    employeeId={activeEmployeeId!}
-                    initial={profile}
-                    onDone={() => setEditing(false)}
-                  />
-                )}
-
-                {teamLeader && (
-                  <TeamSection
-                    profile={profile}
-                    directReports={directReports}
-                    teamSummary={teamSummary}
-                    directTeamPerformance={directTeamPerformance}
-                    teamMonth={teamMonth}
-                    performanceLoading={performanceQ.isLoading}
-                    onSelectMember={handleSelectDrilldown}
-                  />
-                )}
-
-                <EmployeeCurrentMonth performance={currentPerformance} />
-
-                <EmployeePreviousMonthsTable
-                  performanceList={filteredPreviousMonths}
-                  yearFilter={yearFilter}
-                  onYearFilterChange={setYearFilter}
-                  availableYears={availableYears}
-                />
-              </>
             )}
+
+            {/* 4. Current Month Snapshot */}
+            <EmployeeCurrentMonth performance={currentPerformance} />
+
+            {/* 5. Previous Months Performance Table */}
+            <EmployeePreviousMonthsTable
+              performanceList={filteredPreviousMonths}
+              yearFilter={yearFilter}
+              onYearFilterChange={setYearFilter}
+              availableYears={availableYears}
+            />
           </div>
         )}
       </DialogContent>
@@ -648,7 +654,6 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
 
       <CardContent className="pt-2">
         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3">
-          {/* Row 1 */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               EMPLOYEE ID
@@ -670,7 +675,6 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-xs font-bold text-foreground mt-0.5">{profile.email || "—"}</p>
           </div>
 
-          {/* Row 2 */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               DEPARTMENT
@@ -692,7 +696,6 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-xs font-bold text-foreground mt-0.5">{profile.teamLead || "—"}</p>
           </div>
 
-          {/* Row 3 */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               LOCATION
@@ -711,64 +714,6 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-/* ============================================================
-   HEAD TEAM LEADER VIEW
-   ============================================================ */
-
-function HeadTeamLeaderView({
-  profile,
-  directReports,
-  teamSummary,
-  directTeamPerformance,
-  teamMonth,
-  performanceLoading,
-  onSelectTL,
-}: {
-  profile: SheetEmployee;
-  directReports: SheetEmployee[];
-  teamSummary: TeamSummary | null;
-  directTeamPerformance: {
-    employee: SheetEmployee;
-    performance: SheetPerformance | null;
-    calculatedOverall?: number;
-  }[];
-  teamMonth: string;
-  performanceLoading: boolean;
-  onSelectTL?: (id: string) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <Card className="border border-border/70 shadow-sm">
-        <CardContent className="p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Head Team Leader
-              </p>
-              <h2 className="mt-1 text-xl font-bold text-foreground">{profile.name}</h2>
-            </div>
-
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium text-foreground">
-              {directReports.length} Team Leaders
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      <TeamSection
-        profile={profile}
-        directReports={directReports}
-        teamSummary={teamSummary}
-        directTeamPerformance={directTeamPerformance}
-        teamMonth={teamMonth}
-        performanceLoading={performanceLoading}
-        headView
-        onSelectMember={onSelectTL}
-      />
-    </div>
   );
 }
 
@@ -843,7 +788,7 @@ function TeamSection({
           </div>
         ) : teamSummary ? (
           <>
-            {/* Top Metric Boxes with Small Capitalized Tracking Headers */}
+            {/* Top Metrics Cards */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <TeamMetricCard
                 icon={<Users className="size-3.5" />}
@@ -895,7 +840,7 @@ function TeamSection({
               />
             </div>
 
-            {/* Overall Team Performance Card */}
+            {/* Overall Team Performance */}
             <div className="rounded-xl border border-border/70 bg-card p-5">
               <div className="mb-4">
                 <p className="text-xs font-bold text-foreground">
@@ -958,7 +903,7 @@ function TeamSection({
           </div>
         )}
 
-        {/* Subordinates Table (TLs under Head TL, or Members under TL) */}
+        {/* Subordinates Table */}
         <div>
           <div className="mb-3">
             <p className="text-xs font-bold text-foreground">
@@ -1287,7 +1232,7 @@ function EmployeeCurrentMonth({
 }
 
 /* ============================================================
-   PREVIOUS MONTHS PERFORMANCE TABLE (WITH EMBEDDED YEAR FILTER)
+   PREVIOUS MONTHS TABLE (WITH EMBEDDED YEAR FILTER)
    ============================================================ */
 
 function EmployeePreviousMonthsTable({
