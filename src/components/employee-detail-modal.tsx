@@ -232,6 +232,10 @@ function getPerformanceForMonth(
   );
 }
 
+/* ============================================================
+   TEAM RELATIONSHIP
+   ============================================================ */
+
 function getDescendants(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -431,7 +435,6 @@ export function EmployeeDetailModal({
   const currentPerformance = detailQ.data?.currentMonth ?? null;
   const previousMonths = detailQ.data?.previousMonths ?? [];
 
-  // Extract available years for the year filter dropdown
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     previousMonths.forEach((p) => {
@@ -533,7 +536,7 @@ export function EmployeeDetailModal({
                 </Button>
               )}
               <div>
-                <DialogTitle className="text-xl font-semibold">
+                <DialogTitle className="text-xl font-bold uppercase tracking-tight text-foreground">
                   {profile?.name ?? "Employee detail"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -578,27 +581,6 @@ export function EmployeeDetailModal({
 
         {detailQ.data && profile && (
           <div className="space-y-6 px-6 py-6">
-            {/* Top Filter Bar */}
-            {!headTL && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-foreground">Performance History</h4>
-                  <p className="text-[11px] text-muted-foreground">Filter previous months by year.</p>
-                </div>
-                <Select value={yearFilter} onValueChange={setYearFilter}>
-                  <SelectTrigger className="w-[125px] h-8 text-xs bg-background">
-                    <SelectValue placeholder="All Years" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">All Years</SelectItem>
-                    {availableYears.map((yr) => (
-                      <SelectItem key={yr} value={yr} className="text-xs">{yr}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {headTL ? (
               <HeadTeamLeaderView
                 profile={profile}
@@ -635,7 +617,12 @@ export function EmployeeDetailModal({
 
                 <EmployeeCurrentMonth performance={currentPerformance} />
 
-                <EmployeePreviousMonthsTable performanceList={filteredPreviousMonths} />
+                <EmployeePreviousMonthsTable
+                  performanceList={filteredPreviousMonths}
+                  yearFilter={yearFilter}
+                  onYearFilterChange={setYearFilter}
+                  availableYears={availableYears}
+                />
               </>
             )}
           </div>
@@ -764,7 +751,7 @@ function HeadTeamLeaderView({
               <h2 className="mt-1 text-xl font-bold text-foreground">{profile.name}</h2>
             </div>
 
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium text-foreground">
               {directReports.length} Team Leaders
             </Badge>
           </div>
@@ -828,10 +815,10 @@ function TeamSection({
 }) {
   return (
     <Card className="border border-border/70 shadow-sm">
-      <CardHeader>
+      <CardHeader className="pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle className="text-base font-bold text-foreground">
+            <CardTitle className="text-sm font-bold text-foreground">
               {headView ? "Team Overall Performance" : "Team"}
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
@@ -841,7 +828,7 @@ function TeamSection({
             </CardDescription>
           </div>
 
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="secondary" className="rounded-md px-2.5 py-0.5 text-xs font-medium text-muted-foreground bg-muted/60">
             {monthToLabel(teamMonth)}
           </Badge>
         </div>
@@ -856,41 +843,42 @@ function TeamSection({
           </div>
         ) : teamSummary ? (
           <>
+            {/* Top Metric Boxes with Small Capitalized Tracking Headers */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <TeamMetricCard
-                icon={<Users className="size-4" />}
-                label={headView ? "TLs" : "People"}
+                icon={<Users className="size-3.5" />}
+                label={headView ? "TEAM LEADERS" : "PEOPLE"}
                 value={teamSummary.people}
                 suffix=""
               />
 
               <TeamMetricCard
-                icon={<TrendingUp className="size-4" />}
-                label="Production"
+                icon={<TrendingUp className="size-3.5" />}
+                label="PRODUCTION"
                 value={teamSummary.productionActual}
                 secondaryValue={teamSummary.productionTarget}
                 suffix=""
               />
 
               <TeamMetricCard
-                icon={<Ticket className="size-4" />}
-                label="Tickets"
+                icon={<Ticket className="size-3.5" />}
+                label="TICKETS"
                 value={teamSummary.ticketActual}
                 secondaryValue={teamSummary.ticketTarget}
                 suffix=""
               />
 
               <TeamMetricCard
-                icon={<ShieldCheck className="size-4" />}
-                label="Quality"
+                icon={<ShieldCheck className="size-3.5" />}
+                label="QUALITY"
                 value={teamSummary.errorActual}
                 secondaryValue={teamSummary.errorTarget}
                 suffix=""
               />
 
               <TeamMetricCard
-                icon={<CalendarCheck className="size-4" />}
-                label="Attendance"
+                icon={<CalendarCheck className="size-3.5" />}
+                label="ATTENDANCE"
                 value={teamSummary.attendance}
                 secondaryValue={10}
                 suffix=""
@@ -898,8 +886,8 @@ function TeamSection({
               />
 
               <TeamMetricCard
-                icon={<Brain className="size-4" />}
-                label="Behavior"
+                icon={<Brain className="size-3.5" />}
+                label="BEHAVIOR"
                 value={teamSummary.behavior}
                 secondaryValue={5}
                 suffix=""
@@ -907,10 +895,15 @@ function TeamSection({
               />
             </div>
 
-            <div className="rounded-xl border bg-muted/20 p-5">
-              <div className="mb-5">
-                <p className="text-sm font-semibold">Overall Team Performance</p>
-                <p className="text-xs text-muted-foreground">{monthToLabel(teamMonth)}</p>
+            {/* Overall Team Performance Card */}
+            <div className="rounded-xl border border-border/70 bg-card p-5">
+              <div className="mb-4">
+                <p className="text-xs font-bold text-foreground">
+                  Overall Team Performance
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {monthToLabel(teamMonth)}
+                </p>
               </div>
 
               <div className="space-y-4">
@@ -943,10 +936,14 @@ function TeamSection({
                 />
               </div>
 
-              <div className="mt-6 border-t pt-5 text-center">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Overall</p>
-                <p className="mt-1 text-3xl font-bold">{Math.round(teamSummary.overall)}%</p>
-                <p className="text-xs font-medium text-muted-foreground">
+              <div className="mt-6 border-t border-border/60 pt-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  OVERALL
+                </p>
+                <p className="mt-0.5 text-2xl font-black text-foreground">
+                  {Math.round(teamSummary.overall)}%
+                </p>
+                <p className="text-xs font-medium text-muted-foreground mt-0.5">
                   {overallLabel(teamSummary.overall)}
                 </p>
               </div>
@@ -961,12 +958,13 @@ function TeamSection({
           </div>
         )}
 
+        {/* Subordinates Table (TLs under Head TL, or Members under TL) */}
         <div>
           <div className="mb-3">
-            <p className="text-sm font-semibold">
+            <p className="text-xs font-bold text-foreground">
               {headView ? "Team Leaders Under This Head TL" : "Team Members"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               {headView
                 ? "Only the Team Leaders directly reporting to this Head TL are shown here (click to view their team)."
                 : "Only employees directly reporting to this Team Leader are shown here."}
@@ -975,23 +973,23 @@ function TeamSection({
 
           {directTeamPerformance.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 No {headView ? "Team Leaders" : "direct team members"} found.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border">
+            <div className="overflow-x-auto rounded-lg border border-border/70">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs font-semibold">Name</TableHead>
-                    <TableHead className="text-xs font-semibold">Designation</TableHead>
-                    <TableHead className="text-xs font-semibold">Production</TableHead>
-                    <TableHead className="text-xs font-semibold">Tickets</TableHead>
-                    <TableHead className="text-xs font-semibold">Quality</TableHead>
-                    <TableHead className="text-xs font-semibold">Attendance</TableHead>
-                    <TableHead className="text-xs font-semibold">Behavior</TableHead>
-                    <TableHead className="text-xs font-semibold">Overall</TableHead>
+                  <TableRow className="border-b border-border/60 hover:bg-transparent">
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Designation</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Production</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Tickets</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Quality</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Attendance</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Behavior</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Overall</TableHead>
                     {headView && <TableHead className="w-10"></TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -1003,49 +1001,49 @@ function TeamSection({
                     return (
                       <TableRow
                         key={employee.employeeId}
-                        className={headView ? "cursor-pointer hover:bg-muted/50" : ""}
+                        className={headView ? "cursor-pointer hover:bg-muted/50 border-b border-border/40" : "border-b border-border/40 hover:bg-muted/30"}
                         onClick={() => {
                           if (headView && onSelectMember && employee.employeeId) {
                             onSelectMember(employee.employeeId);
                           }
                         }}
                       >
-                        <TableCell className="font-medium text-xs">{employee.name}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{employee.designation || "—"}</TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="font-semibold text-xs text-foreground py-3">{employee.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-3">{employee.designation || "—"}</TableCell>
+                        <TableCell className="text-xs text-foreground py-3">
                           {performance
                             ? `${safeNumber(performance.productionActual)} / ${safeNumber(
                                 performance.productionTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs text-foreground py-3">
                           {performance
                             ? `${safeNumber(performance.ticketActual)} / ${safeNumber(
                                 performance.ticketTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs text-foreground py-3">
                           {performance
                             ? `${safeNumber(performance.errorActual)} / ${safeNumber(
                                 performance.errorTarget
                               )}`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs text-foreground py-3">
                           {performance
                             ? `${safeNumber(performance.attendance).toFixed(1)}/10`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs text-foreground py-3">
                           {performance
                             ? `${safeNumber(performance.behavior).toFixed(1)}/5`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs font-bold">{performance ? `${Math.round(overall)}%` : "—"}</TableCell>
+                        <TableCell className="text-xs font-bold text-foreground py-3">{performance ? `${Math.round(overall)}%` : "—"}</TableCell>
                         {headView && (
-                          <TableCell>
+                          <TableCell className="py-3">
                             <ChevronRight className="size-4 text-muted-foreground" />
                           </TableCell>
                         )}
@@ -1087,19 +1085,19 @@ function TeamMetricCard({
   };
 
   return (
-    <div className="rounded-xl border bg-background p-4">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-xl border border-border/70 bg-card p-3.5 shadow-none">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </div>
 
-      <div className="mt-2 text-2xl font-bold">
+      <div className="mt-2 text-xl font-bold tracking-tight text-foreground">
         {formatValue(value)}
         {secondaryValue !== undefined && (
-          <>
+          <span className="text-sm font-normal text-muted-foreground">
             {" / "}
             {formatValue(secondaryValue)}
-          </>
+          </span>
         )}
         {suffix}
       </div>
@@ -1133,16 +1131,20 @@ function ActualTargetRow({
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="font-semibold">
+      <div className="mb-1.5 flex items-center justify-between text-xs">
+        <span className="font-semibold text-foreground">{label}</span>
+        <span className="font-medium text-foreground">
           {formatValue(actual)}
-          {" / "}
-          {formatValue(target)}
+          <span className="text-muted-foreground"> / {formatValue(target)}</span>
         </span>
       </div>
 
-      <Progress value={progressValue} />
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-slate-900 transition-all duration-300"
+          style={{ width: `${progressValue}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -1208,7 +1210,7 @@ function EmployeeCurrentMonth({
                     <span className="text-muted-foreground font-normal"> / {prodTarget}</span>
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-slate-900 transition-all duration-300"
                     style={{ width: `${prodPct}%` }}
@@ -1225,7 +1227,7 @@ function EmployeeCurrentMonth({
                     <span className="text-muted-foreground font-normal"> / {ticketTarget}</span>
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-slate-900 transition-all duration-300"
                     style={{ width: `${ticketPct}%` }}
@@ -1242,7 +1244,7 @@ function EmployeeCurrentMonth({
                     <span className="text-muted-foreground font-normal"> / {errorTarget}</span>
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-slate-900 transition-all duration-300"
                     style={{ width: `${errorPct}%` }}
@@ -1254,7 +1256,7 @@ function EmployeeCurrentMonth({
             {/* Right Column: Attendance, Behavior & Manager Remarks */}
             <div className="space-y-3.5">
               {/* Attendance Card */}
-              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-background">
+              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-card">
                 <p className="text-xs text-muted-foreground font-medium">Attendance</p>
                 <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
                   {attendance.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
@@ -1262,7 +1264,7 @@ function EmployeeCurrentMonth({
               </div>
 
               {/* Behavior Card */}
-              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-background">
+              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-card">
                 <p className="text-xs text-muted-foreground font-medium">Behavior</p>
                 <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
                   {behavior.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">/ 5</span>
@@ -1285,21 +1287,43 @@ function EmployeeCurrentMonth({
 }
 
 /* ============================================================
-   PREVIOUS MONTHS PERFORMANCE TABLE
+   PREVIOUS MONTHS PERFORMANCE TABLE (WITH EMBEDDED YEAR FILTER)
    ============================================================ */
 
 function EmployeePreviousMonthsTable({
   performanceList,
+  yearFilter,
+  onYearFilterChange,
+  availableYears,
 }: {
   performanceList: SheetPerformance[];
+  yearFilter: string;
+  onYearFilterChange: (val: string) => void;
+  availableYears: string[];
 }) {
   return (
     <Card className="border border-border/70 shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-bold text-foreground">Previous Months</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Performance history.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold text-foreground">Previous Months</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Performance history.
+            </CardDescription>
+          </div>
+
+          <Select value={yearFilter} onValueChange={onYearFilterChange}>
+            <SelectTrigger className="w-[110px] h-8 text-xs bg-background">
+              <SelectValue placeholder="All Years" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">All Years</SelectItem>
+              {availableYears.map((yr) => (
+                <SelectItem key={yr} value={yr} className="text-xs">{yr}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
 
       <CardContent>
@@ -1336,7 +1360,7 @@ function EmployeePreviousMonthsTable({
 
                   return (
                     <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30">
-                      <TableCell className="text-xs font-medium text-foreground pl-0 py-3">
+                      <TableCell className="text-xs font-semibold text-foreground pl-0 py-3">
                         {row.month ? monthToLabel(row.month) : "—"}
                       </TableCell>
                       <TableCell className="text-xs text-foreground py-3">
