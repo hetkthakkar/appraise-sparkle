@@ -281,11 +281,9 @@ function getDirectReports(
     if (!isDirect) return false;
 
     if (isHead) {
-      // Under Head TL: only Team Leaders & Assistant Team Leads
       return isTeamLeader(employee.designation);
     }
     if (isTL) {
-      // Under TL: only non-TL employees
       return !isTeamLeader(employee.designation) && !isHeadTeamLeader(employee.designation);
     }
     return false;
@@ -439,7 +437,6 @@ export function EmployeeDetailModal({
   const currentPerformance = detailQ.data?.currentMonth ?? null;
   const previousPerformance = detailQ.data?.previousMonths?.[0] ?? null;
 
-  // Calculates each subordinate row (aggregated team numbers if subordinate is a TL)
   const directTeamPerformance = useMemo(() => {
     return directReports.map((employee) => {
       const isSubTL = isTeamLeader(employee.designation);
@@ -1101,18 +1098,37 @@ function EmployeeCurrentMonth({
 }: {
   performance: SheetPerformance | null;
 }) {
+  const prodActual = safeNumber(performance?.productionActual);
+  const prodTarget = safeNumber(performance?.productionTarget);
+  const prodPct = prodTarget > 0 ? Math.min(100, Math.max(0, (prodActual / prodTarget) * 100)) : 0;
+
+  const ticketActual = safeNumber(performance?.ticketActual);
+  const ticketTarget = safeNumber(performance?.ticketTarget);
+  const ticketPct = ticketTarget > 0 ? Math.min(100, Math.max(0, (ticketActual / ticketTarget) * 100)) : 0;
+
+  const errorActual = safeNumber(performance?.errorActual);
+  const errorTarget = safeNumber(performance?.errorTarget);
+  const errorPct = errorTarget > 0 ? Math.min(100, Math.max(0, (errorActual / errorTarget) * 100)) : 0;
+
+  const attendance = safeNumber(performance?.attendance);
+  const behavior = safeNumber(performance?.behavior);
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border border-border/70 shadow-sm">
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <CardTitle>Current Month</CardTitle>
-            <CardDescription>Live performance snapshot.</CardDescription>
+            <CardTitle className="text-base font-bold text-foreground">
+              Current Month — {performance?.month ? monthToLabel(performance.month) : "August 2026"}
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Live snapshot of KPIs.
+            </CardDescription>
           </div>
 
-          {performance && (
-            <Badge variant="secondary">{monthToLabel(performance.month)}</Badge>
-          )}
+          <Badge variant="secondary" className="rounded-md px-2.5 py-0.5 text-xs font-medium text-muted-foreground bg-muted/60">
+            Updated
+          </Badge>
         </div>
       </CardHeader>
 
@@ -1125,97 +1141,91 @@ function EmployeeCurrentMonth({
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <PerformanceStat
-                label="Production"
-                value={`${safeNumber(performance.productionActual)} / ${safeNumber(
-                  performance.productionTarget
-                )}`}
-                helper="Actual / Target"
-                icon={<TrendingUp className="size-4" />}
-              />
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Left Column: Progress Bars */}
+            <div className="space-y-5">
+              {/* Production */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-foreground">Production</span>
+                  <span className="text-xs font-semibold">
+                    <span className="text-emerald-600 font-bold">{prodActual}</span>
+                    <span className="text-muted-foreground font-normal"> / {prodTarget}</span>
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all duration-300"
+                    style={{ width: `${prodPct}%` }}
+                  />
+                </div>
+              </div>
 
-              <PerformanceStat
-                label="Tickets"
-                value={`${safeNumber(performance.ticketActual)} / ${safeNumber(
-                  performance.ticketTarget
-                )}`}
-                helper="Actual / Target"
-                icon={<Ticket className="size-4" />}
-              />
+              {/* Tickets */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-foreground">Tickets</span>
+                  <span className="text-xs font-semibold">
+                    <span className="text-emerald-600 font-bold">{ticketActual}</span>
+                    <span className="text-muted-foreground font-normal"> / {ticketTarget}</span>
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all duration-300"
+                    style={{ width: `${ticketPct}%` }}
+                  />
+                </div>
+              </div>
 
-              <PerformanceStat
-                label="Errors / Rejection"
-                value={`${safeNumber(performance.errorActual)} / ${safeNumber(
-                  performance.errorTarget
-                )}`}
-                helper="Actual / Target"
-                icon={<ShieldCheck className="size-4" />}
-              />
-
-              <PerformanceStat
-                label="Attendance"
-                value={`${safeNumber(performance.attendance).toFixed(1)} / 10`}
-                helper="Actual / Maximum"
-                icon={<CalendarCheck className="size-4" />}
-              />
+              {/* Internal Errors / Rejections */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-foreground">Internal Errors / Rejections</span>
+                  <span className="text-xs font-semibold">
+                    <span className="text-amber-600 font-bold">{errorActual}</span>
+                    <span className="text-muted-foreground font-normal"> / {errorTarget}</span>
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all duration-300"
+                    style={{ width: `${errorPct}%` }}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <PerformanceStat
-                label="Behavior"
-                value={`${safeNumber(performance.behavior).toFixed(1)} / 5`}
-                helper="Actual / Maximum"
-                icon={<Brain className="size-4" />}
-              />
+            {/* Right Column: Attendance, Behavior & Manager Remarks */}
+            <div className="space-y-3.5">
+              {/* Attendance Card */}
+              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-background">
+                <p className="text-xs text-muted-foreground font-medium">Attendance</p>
+                <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                  {attendance.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
+                </p>
+              </div>
 
-              <PerformanceStat
-                label="Overall"
-                value={`${Math.round(overallPercent(performance))}%`}
-                helper={overallLabel(overallPercent(performance))}
-                icon={<TrendingUp className="size-4" />}
-              />
-            </div>
+              {/* Behavior Card */}
+              <div className="rounded-lg border border-border/70 p-3.5 shadow-none bg-background">
+                <p className="text-xs text-muted-foreground font-medium">Behavior</p>
+                <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                  {behavior.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">/ 5</span>
+                </p>
+              </div>
 
-            <div>
-              <p className="text-sm font-semibold">Manager Remarks</p>
-              <p className="mt-2 rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-                {performance.managerRemarks || "No manager remarks added."}
-              </p>
+              {/* Manager Remarks */}
+              <div className="space-y-1.5 pt-1">
+                <p className="text-xs font-semibold text-foreground">Manager Remarks</p>
+                <div className="min-h-[42px] rounded-lg border border-border/70 bg-muted/10 px-3.5 py-2.5 text-xs text-muted-foreground">
+                  {performance.managerRemarks?.trim() || "—"}
+                </div>
+              </div>
             </div>
           </div>
         )}
       </CardContent>
     </Card>
-  );
-}
-
-/* ============================================================
-   PERFORMANCE STAT
-   ============================================================ */
-
-function PerformanceStat({
-  label,
-  value,
-  helper,
-  icon,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border p-4">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-
-      <div className="mt-2 text-lg font-bold">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{helper}</div>
-    </div>
   );
 }
 
