@@ -606,70 +606,89 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
 
 function ProfileSection({ profile }: { profile: SheetEmployee }) {
   return (
-    <Card className="border border-border/70 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-bold text-foreground">Profile</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
+    <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <CardHeader className="pb-3 pt-5 px-6">
+        <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+          Profile
+        </CardTitle>
+        <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
           Details from the employee master.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="pt-2">
-        <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3">
+      <CardContent className="px-6 pb-6 pt-2">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-3">
+          {/* Row 1 */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               EMPLOYEE ID
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.employeeId || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.employeeId || "—"}
+            </p>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               NAME
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.name || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.name || "—"}
+            </p>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               EMAIL
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.email || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white break-all">
+              {profile.email || "—"}
+            </p>
           </div>
 
+          {/* Row 2 */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               DEPARTMENT
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.department || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.department || "—"}
+            </p>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               DESIGNATION
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.designation || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.designation || "—"}
+            </p>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               TEAM LEAD
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.teamLead || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.teamLead || "—"}
+            </p>
           </div>
 
+          {/* Row 3 */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               LOCATION
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{profile.location || "—"}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+              {profile.location || "—"}
+            </p>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               JOINING DATE
             </p>
-            <p className="text-xs font-bold text-foreground mt-0.5">
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
               {formatJoiningDate(profile.joiningDate)}
             </p>
           </div>
