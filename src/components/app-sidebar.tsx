@@ -55,17 +55,17 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b">
-        <div className="flex w-full items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 min-w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-            JB
-          </div>
-          <div className="flex min-w-0 flex-col leading-tight group-data-[state=collapsed]:hidden">
-            <span className="truncate text-sm font-semibold">Appraise</span>
-            <span className="truncate text-xs text-muted-foreground">Performance Suite</span>
-          </div>
-        </div>
-      </SidebarHeader>
+      <SidebarHeader className="h-14 border-b flex items-center justify-center px-4">
+  <div className="flex w-full items-center gap-3">
+    <div className="flex h-8 w-8 min-w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+      JB
+    </div>
+    <span className="truncate text-sm font-semibold group-data-[state=collapsed]:hidden">
+      Appraise
+    </span>
+  </div>
+</SidebarHeader>
+      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
