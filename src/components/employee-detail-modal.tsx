@@ -54,7 +54,7 @@ import {
   Users,
   TrendingUp,
   Ticket,
-  ShieldCheck,
+  ShieldAlert,
   CalendarCheck,
   Brain,
   Pencil,
@@ -139,10 +139,6 @@ function isTeamLeader(designation: unknown): boolean {
   );
 }
 
-/**
- * Robust Name Matching:
- * Handles full names vs short names (e.g., "CHIRAG RAJENDRABHAI VASAVA" matches "Chirag Vasava")
- */
 function samePerson(a: unknown, b: unknown): boolean {
   const strA = normalizeText(a);
   const strB = normalizeText(b);
@@ -309,16 +305,17 @@ function getDirectReports(
     if (!isDirect) return false;
 
     if (isMgr) {
-      // Manager -> Direct Head TLs and TLs
       return isHeadTeamLeader(employee.designation) || isTeamLeader(employee.designation);
     }
     if (isHead) {
-      // Head TL -> Direct Team Leaders only
       return isTeamLeader(employee.designation);
     }
     if (isTL) {
-      // TL -> Direct regular staff/executives only
-      return !isTeamLeader(employee.designation) && !isHeadTeamLeader(employee.designation) && !isManager(employee.designation);
+      return (
+        !isTeamLeader(employee.designation) &&
+        !isHeadTeamLeader(employee.designation) &&
+        !isManager(employee.designation)
+      );
     }
 
     return false;
@@ -595,7 +592,7 @@ export function EmployeeDetailModal({
 
         {detailQ.data && profile && (
           <div className="space-y-6 px-6 py-6">
-            {/* 1. Profile Section for ALL Employees & Leads */}
+            {/* 1. Profile Section */}
             <ProfileSection profile={profile} />
 
             {/* 2. Edit Dialog Card */}
@@ -607,7 +604,7 @@ export function EmployeeDetailModal({
               />
             )}
 
-            {/* 3. Team Performance Section (Managers, Head TLs, and TLs) */}
+            {/* 3. Team Section (Managers, Head TLs, and TLs) */}
             {hasSubordinates && (
               <TeamSection
                 profile={profile}
@@ -814,8 +811,8 @@ function TeamSection({
               />
 
               <TeamMetricCard
-                icon={<ShieldCheck className="size-3.5" />}
-                label="QUALITY"
+                icon={<ShieldAlert className="size-3.5" />}
+                label="ERRORS"
                 value={teamSummary.errorActual}
                 secondaryValue={teamSummary.errorTarget}
                 suffix=""
@@ -838,60 +835,6 @@ function TeamSection({
                 suffix=""
                 decimals
               />
-            </div>
-
-            {/* Overall Team Performance */}
-            <div className="rounded-xl border border-border/70 bg-card p-5">
-              <div className="mb-4">
-                <p className="text-xs font-bold text-foreground">
-                  Overall Team Performance
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {monthToLabel(teamMonth)}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <ActualTargetRow
-                  label="Production"
-                  actual={teamSummary.productionActual}
-                  target={teamSummary.productionTarget}
-                />
-                <ActualTargetRow
-                  label="Tickets"
-                  actual={teamSummary.ticketActual}
-                  target={teamSummary.ticketTarget}
-                />
-                <ActualTargetRow
-                  label="Quality"
-                  actual={teamSummary.errorActual}
-                  target={teamSummary.errorTarget}
-                />
-                <ActualTargetRow
-                  label="Attendance"
-                  actual={teamSummary.attendance}
-                  target={10}
-                  decimals
-                />
-                <ActualTargetRow
-                  label="Behavior"
-                  actual={teamSummary.behavior}
-                  target={5}
-                  decimals
-                />
-              </div>
-
-              <div className="mt-6 border-t border-border/60 pt-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  OVERALL
-                </p>
-                <p className="mt-0.5 text-2xl font-black text-foreground">
-                  {Math.round(teamSummary.overall)}%
-                </p>
-                <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                  {overallLabel(teamSummary.overall)}
-                </p>
-              </div>
             </div>
           </>
         ) : (
@@ -931,7 +874,7 @@ function TeamSection({
                     <TableHead className="text-xs font-semibold text-muted-foreground">Designation</TableHead>
                     <TableHead className="text-xs font-semibold text-muted-foreground">Production</TableHead>
                     <TableHead className="text-xs font-semibold text-muted-foreground">Tickets</TableHead>
-                    <TableHead className="text-xs font-semibold text-muted-foreground">Quality</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Errors</TableHead>
                     <TableHead className="text-xs font-semibold text-muted-foreground">Attendance</TableHead>
                     <TableHead className="text-xs font-semibold text-muted-foreground">Behavior</TableHead>
                     <TableHead className="text-xs font-semibold text-muted-foreground">Overall</TableHead>
@@ -1045,50 +988,6 @@ function TeamMetricCard({
           </span>
         )}
         {suffix}
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   ACTUAL / TARGET ROW
-   ============================================================ */
-
-function ActualTargetRow({
-  label,
-  actual,
-  target,
-  decimals = false,
-}: {
-  label: string;
-  actual: number;
-  target: number;
-  decimals?: boolean;
-}) {
-  const formatValue = (value: number) => {
-    return decimals ? value.toFixed(1) : Math.round(value);
-  };
-
-  const progressValue =
-    target > 0
-      ? Math.min(100, Math.max(0, (actual / target) * 100))
-      : 0;
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="font-semibold text-foreground">{label}</span>
-        <span className="font-medium text-foreground">
-          {formatValue(actual)}
-          <span className="text-muted-foreground"> / {formatValue(target)}</span>
-        </span>
-      </div>
-
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-slate-900 transition-all duration-300"
-          style={{ width: `${progressValue}%` }}
-        />
       </div>
     </div>
   );
