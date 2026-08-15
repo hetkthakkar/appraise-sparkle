@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
 import {
   Select,
@@ -54,7 +53,7 @@ import {
   Users,
   TrendingUp,
   Ticket,
-  ShieldAlert,
+  ShieldCheck,
   CalendarCheck,
   Brain,
   Pencil,
@@ -139,6 +138,10 @@ function isTeamLeader(designation: unknown): boolean {
   );
 }
 
+/**
+ * Robust Name Matching:
+ * Handles full names vs short names (e.g., "CHIRAG RAJENDRABHAI VASAVA" matches "Chirag Vasava")
+ */
 function samePerson(a: unknown, b: unknown): boolean {
   const strA = normalizeText(a);
   const strB = normalizeText(b);
@@ -311,11 +314,7 @@ function getDirectReports(
       return isTeamLeader(employee.designation);
     }
     if (isTL) {
-      return (
-        !isTeamLeader(employee.designation) &&
-        !isHeadTeamLeader(employee.designation) &&
-        !isManager(employee.designation)
-      );
+      return !isTeamLeader(employee.designation) && !isHeadTeamLeader(employee.designation) && !isManager(employee.designation);
     }
 
     return false;
@@ -715,7 +714,7 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
 }
 
 /* ============================================================
-   TEAM SECTION
+   TEAM SECTION (UPDATED: NO OVERALL CHART, QUALITY -> ERRORS)
    ============================================================ */
 
 interface TeamSummary {
@@ -811,7 +810,7 @@ function TeamSection({
               />
 
               <TeamMetricCard
-                icon={<ShieldAlert className="size-3.5" />}
+                icon={<ShieldCheck className="size-3.5" />}
                 label="ERRORS"
                 value={teamSummary.errorActual}
                 secondaryValue={teamSummary.errorTarget}
@@ -1232,18 +1231,6 @@ function EmployeePreviousMonthsTable({
       </CardContent>
     </Card>
   );
-}
-
-/* ============================================================
-   OVERALL LABEL
-   ============================================================ */
-
-function overallLabel(value: number): string {
-  if (value >= 95) return "Excellent";
-  if (value >= 85) return "Very Good";
-  if (value >= 75) return "Good";
-  if (value >= 60) return "Needs Improvement";
-  return "Poor";
 }
 
 /* ============================================================
