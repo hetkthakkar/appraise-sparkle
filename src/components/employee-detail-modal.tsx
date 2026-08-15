@@ -620,7 +620,7 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-3">
           {/* Row 1 */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               EMPLOYEE ID
             </p>
             <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
@@ -629,63 +629,63 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               NAME
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white">
               {profile.name || "—"}
             </p>
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               EMAIL
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white break-all">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white break-all">
               {profile.email || "—"}
             </p>
           </div>
 
           {/* Row 2 */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               DEPARTMENT
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white">
               {profile.department || "—"}
             </p>
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               DESIGNATION
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white">
               {profile.designation || "—"}
             </p>
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               TEAM LEAD
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white">
               {profile.teamLead || "—"}
             </p>
           </div>
 
           {/* Row 3 */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               LOCATION
             </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-white">
               {profile.location || "—"}
             </p>
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-350">
               JOINING DATE
             </p>
             <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
