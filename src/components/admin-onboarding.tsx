@@ -32,7 +32,6 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  // Use the exact same lookup sources as Employee onboarding.
   const deptQ = useQuery({
     queryKey: ["departments"],
     queryFn: listDepartments,
@@ -54,19 +53,9 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
   });
 
   const [department, setDepartment] = useState(me.department ?? "");
-
-  // Default designation for a new Admin/Team Lead.
-  // It remains editable.
-  const [designation, setDesignation] = useState(
-    me.designation?.trim() || "Team Lead"
-  );
-
-  // Intentionally blank initially.
-  // Admin MUST select a Team Lead before submitting.
+  const [designation, setDesignation] = useState(me.designation?.trim() || "Team Lead");
   const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
-
   const [location, setLocation] = useState(me.location ?? "");
-
   const [joiningDate, setJoiningDate] = useState(
     me.joiningDate ? String(me.joiningDate).slice(0, 10) : ""
   );
@@ -84,6 +73,7 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
 
     onSuccess: async () => {
       await Promise.all([
+        qc.refetchQueries({ queryKey: ["myDashboard"] }),
         qc.refetchQueries({ queryKey: ["employees"] }),
         qc.refetchQueries({ queryKey: ["performance"] }),
       ]);
@@ -93,8 +83,7 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
 
     onError: (e) => {
       toast.error("Could not save", {
-        description:
-          e instanceof Error ? e.message : String(e),
+        description: e instanceof Error ? e.message : String(e),
       });
     },
   });
@@ -105,25 +94,20 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
     locQ.isLoading ||
     leadQ.isLoading;
 
-  // ALL FIVE fields are mandatory.
   const canSubmit =
-  !!department.trim() &&
-  !!designation.trim() &&
-  !!location.trim() &&
-  !!joiningDate.trim() &&
-  !mutation.isPending;
+    !!department.trim() &&
+    !!designation.trim() &&
+    !!location.trim() &&
+    !!joiningDate.trim() &&
+    !mutation.isPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>
-            Welcome, {me.name.split(" ")[0]}
-          </CardTitle>
-
+          <CardTitle>Welcome, {me.name.split(" ")[0]}</CardTitle>
           <CardDescription>
-            Please complete your details to finish setting up your
-            Team Lead profile.
+            Please complete your details to finish setting up your Team Lead profile.
           </CardDescription>
         </CardHeader>
 
@@ -137,10 +121,7 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
       <Card>
         <CardHeader>
           <CardTitle>Your details</CardTitle>
-
-          <CardDescription>
-            All fields are required.
-          </CardDescription>
+          <CardDescription>All fields are required.</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -157,7 +138,6 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-
                 if (canSubmit) {
                   mutation.mutate();
                 }
@@ -176,17 +156,12 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
                 label="Designation"
                 value={designation}
                 onChange={setDesignation}
-                options={Array.from(
-                  new Set([
-                    "Team Lead",
-                    ...(desigQ.data ?? []),
-                  ])
-                )}
+                options={Array.from(new Set(["Team Lead", ...(desigQ.data ?? [])]))}
               />
 
               {/* Team Lead */}
               <Picker
-                label="Team Lead"
+                label="Team Lead (Optional)"
                 value={teamLead}
                 onChange={setTeamLead}
                 options={leadQ.data ?? []}
@@ -202,32 +177,21 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
 
               {/* Joining Date */}
               <div className="space-y-1.5">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="adminJoiningDate"
-                >
+                <label className="text-sm font-medium" htmlFor="adminJoiningDate">
                   Joining Date
                 </label>
-
                 <Input
                   id="adminJoiningDate"
                   type="date"
                   value={joiningDate}
-                  onChange={(e) =>
-                    setJoiningDate(e.target.value)
-                  }
+                  onChange={(e) => setJoiningDate(e.target.value)}
                   required
                 />
               </div>
 
               <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={!canSubmit}
-                >
-                  {mutation.isPending
-                    ? "Saving…"
-                    : "Save & continue"}
+                <Button type="submit" disabled={!canSubmit}>
+                  {mutation.isPending ? "Saving…" : "Save & continue"}
                 </Button>
               </div>
             </form>
@@ -251,31 +215,17 @@ function Picker({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">
-        {label}
-      </label>
-
+      <label className="text-sm font-medium">{label}</label>
       {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No {label.toLowerCase()} options available.
-        </p>
+        <p className="text-xs text-muted-foreground">No {label.toLowerCase()} options available.</p>
       ) : (
-        <Select
-          value={value || undefined}
-          onValueChange={onChange}
-        >
+        <Select value={value || undefined} onValueChange={onChange}>
           <SelectTrigger>
-            <SelectValue
-              placeholder={`Select ${label.toLowerCase()}`}
-            />
+            <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
           </SelectTrigger>
-
           <SelectContent>
             {options.map((option) => (
-              <SelectItem
-                key={option}
-                value={option}
-              >
+              <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>
             ))}
@@ -286,22 +236,11 @@ function Picker({
   );
 }
 
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-
-      <div className="mt-0.5 font-medium">
-        {value}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-medium">{value}</div>
     </div>
   );
 }
