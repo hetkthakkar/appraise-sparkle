@@ -73,9 +73,9 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
 
     onSuccess: async () => {
       await Promise.all([
-        qc.refetchQueries({ queryKey: ["myDashboard"] }),
-        qc.refetchQueries({ queryKey: ["employees"] }),
-        qc.refetchQueries({ queryKey: ["performance"] }),
+        qc.invalidateQueries({ queryKey: ["myDashboard"] }),
+        qc.invalidateQueries({ queryKey: ["employees"] }),
+        qc.invalidateQueries({ queryKey: ["performance"] }),
       ]);
 
       toast.success("Profile completed");
@@ -121,7 +121,7 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
       <Card>
         <CardHeader>
           <CardTitle>Your details</CardTitle>
-          <CardDescription>All fields are required.</CardDescription>
+          <CardDescription>Fill out your details to continue.</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -159,7 +159,7 @@ export function AdminOnboarding({ me }: { me: SheetEmployee }) {
                 options={Array.from(new Set(["Team Lead", ...(desigQ.data ?? [])]))}
               />
 
-              {/* Team Lead */}
+              {/* Team Lead (Optional for Team Leads) */}
               <Picker
                 label="Team Lead (Optional)"
                 value={teamLead}
