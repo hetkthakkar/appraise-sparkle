@@ -3,7 +3,6 @@ import {
   useMemo,
   useState,
   type FormEvent,
-  type ReactNode,
 } from "react";
 
 import {
@@ -59,7 +58,8 @@ import {
   CalendarCheck,
   Brain,
   Pencil,
-  GitBranch,
+  Network,
+  User,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -80,12 +80,10 @@ import {
   type SheetPerformance,
 } from "@/lib/sheetsApi";
 
-
 interface Props {
   employeeId: string | null;
   onOpenChange: (open: boolean) => void;
 }
-
 
 interface EmployeeProfile {
   employeeId?: string;
@@ -98,7 +96,6 @@ interface EmployeeProfile {
   joiningDate?: string;
 }
 
-
 /* ============================================================
    HELPERS
    ============================================================ */
@@ -110,11 +107,13 @@ function normalizeText(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+function safeNumber(value: unknown): number {
+  const n = Number(value);
 
-function samePerson(
-  a: unknown,
-  b: unknown
-): boolean {
+  return Number.isFinite(n) ? n : 0;
+}
+
+function samePerson(a: unknown, b: unknown): boolean {
   const first = normalizeText(a);
   const second = normalizeText(b);
 
@@ -125,31 +124,7 @@ function samePerson(
   return first === second;
 }
 
-
-function safeNumber(value: unknown): number {
-  const n = Number(value);
-
-  return Number.isFinite(n)
-    ? n
-    : 0;
-}
-
-
-/* ============================================================
-   DESIGNATION HELPERS
-
-   These are intentionally NOT used to decide whether someone
-   can have a team.
-
-   The actual hierarchy is determined from Team Lead reporting
-   relationships.
-
-   Designation is used only for display/context.
-   ============================================================ */
-
-function isHeadTeamLeader(
-  designation: unknown
-): boolean {
+function isHeadTeamLeader(designation: unknown): boolean {
   const value = normalizeText(designation);
 
   return (
@@ -160,10 +135,7 @@ function isHeadTeamLeader(
   );
 }
 
-
-function isTeamLeader(
-  designation: unknown
-): boolean {
+function isTeamLeader(designation: unknown): boolean {
   const value = normalizeText(designation);
 
   if (isHeadTeamLeader(value)) {
@@ -178,6 +150,49 @@ function isTeamLeader(
   );
 }
 
+function getCurrentMonthKey(): string {
+  const now = new Date();
+
+  return `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
+function getLatestMonth(
+  rows: SheetPerformance[]
+): string | null {
+  if (!rows.length) {
+    return null;
+  }
+
+  const months = Array.from(
+    new Set(
+      rows
+        .map((row) =>
+          String(row.month ?? "").slice(0, 7)
+        )
+        .filter(Boolean)
+    )
+  );
+
+  months.sort((a, b) => b.localeCompare(a));
+
+  return months[0] ?? null;
+}
+
+function getPerformanceForMonth(
+  rows: SheetPerformance[],
+  employeeId: string,
+  month: string
+): SheetPerformance | null {
+  return (
+    rows.find(
+      (row) =>
+        String(row.employeeId) === String(employeeId) &&
+        String(row.month).slice(0, 7) === month
+    ) ?? null
+  );
+}
 
 /* ============================================================
    PERFORMANCE CALCULATIONS
@@ -186,9 +201,7 @@ function isTeamLeader(
 function productionPercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   const target = safeNumber(
     performance.productionTarget
@@ -198,26 +211,18 @@ function productionPercent(
     performance.productionActual
   );
 
-  if (target <= 0) {
-    return 0;
-  }
+  if (target <= 0) return 0;
 
   return Math.max(
     0,
-    Math.min(
-      150,
-      (actual / target) * 100
-    )
+    Math.min(150, (actual / target) * 100)
   );
 }
-
 
 function ticketPercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   const target = safeNumber(
     performance.ticketTarget
@@ -227,26 +232,18 @@ function ticketPercent(
     performance.ticketActual
   );
 
-  if (target <= 0) {
-    return 0;
-  }
+  if (target <= 0) return 0;
 
   return Math.max(
     0,
-    Math.min(
-      150,
-      (actual / target) * 100
-    )
+    Math.min(150, (actual / target) * 100)
   );
 }
-
 
 function qualityPercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   const target = safeNumber(
     performance.errorTarget
@@ -257,9 +254,7 @@ function qualityPercent(
   );
 
   if (target <= 0) {
-    return actual <= 0
-      ? 100
-      : 0;
+    return actual <= 0 ? 100 : 0;
   }
 
   if (actual <= 0) {
@@ -268,20 +263,14 @@ function qualityPercent(
 
   return Math.max(
     0,
-    Math.min(
-      150,
-      (target / actual) * 100
-    )
+    Math.min(150, (target / actual) * 100)
   );
 }
-
 
 function attendancePercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   return Math.max(
     0,
@@ -292,13 +281,10 @@ function attendancePercent(
   );
 }
 
-
 function behaviorPercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   return Math.max(
     0,
@@ -309,13 +295,10 @@ function behaviorPercent(
   );
 }
 
-
 function overallPercent(
   performance: SheetPerformance | null | undefined
 ): number {
-  if (!performance) {
-    return 0;
-  }
+  if (!performance) return 0;
 
   const values = [
     productionPercent(performance),
@@ -333,92 +316,86 @@ function overallPercent(
   );
 }
 
+function overallLabel(value: number): string {
+  if (value >= 95) return "Excellent";
+  if (value >= 85) return "Very Good";
+  if (value >= 75) return "Good";
+  if (value >= 60) return "Needs Improvement";
+
+  return "Poor";
+}
 
 /* ============================================================
-   MONTH HELPERS
+   HIERARCHY HELPERS
    ============================================================ */
-
-function getCurrentMonthKey(): string {
-  const now = new Date();
-
-  return `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
-}
-
-
-function getLatestMonth(
-  rows: SheetPerformance[]
-): string | null {
-  if (!rows.length) {
-    return null;
-  }
-
-  const months = Array.from(
-    new Set(
-      rows
-        .map((row) =>
-          String(
-            row.month ?? ""
-          ).slice(0, 7)
-        )
-        .filter(Boolean)
-    )
-  );
-
-  months.sort((a, b) =>
-    b.localeCompare(a)
-  );
-
-  return months[0] ?? null;
-}
-
-
-function getPerformanceForMonth(
-  rows: SheetPerformance[],
-  employeeId: string,
-  month: string
-): SheetPerformance | null {
-  return (
-    rows.find(
-      (row) =>
-        String(row.employeeId) ===
-          String(employeeId) &&
-        String(row.month).slice(0, 7) ===
-          month
-    ) ?? null
-  );
-}
-
-
-/* ============================================================
-   HIERARCHY
-
-   The hierarchy is based ONLY on:
-
-      Employee.teamLead === Parent.name
-
-   Therefore this works for:
-
-      Operator
-        ↓
-      TL
-        ↓
-      Head TL
-        ↓
-      Manager
-        ↓
-      Senior Manager
-
-   or any other future designation.
-
-   No designation needs to be hard-coded.
-   ============================================================ */
-
 
 /**
- * Returns direct reports of a person.
+ * Finds everyone below the selected employee recursively.
+ *
+ * Example:
+ *
+ * Manager
+ *   └── Head TL
+ *       ├── TL
+ *       │   ├── Operator
+ *       │   └── Operator
+ *       └── TL
+ *           └── Operator
+ *
+ * Selecting Manager returns Head TL + all TLs + all Operators.
  */
+function getDescendants(
+  manager: SheetEmployee,
+  employees: SheetEmployee[]
+): SheetEmployee[] {
+  const result: SheetEmployee[] = [];
+
+  const visited = new Set<string>();
+
+  const managerId = String(
+    manager.employeeId ?? ""
+  ).trim();
+
+  if (managerId) {
+    visited.add(managerId);
+  }
+
+  function walk(parent: SheetEmployee) {
+    employees.forEach((employee) => {
+      const employeeId = String(
+        employee.employeeId ?? ""
+      ).trim();
+
+      if (!employeeId) {
+        return;
+      }
+
+      if (visited.has(employeeId)) {
+        return;
+      }
+
+      if (
+        !samePerson(
+          employee.teamLead,
+          parent.name
+        )
+      ) {
+        return;
+      }
+
+      visited.add(employeeId);
+
+      result.push(employee);
+
+      walk(employee);
+    });
+  }
+
+  walk(manager);
+
+  return result;
+}
+
 function getDirectReports(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -436,97 +413,15 @@ function getDirectReports(
   );
 }
 
-
 /**
- * Returns EVERY employee below a manager recursively.
- *
- * Example:
- *
- * Manager
- *   ├── Head TL
- *   │     ├── TL
- *   │     │    ├── Operator
- *   │     │    └── Operator
- *   │     └── TL
- *   └── Head TL
- *
- * getDescendants(Manager)
- *
- * returns all Head TLs, TLs and Operators.
- */
-function getDescendants(
-  manager: SheetEmployee,
-  employees: SheetEmployee[]
-): SheetEmployee[] {
-  const result: SheetEmployee[] = [];
-
-  const visited = new Set<string>();
-
-  const managerId =
-    String(
-      manager.employeeId ?? ""
-    ).trim();
-
-  if (managerId) {
-    visited.add(managerId);
-  }
-
-  function walk(
-    parent: SheetEmployee
-  ) {
-    const children =
-      getDirectReports(
-        parent,
-        employees
-      );
-
-    children.forEach(
-      (employee) => {
-        const id =
-          String(
-            employee.employeeId ?? ""
-          ).trim();
-
-        if (!id) {
-          return;
-        }
-
-        if (visited.has(id)) {
-          return;
-        }
-
-        visited.add(id);
-
-        result.push(employee);
-
-        walk(employee);
-      }
-    );
-  }
-
-  walk(manager);
-
-  return result;
-}
-
-
-/**
- * Returns the complete reporting chain ABOVE the selected
- * employee.
+ * Finds the complete reporting chain ABOVE the selected employee.
  *
  * Example:
  *
  * Operator
- *   ↓
- * TL
- *   ↓
- * Head TL
- *   ↓
- * Manager
- *
- * Returned in top-down order:
- *
- * Manager → Head TL → TL → Operator
+ *   ↑ TL
+ *   ↑ Head TL
+ *   ↑ Manager
  */
 function getReportingChain(
   employee: SheetEmployee,
@@ -536,85 +431,74 @@ function getReportingChain(
 
   const visited = new Set<string>();
 
-  let current: SheetEmployee | undefined =
-    employee;
+  let current = employee;
 
-  while (current) {
-    const currentId =
-      String(
-        current.employeeId ?? ""
-      ).trim();
+  while (true) {
+    const managerName = String(
+      current.teamLead ?? ""
+    ).trim();
 
-    if (
-      currentId &&
-      visited.has(currentId)
-    ) {
+    if (!managerName) {
       break;
     }
 
-    if (currentId) {
-      visited.add(currentId);
-    }
+    const manager = employees.find(
+      (candidate) =>
+        samePerson(
+          candidate.name,
+          managerName
+        ) ||
+        samePerson(
+          candidate.employeeId,
+          managerName
+        )
+    );
 
-    chain.unshift(current);
-
-    const parentName =
-      String(
-        current.teamLead ?? ""
-      ).trim();
-
-    if (!parentName) {
+    if (!manager) {
       break;
     }
 
-    const parent =
-      employees.find(
-        (candidate) =>
-          samePerson(
-            candidate.name,
-            parentName
-          ) &&
-          !samePerson(
-            candidate.employeeId,
-            current.employeeId
-          )
-      );
+    const managerId = String(
+      manager.employeeId ?? manager.name ?? ""
+    ).trim();
 
-    if (!parent) {
+    if (!managerId || visited.has(managerId)) {
       break;
     }
 
-    current = parent;
+    visited.add(managerId);
+
+    chain.push(manager);
+
+    current = manager;
   }
 
   return chain;
 }
 
-
 /**
- * Returns all people below the selected person.
+ * Returns all employees below the selected employee.
+ * This is intentionally generic and therefore works for:
  *
- * This is the main hierarchy rule.
+ * TL
+ * Head TL
+ * Manager
+ * Senior Manager
+ * Department Head
+ * Any custom designation
  *
- * It does NOT check designation.
- *
- * Therefore:
- *
- * TL        → all people below TL
- * Head TL   → all TLs + operators below Head TL
- * Manager   → everyone below Manager
- * Any future manager designation → automatically works
+ * as long as the Team Lead column correctly identifies
+ * the reporting person.
  */
-function getTeamMembers(
-  profile: SheetEmployee,
+function getTeamForEmployee(
+  employee: SheetEmployee,
   employees: SheetEmployee[]
 ): SheetEmployee[] {
   return getDescendants(
-    profile,
+    employee,
     employees
   );
 }
-
 
 /* ============================================================
    MAIN MODAL
@@ -647,12 +531,9 @@ export function EmployeeDetailModal({
       !!employeeId,
   });
 
-
   /*
-   * Employees are needed for hierarchy.
-   *
-   * This is intentionally loaded for both Admin and
-   * Super Admin, exactly as before.
+   * Admin / Super Admin need all employees to calculate
+   * hierarchy and team relationships.
    */
   const employeesQ = useQuery({
     queryKey: [
@@ -674,9 +555,8 @@ export function EmployeeDetailModal({
       ),
   });
 
-
   /*
-   * Performance is needed for team calculations.
+   * Performance is required for team calculations.
    */
   const performanceQ = useQuery({
     queryKey: [
@@ -699,134 +579,79 @@ export function EmployeeDetailModal({
       ),
   });
 
-
   useEffect(() => {
     setEditing(false);
   }, [employeeId]);
 
-
   const profile =
     detailQ.data?.profile;
-
 
   const allEmployees =
     employeesQ.data ?? [];
 
-
   const performanceRows =
     performanceQ.data ?? [];
 
-
   /*
-   * Convert the profile into the SheetEmployee shape
-   * where possible so hierarchy functions can use it.
+   * ----------------------------------------------------------
+   * REPORTING HIERARCHY ABOVE
+   * ----------------------------------------------------------
    */
-  const profileEmployee =
-    profile as SheetEmployee | undefined;
-
-
-  /*
-   * Designation is used only for display.
-   */
-  const designation =
-    profile?.designation ?? "";
-
-
-  const headTL =
-    isHeadTeamLeader(
-      designation
-    );
-
-
-  const teamLeader =
-    isTeamLeader(
-      designation
-    );
-
-
-  /* ==========================================================
-     HIERARCHY CHAIN
-     ========================================================== */
-
   const reportingChain =
     useMemo(() => {
-      if (
-        !profileEmployee ||
-        !allEmployees.length
-      ) {
+      if (!profile) {
         return [];
       }
 
       return getReportingChain(
-        profileEmployee,
+        profile,
         allEmployees
       );
     }, [
-      profileEmployee,
+      profile,
       allEmployees,
     ]);
 
-
   /*
-   * Direct reports.
+   * ----------------------------------------------------------
+   * TEAM BELOW
+   * ----------------------------------------------------------
    */
+  const teamEmployees =
+    useMemo(() => {
+      if (!profile) {
+        return [];
+      }
+
+      return getTeamForEmployee(
+        profile,
+        allEmployees
+      );
+    }, [
+      profile,
+      allEmployees,
+    ]);
+
   const directReports =
     useMemo(() => {
-      if (
-        !profileEmployee
-      ) {
+      if (!profile) {
         return [];
       }
 
       return getDirectReports(
-        profileEmployee,
+        profile,
         allEmployees
       );
     }, [
-      profileEmployee,
+      profile,
       allEmployees,
     ]);
 
-
   /*
-   * Full team.
-   *
-   * IMPORTANT:
-   *
-   * This is no longer restricted to TL or Head TL.
-   *
-   * Any employee who has people reporting to them
-   * automatically gets hierarchy/team information.
+   * ----------------------------------------------------------
+   * TEAM MONTH
+   * ----------------------------------------------------------
    */
-  const teamEmployees =
-    useMemo(() => {
-      if (
-        !profileEmployee
-      ) {
-        return [];
-      }
-
-      return getTeamMembers(
-        profileEmployee,
-        allEmployees
-      );
-    }, [
-      profileEmployee,
-      allEmployees,
-    ]);
-
-
-  /*
-   * Whether the selected person actually has a team.
-   */
-  const hasTeam =
-    directReports.length > 0;
-
-
-  /* ==========================================================
-     TEAM MONTH
-     ========================================================== */
-
   const teamMonth =
     useMemo(() => {
       if (!teamEmployees.length) {
@@ -861,8 +686,7 @@ export function EmployeeDetailModal({
           (row) =>
             String(
               row.month
-            ).slice(0, 7) ===
-            current
+            ).slice(0, 7) === current
         );
 
       if (hasCurrent) {
@@ -879,11 +703,11 @@ export function EmployeeDetailModal({
       performanceRows,
     ]);
 
-
-  /* ==========================================================
-     TEAM SUMMARY
-     ========================================================== */
-
+  /*
+   * ----------------------------------------------------------
+   * TEAM SUMMARY
+   * ----------------------------------------------------------
+   */
   const teamSummary =
     useMemo(() => {
       if (!teamEmployees.length) {
@@ -892,13 +716,12 @@ export function EmployeeDetailModal({
 
       const rows =
         teamEmployees
-          .map(
-            (employee) =>
-              getPerformanceForMonth(
-                performanceRows,
-                employee.employeeId,
-                teamMonth
-              )
+          .map((employee) =>
+            getPerformanceForMonth(
+              performanceRows,
+              employee.employeeId,
+              teamMonth
+            )
           )
           .filter(
             (
@@ -911,7 +734,6 @@ export function EmployeeDetailModal({
         return null;
       }
 
-
       const productionTarget =
         rows.reduce(
           (sum, row) =>
@@ -921,7 +743,6 @@ export function EmployeeDetailModal({
             ),
           0
         );
-
 
       const productionActual =
         rows.reduce(
@@ -933,7 +754,6 @@ export function EmployeeDetailModal({
           0
         );
 
-
       const ticketTarget =
         rows.reduce(
           (sum, row) =>
@@ -943,7 +763,6 @@ export function EmployeeDetailModal({
             ),
           0
         );
-
 
       const ticketActual =
         rows.reduce(
@@ -955,7 +774,6 @@ export function EmployeeDetailModal({
           0
         );
 
-
       const errorTarget =
         rows.reduce(
           (sum, row) =>
@@ -965,7 +783,6 @@ export function EmployeeDetailModal({
             ),
           0
         );
-
 
       const errorActual =
         rows.reduce(
@@ -977,7 +794,6 @@ export function EmployeeDetailModal({
           0
         );
 
-
       const attendance =
         rows.reduce(
           (sum, row) =>
@@ -988,7 +804,6 @@ export function EmployeeDetailModal({
           0
         ) / rows.length;
 
-
       const behavior =
         rows.reduce(
           (sum, row) =>
@@ -998,11 +813,6 @@ export function EmployeeDetailModal({
             ),
           0
         ) / rows.length;
-
-
-      /*
-       * Overall calculation.
-       */
 
       const production =
         productionTarget > 0
@@ -1015,7 +825,6 @@ export function EmployeeDetailModal({
             )
           : 0;
 
-
       const tickets =
         ticketTarget > 0
           ? Math.min(
@@ -1026,7 +835,6 @@ export function EmployeeDetailModal({
               ) * 100
             )
           : 0;
-
 
       const quality =
         errorTarget <= 0
@@ -1043,7 +851,6 @@ export function EmployeeDetailModal({
                 ) * 100
               );
 
-
       const attendancePct =
         Math.min(
           100,
@@ -1052,7 +859,6 @@ export function EmployeeDetailModal({
             10
           ) * 100
         );
-
 
       const behaviorPct =
         Math.min(
@@ -1063,7 +869,6 @@ export function EmployeeDetailModal({
           ) * 100
         );
 
-
       const overall =
         (
           production +
@@ -1072,7 +877,6 @@ export function EmployeeDetailModal({
           attendancePct +
           behaviorPct
         ) / 5;
-
 
       return {
         people:
@@ -1101,37 +905,20 @@ export function EmployeeDetailModal({
       teamMonth,
     ]);
 
-
-  /* ==========================================================
-     CURRENT / PREVIOUS PERFORMANCE
-     ========================================================== */
-
-  const currentPerformance =
-    detailQ.data?.currentMonth ??
-    null;
-
-
-  const previousPerformance =
-    detailQ.data?.previousMonths?.[0] ??
-    null;
-
-
-  /* ==========================================================
-     DIRECT TEAM PERFORMANCE
-     ========================================================== */
-
+  /*
+   * ----------------------------------------------------------
+   * DIRECT TEAM PERFORMANCE
+   * ----------------------------------------------------------
+   */
   const directTeamPerformance =
     useMemo(() => {
-      const month =
-        teamMonth;
-
       return directReports.map(
         (employee) => {
           const performance =
             getPerformanceForMonth(
               performanceRows,
               employee.employeeId,
-              month
+              teamMonth
             );
 
           return {
@@ -1146,6 +933,28 @@ export function EmployeeDetailModal({
       teamMonth,
     ]);
 
+  /*
+   * ----------------------------------------------------------
+   * CURRENT / PREVIOUS PERFORMANCE
+   * ----------------------------------------------------------
+   */
+  const currentPerformance =
+    detailQ.data?.currentMonth ??
+    null;
+
+  const previousPerformance =
+    detailQ.data?.previousMonths?.[0] ??
+    null;
+
+  const canEdit =
+    !!user &&
+    (
+      user.role === "super_admin" ||
+      user.role === "admin"
+    );
+
+  const hasTeam =
+    teamEmployees.length > 0;
 
   return (
     <Dialog
@@ -1160,7 +969,6 @@ export function EmployeeDetailModal({
           p-0
         "
       >
-
         {/* ==================================================
             HEADER
             ================================================== */}
@@ -1184,7 +992,6 @@ export function EmployeeDetailModal({
               gap-4
             "
           >
-
             <div>
               <DialogTitle
                 className="
@@ -1212,10 +1019,8 @@ export function EmployeeDetailModal({
               {profile?.designation ??
                 "Employee"}
             </Badge>
-
           </div>
         </DialogHeader>
-
 
         {/* ==================================================
             LOADING
@@ -1223,12 +1028,11 @@ export function EmployeeDetailModal({
 
         {detailQ.isLoading && (
           <div className="space-y-4 px-6 py-6">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-40 w-full" />
-            <Skeleton className="h-52 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-64 w-full" />
           </div>
         )}
-
 
         {/* ==================================================
             ERROR
@@ -1247,25 +1051,17 @@ export function EmployeeDetailModal({
           </div>
         )}
 
-
         {/* ==================================================
-            MAIN CONTENT
-
-            IMPORTANT:
-            Basic details + current month + previous month
-            are ALWAYS shown.
-
-            Team/hierarchy is shown additionally when the
-            selected employee has people below them.
+            MAIN
             ================================================== */}
 
         {detailQ.data &&
           profile && (
             <div className="space-y-7 px-6 py-6">
 
-              {/* =================================================
+              {/* ==================================================
                   1. BASIC DETAILS
-                  ================================================= */}
+                  ================================================== */}
 
               <EmployeeDetailsSection
                 profile={profile}
@@ -1274,21 +1070,12 @@ export function EmployeeDetailModal({
                     (value) => !value
                   )
                 }
-                canEdit={
-                  !!user &&
-                  (
-                    user.role ===
-                      "super_admin" ||
-                    user.role ===
-                      "admin"
-                  )
-                }
+                canEdit={canEdit}
               />
 
-
-              {/* =================================================
+              {/* ==================================================
                   EDIT FORM
-                  ================================================= */}
+                  ================================================== */}
 
               {editing && (
                 <EditForm
@@ -1306,36 +1093,20 @@ export function EmployeeDetailModal({
                 />
               )}
 
+              {/* ==================================================
+                  2. FULL REPORTING HIERARCHY
+                  ================================================== */}
 
-              {/* =================================================
-                  2. REPORTING HIERARCHY
-
-                  Shows for every employee.
-
-                  Example:
-
-                  Manager
-                    ↓
-                  Head TL
-                    ↓
-                  TL
-                    ↓
-                  Operator
-                  ================================================= */}
-
-              <HierarchySection
-                employee={
-                  profileEmployee
-                }
+              <ReportingHierarchySection
+                profile={profile}
                 reportingChain={
                   reportingChain
                 }
               />
 
-
-              {/* =================================================
+              {/* ==================================================
                   3. CURRENT MONTH
-                  ================================================= */}
+                  ================================================== */}
 
               <EmployeeCurrentMonth
                 performance={
@@ -1343,10 +1114,9 @@ export function EmployeeDetailModal({
                 }
               />
 
-
-              {/* =================================================
+              {/* ==================================================
                   4. PREVIOUS MONTH
-                  ================================================= */}
+                  ================================================== */}
 
               <EmployeePreviousMonth
                 performance={
@@ -1354,27 +1124,13 @@ export function EmployeeDetailModal({
                 }
               />
 
-
-              {/* =================================================
-                  5. TEAM / HIERARCHY DATA
-
-                  Only shown when this employee actually has
-                  people reporting to them.
-
-                  This automatically handles:
-
-                  TL
-                  Head TL
-                  Manager
-                  Senior Manager
-                  Any other hierarchy role
-                  ================================================= */}
+              {/* ==================================================
+                  5. TEAM / HIERARCHY BELOW
+                  ================================================== */}
 
               {hasTeam && (
                 <TeamSection
-                  profile={
-                    profileEmployee!
-                  }
+                  profile={profile}
                   directReports={
                     directReports
                   }
@@ -1391,23 +1147,17 @@ export function EmployeeDetailModal({
                     teamMonth
                   }
                   performanceLoading={
-                    performanceQ.isLoading ||
-                    employeesQ.isLoading
-                  }
-                  headView={
-                    headTL
+                    performanceQ.isLoading
                   }
                 />
               )}
 
             </div>
           )}
-
       </DialogContent>
     </Dialog>
   );
 }
-
 
 /* ============================================================
    EMPLOYEE DETAILS
@@ -1424,9 +1174,7 @@ function EmployeeDetailsSection({
 }) {
   return (
     <Card>
-
       <CardHeader>
-
         <div
           className="
             flex
@@ -1435,14 +1183,13 @@ function EmployeeDetailsSection({
             gap-4
           "
         >
-
           <div>
             <CardTitle>
               Basic Employee Details
             </CardTitle>
 
             <CardDescription>
-              Complete employee information and reporting details.
+              Complete employee information.
             </CardDescription>
           </div>
 
@@ -1456,18 +1203,10 @@ function EmployeeDetailsSection({
               Edit details
             </Button>
           )}
-
         </div>
-
       </CardHeader>
 
-
       <CardContent>
-
-        {/* =====================================================
-            BASIC INFORMATION
-            ===================================================== */}
-
         <div
           className="
             grid
@@ -1478,7 +1217,6 @@ function EmployeeDetailsSection({
             lg:grid-cols-4
           "
         >
-
           <InfoCell
             label="Employee ID"
             value={
@@ -1508,28 +1246,18 @@ function EmployeeDetailsSection({
               )
             }
           />
-
         </div>
 
-
-        {/* =====================================================
-            ORGANIZATION
-            ===================================================== */}
-
         <div className="mt-5">
-
           <div className="mb-3">
-
             <p className="text-sm font-semibold">
-              Organization & Reporting
+              Organization Details
             </p>
 
             <p className="text-xs text-muted-foreground">
-              Current position and reporting relationship.
+              Department, designation, location and reporting information.
             </p>
-
           </div>
-
 
           <div
             className="
@@ -1539,9 +1267,8 @@ function EmployeeDetailsSection({
               lg:grid-cols-4
             "
           >
-
             <InfoCell
-              label="Reports To / Team Lead"
+              label="Team Lead"
               value={
                 profile.teamLead
               }
@@ -1567,21 +1294,12 @@ function EmployeeDetailsSection({
                 profile.location
               }
             />
-
           </div>
-
         </div>
-
       </CardContent>
-
     </Card>
   );
 }
-
-
-/* ============================================================
-   INFO CELL
-   ============================================================ */
 
 function InfoCell({
   label,
@@ -1591,15 +1309,7 @@ function InfoCell({
   value?: unknown;
 }) {
   return (
-    <div
-      className="
-        border-b
-        border-r
-        p-4
-        last:border-r-0
-      "
-    >
-
+    <div className="border-b border-r p-4 last:border-r-0">
       <div
         className="
           text-[10px]
@@ -1617,34 +1327,25 @@ function InfoCell({
           value ?? ""
         ).trim() || "—"}
       </div>
-
     </div>
   );
 }
 
-
 /* ============================================================
-   HIERARCHY SECTION
+   REPORTING HIERARCHY
    ============================================================ */
 
-function HierarchySection({
-  employee,
+function ReportingHierarchySection({
+  profile,
   reportingChain,
 }: {
-  employee?: SheetEmployee;
+  profile: SheetEmployee;
   reportingChain: SheetEmployee[];
 }) {
-  if (!employee) {
-    return null;
-  }
-
   return (
     <Card>
-
       <CardHeader>
-
         <div className="flex items-start gap-3">
-
           <div
             className="
               flex
@@ -1653,139 +1354,138 @@ function HierarchySection({
               items-center
               justify-center
               rounded-xl
-              border
-              bg-muted/30
+              bg-muted
             "
           >
-            <GitBranch className="size-5" />
+            <Network className="size-5" />
           </div>
 
           <div>
-
             <CardTitle>
               Reporting Hierarchy
             </CardTitle>
 
             <CardDescription>
-              Complete reporting structure for this employee.
+              Complete reporting chain for this employee.
             </CardDescription>
-
           </div>
-
         </div>
-
       </CardHeader>
 
-
       <CardContent>
-
-        {reportingChain.length <= 1 ? (
-
+        {reportingChain.length === 0 ? (
           <div
             className="
               rounded-xl
               border
               border-dashed
               p-5
+              text-center
             "
           >
             <p className="text-sm font-medium">
-              Top-level employee
+              No higher reporting level found.
             </p>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              No higher reporting manager was found in the employee master.
+              This employee is at the top of the available hierarchy.
             </p>
           </div>
-
         ) : (
+          <div className="space-y-2">
+            {[
+              ...reportingChain
+                .slice()
+                .reverse(),
+              profile,
+            ].map(
+              (
+                employee,
+                index,
+                array
+              ) => {
+                const isCurrent =
+                  samePerson(
+                    employee.employeeId,
+                    profile.employeeId
+                  );
 
-          <div
-            className="
-              overflow-x-auto
-              rounded-xl
-              border
-              p-4
-            "
-          >
-
-            <div
-              className="
-                flex
-                min-w-max
-                items-center
-                gap-2
-              "
-            >
-
-              {reportingChain.map(
-                (
-                  person,
-                  index
-                ) => (
-
+                return (
                   <div
                     key={
-                      person.employeeId ??
-                      `${person.name}-${index}`
+                      employee.employeeId ||
+                      `${employee.name}-${index}`
                     }
-                    className="flex items-center gap-2"
                   >
-
                     <div
                       className={`
-                        min-w-[150px]
+                        flex
+                        items-center
+                        gap-3
                         rounded-xl
                         border
                         p-3
                         ${
-                          samePerson(
-                            person.employeeId,
-                            employee.employeeId
-                          )
-                            ? "bg-primary/10 border-primary/30"
+                          isCurrent
+                            ? "bg-muted/40"
                             : "bg-background"
                         }
                       `}
                     >
+                      <div
+                        className="
+                          flex
+                          size-9
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                        "
+                      >
+                        <User className="size-4" />
+                      </div>
 
-                      <p className="text-sm font-semibold">
-                        {person.name ||
-                          "—"}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold">
+                          {employee.name ||
+                            "Unknown"}
+                        </p>
 
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {person.designation ||
-                          "Employee"}
-                      </p>
+                        <p className="text-xs text-muted-foreground">
+                          {employee.designation ||
+                            "Employee"}
+                        </p>
+                      </div>
 
+                      {isCurrent && (
+                        <Badge variant="secondary">
+                          Current
+                        </Badge>
+                      )}
                     </div>
 
                     {index <
-                      reportingChain.length -
-                        1 && (
-                      <span className="text-muted-foreground">
-                        →
-                      </span>
+                      array.length - 1 && (
+                      <div
+                        className="
+                          ml-[17px]
+                          h-4
+                          w-px
+                          bg-border
+                        "
+                      />
                     )}
-
                   </div>
-
-                )
-              )}
-
-            </div>
-
+                );
+              }
+            )}
           </div>
-
         )}
-
       </CardContent>
-
     </Card>
   );
 }
-
 
 /* ============================================================
    TEAM SECTION
@@ -1810,12 +1510,10 @@ interface TeamSummary {
   overall: number;
 }
 
-
 interface TeamMemberPerformance {
   employee: SheetEmployee;
   performance: SheetPerformance | null;
 }
-
 
 function TeamSection({
   profile,
@@ -1825,7 +1523,6 @@ function TeamSection({
   directTeamPerformance,
   teamMonth,
   performanceLoading,
-  headView = false,
 }: {
   profile: SheetEmployee;
   directReports: SheetEmployee[];
@@ -1834,13 +1531,10 @@ function TeamSection({
   directTeamPerformance: TeamMemberPerformance[];
   teamMonth: string;
   performanceLoading: boolean;
-  headView?: boolean;
 }) {
   return (
     <Card>
-
       <CardHeader>
-
         <div
           className="
             flex
@@ -1851,19 +1545,15 @@ function TeamSection({
             sm:justify-between
           "
         >
-
           <div>
-
             <CardTitle>
               Team Overall Performance
             </CardTitle>
 
             <CardDescription>
-              {headView
-                ? `Complete hierarchy and team performance under ${profile.name}.`
-                : `Complete team performance under ${profile.name}.`}
+              Complete hierarchy below{" "}
+              {profile.name}.
             </CardDescription>
-
           </div>
 
           <Badge variant="outline">
@@ -1871,48 +1561,58 @@ function TeamSection({
               teamMonth
             )}
           </Badge>
-
         </div>
-
       </CardHeader>
 
+      <CardContent className="space-y-6">
 
-      <CardContent className="space-y-7">
+        {/* ==================================================
+            TEAM SIZE
+            ================================================== */}
 
+        <div
+          className="
+            rounded-xl
+            border
+            bg-muted/20
+            p-4
+          "
+        >
+          <div className="flex items-center gap-3">
+            <Users className="size-5" />
 
-        {/* =====================================================
-            TEAM KPI SUMMARY
-            ===================================================== */}
+            <div>
+              <p className="text-sm font-semibold">
+                Team Size
+              </p>
+
+              <p className="text-xs text-muted-foreground">
+                {teamEmployees.length} employee
+                {teamEmployees.length === 1
+                  ? ""
+                  : "s"} under this hierarchy
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ==================================================
+            KPI SUMMARY
+            ================================================== */}
 
         {performanceLoading ? (
-
-          <div
-            className="
-              grid
-              gap-3
-              sm:grid-cols-2
-              lg:grid-cols-3
-              xl:grid-cols-6
-            "
-          >
-
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {Array.from({
               length: 6,
-            }).map(
-              (_, index) => (
-                <Skeleton
-                  key={index}
-                  className="h-24 w-full"
-                />
-              )
-            )}
-
+            }).map((_, index) => (
+              <Skeleton
+                key={index}
+                className="h-24 w-full"
+              />
+            ))}
           </div>
-
         ) : teamSummary ? (
-
           <>
-
             <div
               className="
                 grid
@@ -1922,7 +1622,6 @@ function TeamSection({
                 xl:grid-cols-6
               "
             >
-
               <TeamMetricCard
                 icon={
                   <Users className="size-4" />
@@ -1933,7 +1632,6 @@ function TeamSection({
                 }
                 suffix=""
               />
-
 
               <TeamMetricCard
                 icon={
@@ -1949,7 +1647,6 @@ function TeamSection({
                 suffix=""
               />
 
-
               <TeamMetricCard
                 icon={
                   <Ticket className="size-4" />
@@ -1963,7 +1660,6 @@ function TeamSection({
                 }
                 suffix=""
               />
-
 
               <TeamMetricCard
                 icon={
@@ -1979,7 +1675,6 @@ function TeamSection({
                 suffix=""
               />
 
-
               <TeamMetricCard
                 icon={
                   <CalendarCheck className="size-4" />
@@ -1993,7 +1688,6 @@ function TeamSection({
                 decimals
               />
 
-
               <TeamMetricCard
                 icon={
                   <Brain className="size-4" />
@@ -2006,13 +1700,11 @@ function TeamSection({
                 suffix=""
                 decimals
               />
-
             </div>
 
-
-            {/* =================================================
-                OVERALL TEAM PERFORMANCE
-                ================================================= */}
+            {/* ==================================================
+                OVERALL TEAM
+                ================================================== */}
 
             <div
               className="
@@ -2022,9 +1714,7 @@ function TeamSection({
                 p-5
               "
             >
-
               <div className="mb-5">
-
                 <p className="text-sm font-semibold">
                   Overall Team Performance
                 </p>
@@ -2034,12 +1724,9 @@ function TeamSection({
                     teamMonth
                   )}
                 </p>
-
               </div>
 
-
               <div className="space-y-4">
-
                 <ActualTargetRow
                   label="Production"
                   actual={
@@ -2049,7 +1736,6 @@ function TeamSection({
                     teamSummary.productionTarget
                   }
                 />
-
 
                 <ActualTargetRow
                   label="Tickets"
@@ -2061,7 +1747,6 @@ function TeamSection({
                   }
                 />
 
-
                 <ActualTargetRow
                   label="Quality"
                   actual={
@@ -2072,7 +1757,6 @@ function TeamSection({
                   }
                 />
 
-
                 <ActualTargetRow
                   label="Attendance"
                   actual={
@@ -2082,7 +1766,6 @@ function TeamSection({
                   decimals
                 />
 
-
                 <ActualTargetRow
                   label="Behavior"
                   actual={
@@ -2091,9 +1774,7 @@ function TeamSection({
                   target={5}
                   decimals
                 />
-
               </div>
-
 
               <div
                 className="
@@ -2103,15 +1784,7 @@ function TeamSection({
                   text-center
                 "
               >
-
-                <p
-                  className="
-                    text-xs
-                    uppercase
-                    tracking-wider
-                    text-muted-foreground
-                  "
-                >
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
                   Overall
                 </p>
 
@@ -2126,15 +1799,10 @@ function TeamSection({
                     teamSummary.overall
                   )}
                 </p>
-
               </div>
-
             </div>
-
           </>
-
         ) : (
-
           <div
             className="
               rounded-xl
@@ -2144,7 +1812,6 @@ function TeamSection({
               text-center
             "
           >
-
             <p className="text-sm font-medium">
               No team performance data available.
             </p>
@@ -2155,74 +1822,15 @@ function TeamSection({
                 teamMonth
               )}.
             </p>
-
           </div>
-
         )}
 
-
-        {/* =====================================================
-            HIERARCHY TEAM COUNTS
-            ===================================================== */}
-
-        <div
-          className="
-            grid
-            gap-3
-            sm:grid-cols-3
-          "
-        >
-
-          <div className="rounded-xl border p-4">
-
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Direct Reports
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {directReports.length}
-            </p>
-
-          </div>
-
-
-          <div className="rounded-xl border p-4">
-
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Total Team
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {teamEmployees.length}
-            </p>
-
-          </div>
-
-
-          <div className="rounded-xl border p-4">
-
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Performance Records
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {teamSummary?.employeesWithPerformance ??
-                0}
-            </p>
-
-          </div>
-
-        </div>
-
-
-        {/* =====================================================
+        {/* ==================================================
             DIRECT REPORTS
-            ===================================================== */}
+            ================================================== */}
 
         <div>
-
           <div className="mb-3">
-
             <p className="text-sm font-semibold">
               Direct Reports
             </p>
@@ -2231,12 +1839,9 @@ function TeamSection({
               Employees directly reporting to{" "}
               {profile.name}.
             </p>
-
           </div>
 
-
           {directTeamPerformance.length === 0 ? (
-
             <div
               className="
                 rounded-xl
@@ -2246,23 +1851,15 @@ function TeamSection({
                 text-center
               "
             >
-
               <p className="text-sm text-muted-foreground">
                 No direct reports found.
               </p>
-
             </div>
-
           ) : (
-
             <div className="overflow-x-auto rounded-xl border">
-
               <Table>
-
                 <TableHeader>
-
                   <TableRow>
-
                     <TableHead>
                       Name
                     </TableHead>
@@ -2294,25 +1891,19 @@ function TeamSection({
                     <TableHead>
                       Overall
                     </TableHead>
-
                   </TableRow>
-
                 </TableHeader>
 
-
                 <TableBody>
-
                   {directTeamPerformance.map(
                     ({
                       employee,
                       performance,
                     }) => {
-
                       const overall =
                         overallPercent(
                           performance
                         );
-
 
                       return (
                         <TableRow
@@ -2320,17 +1911,14 @@ function TeamSection({
                             employee.employeeId
                           }
                         >
-
                           <TableCell className="font-medium">
                             {employee.name}
                           </TableCell>
-
 
                           <TableCell>
                             {employee.designation ||
                               "—"}
                           </TableCell>
-
 
                           <TableCell>
                             {performance
@@ -2342,7 +1930,6 @@ function TeamSection({
                               : "—"}
                           </TableCell>
 
-
                           <TableCell>
                             {performance
                               ? `${safeNumber(
@@ -2352,7 +1939,6 @@ function TeamSection({
                                 )}`
                               : "—"}
                           </TableCell>
-
 
                           <TableCell>
                             {performance
@@ -2364,7 +1950,6 @@ function TeamSection({
                               : "—"}
                           </TableCell>
 
-
                           <TableCell>
                             {performance
                               ? `${safeNumber(
@@ -2375,7 +1960,6 @@ function TeamSection({
                               : "—"}
                           </TableCell>
 
-
                           <TableCell>
                             {performance
                               ? `${safeNumber(
@@ -2385,7 +1969,6 @@ function TeamSection({
                                 )}/5`
                               : "—"}
                           </TableCell>
-
 
                           <TableCell>
                             {performance
@@ -2394,272 +1977,19 @@ function TeamSection({
                                 )
                               : "—"}
                           </TableCell>
-
                         </TableRow>
                       );
                     }
                   )}
-
                 </TableBody>
-
               </Table>
-
             </div>
-
           )}
-
         </div>
-
-
-        {/* =====================================================
-            FULL HIERARCHY TABLE
-
-            This is important for Head TL / Manager / any
-            higher-level employee.
-
-            Shows EVERYONE below the selected person.
-            ===================================================== */}
-
-        {teamEmployees.length > 0 && (
-
-          <div>
-
-            <div className="mb-3">
-
-              <p className="text-sm font-semibold">
-                Full Team Hierarchy
-              </p>
-
-              <p className="text-xs text-muted-foreground">
-                All employees under{" "}
-                {profile.name}, including indirect reports.
-              </p>
-
-            </div>
-
-
-            <div className="overflow-x-auto rounded-xl border">
-
-              <Table>
-
-                <TableHeader>
-
-                  <TableRow>
-
-                    <TableHead>
-                      Employee
-                    </TableHead>
-
-                    <TableHead>
-                      Designation
-                    </TableHead>
-
-                    <TableHead>
-                      Reports To
-                    </TableHead>
-
-                    <TableHead>
-                      Department
-                    </TableHead>
-
-                    <TableHead>
-                      Location
-                    </TableHead>
-
-                    <TableHead>
-                      Production
-                    </TableHead>
-
-                    <TableHead>
-                      Tickets
-                    </TableHead>
-
-                    <TableHead>
-                      Quality
-                    </TableHead>
-
-                    <TableHead>
-                      Attendance
-                    </TableHead>
-
-                    <TableHead>
-                      Behavior
-                    </TableHead>
-
-                    <TableHead>
-                      Overall
-                    </TableHead>
-
-                  </TableRow>
-
-                </TableHeader>
-
-
-                <TableBody>
-
-                  {teamEmployees.map(
-                    (employee) => {
-
-                      const performance =
-                        getPerformanceForMonth(
-                          performanceRowsForTeam(
-                            teamEmployees,
-                            performanceRows
-                          ),
-                          employee.employeeId,
-                          teamMonth
-                        );
-
-
-                      return (
-                        <TableRow
-                          key={
-                            employee.employeeId
-                          }
-                        >
-
-                          <TableCell>
-
-                            <div>
-                              <p className="font-medium">
-                                {employee.name ||
-                                  "—"}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {employee.employeeId ||
-                                  ""}
-                              </p>
-                            </div>
-
-                          </TableCell>
-
-
-                          <TableCell>
-                            {employee.designation ||
-                              "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {employee.teamLead ||
-                              "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {employee.department ||
-                              "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {employee.location ||
-                              "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? `${safeNumber(
-                                  performance.productionActual
-                                )} / ${safeNumber(
-                                  performance.productionTarget
-                                )}`
-                              : "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? `${safeNumber(
-                                  performance.ticketActual
-                                )} / ${safeNumber(
-                                  performance.ticketTarget
-                                )}`
-                              : "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? `${safeNumber(
-                                  performance.errorActual
-                                )} / ${safeNumber(
-                                  performance.errorTarget
-                                )}`
-                              : "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? `${safeNumber(
-                                  performance.attendance
-                                ).toFixed(
-                                  1
-                                )}/10`
-                              : "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? `${safeNumber(
-                                  performance.behavior
-                                ).toFixed(
-                                  1
-                                )}/5`
-                              : "—"}
-                          </TableCell>
-
-
-                          <TableCell>
-                            {performance
-                              ? Math.round(
-                                  overallPercent(
-                                    performance
-                                  )
-                                )
-                              : "—"}
-                          </TableCell>
-
-                        </TableRow>
-                      );
-                    }
-                  )}
-
-                </TableBody>
-
-              </Table>
-
-            </div>
-
-          </div>
-
-        )}
-
       </CardContent>
-
     </Card>
   );
 }
-
-
-/* ============================================================
-   TEAM PERFORMANCE HELPER
-
-   Kept as a small helper so the table always works from the
-   same performance dataset.
-   ============================================================ */
-
-function performanceRowsForTeam(
-  _teamEmployees: SheetEmployee[],
-  performanceRows: SheetPerformance[]
-): SheetPerformance[] {
-  return performanceRows;
-}
-
 
 /* ============================================================
    TEAM METRIC CARD
@@ -2673,7 +2003,7 @@ function TeamMetricCard({
   suffix,
   decimals = false,
 }: {
-  icon: ReactNode;
+  icon: React.ReactNode;
   label: string;
   value: number;
   secondaryValue?: number;
@@ -2690,7 +2020,6 @@ function TeamMetricCard({
     return Math.round(number);
   };
 
-
   return (
     <div
       className="
@@ -2700,7 +2029,6 @@ function TeamMetricCard({
         p-4
       "
     >
-
       <div
         className="
           flex
@@ -2717,9 +2045,7 @@ function TeamMetricCard({
         {label}
       </div>
 
-
       <div className="mt-2 text-2xl font-bold">
-
         {formatValue(value)}
 
         {secondaryValue !== undefined && (
@@ -2732,13 +2058,10 @@ function TeamMetricCard({
         )}
 
         {suffix}
-
       </div>
-
     </div>
   );
 }
-
 
 /* ============================================================
    ACTUAL / TARGET ROW
@@ -2763,7 +2086,6 @@ function ActualTargetRow({
       : Math.round(value);
   };
 
-
   const progressValue =
     target > 0
       ? Math.min(
@@ -2778,10 +2100,8 @@ function ActualTargetRow({
         )
       : 0;
 
-
   return (
     <div>
-
       <div
         className="
           mb-1.5
@@ -2791,31 +2111,25 @@ function ActualTargetRow({
           text-sm
         "
       >
-
         <span className="font-medium">
           {label}
         </span>
-
 
         <span className="font-semibold">
           {formatValue(actual)}
           {" / "}
           {formatValue(target)}
         </span>
-
       </div>
-
 
       <Progress
         value={
           progressValue
         }
       />
-
     </div>
   );
 }
-
 
 /* ============================================================
    CURRENT MONTH
@@ -2828,9 +2142,7 @@ function EmployeeCurrentMonth({
 }) {
   return (
     <Card>
-
       <CardHeader>
-
         <div
           className="
             flex
@@ -2839,19 +2151,15 @@ function EmployeeCurrentMonth({
             gap-4
           "
         >
-
           <div>
-
             <CardTitle>
-              Current Month Progress
+              Current Month
             </CardTitle>
 
             <CardDescription>
-              Current monthly performance snapshot.
+              Current performance progress.
             </CardDescription>
-
           </div>
-
 
           {performance && (
             <Badge variant="secondary">
@@ -2860,16 +2168,11 @@ function EmployeeCurrentMonth({
               )}
             </Badge>
           )}
-
         </div>
-
       </CardHeader>
 
-
       <CardContent>
-
         {!performance ? (
-
           <div
             className="
               rounded-xl
@@ -2879,7 +2182,6 @@ function EmployeeCurrentMonth({
               text-center
             "
           >
-
             <p className="text-sm font-medium">
               No performance data for the current month.
             </p>
@@ -2887,22 +2189,17 @@ function EmployeeCurrentMonth({
             <p className="mt-1 text-xs text-muted-foreground">
               Monthly performance has not been uploaded yet.
             </p>
-
           </div>
-
         ) : (
-
           <div className="space-y-6">
-
             <div
               className="
                 grid
                 gap-3
                 sm:grid-cols-2
-                lg:grid-cols-4
+                lg:grid-cols-5
               "
             >
-
               <PerformanceStat
                 label="Production"
                 value={`${safeNumber(
@@ -2915,7 +2212,6 @@ function EmployeeCurrentMonth({
                   <TrendingUp className="size-4" />
                 }
               />
-
 
               <PerformanceStat
                 label="Tickets"
@@ -2930,7 +2226,6 @@ function EmployeeCurrentMonth({
                 }
               />
 
-
               <PerformanceStat
                 label="Errors / Rejection"
                 value={`${safeNumber(
@@ -2944,7 +2239,6 @@ function EmployeeCurrentMonth({
                 }
               />
 
-
               <PerformanceStat
                 label="Attendance"
                 value={`${safeNumber(
@@ -2956,17 +2250,6 @@ function EmployeeCurrentMonth({
                 }
               />
 
-            </div>
-
-
-            <div
-              className="
-                grid
-                gap-3
-                sm:grid-cols-2
-              "
-            >
-
               <PerformanceStat
                 label="Behavior"
                 value={`${safeNumber(
@@ -2977,32 +2260,55 @@ function EmployeeCurrentMonth({
                   <Brain className="size-4" />
                 }
               />
+            </div>
 
+            <div
+              className="
+                rounded-xl
+                border
+                bg-muted/20
+                p-5
+              "
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">
+                    Overall Performance
+                  </p>
 
-              <PerformanceStat
-                label="Overall"
-                value={`${Math.round(
-                  overallPercent(
-                    performance
-                  )
-                )}`}
-                helper={
-                  overallLabel(
+                  <p className="text-xs text-muted-foreground">
+                    {overallLabel(
+                      overallPercent(
+                        performance
+                      )
+                    )}
+                  </p>
+                </div>
+
+                <p className="text-3xl font-bold">
+                  {Math.round(
+                    overallPercent(
+                      performance
+                    )
+                  )}
+                </p>
+              </div>
+
+              <Progress
+                className="mt-4"
+                value={Math.min(
+                  100,
+                  Math.max(
+                    0,
                     overallPercent(
                       performance
                     )
                   )
-                }
-                icon={
-                  <TrendingUp className="size-4" />
-                }
+                )}
               />
-
             </div>
 
-
             <div>
-
               <p className="text-sm font-semibold">
                 Manager Remarks
               </p>
@@ -3021,19 +2327,13 @@ function EmployeeCurrentMonth({
                 {performance.managerRemarks ||
                   "No manager remarks added."}
               </p>
-
             </div>
-
           </div>
-
         )}
-
       </CardContent>
-
     </Card>
   );
 }
-
 
 /* ============================================================
    PERFORMANCE STAT
@@ -3048,7 +2348,7 @@ function PerformanceStat({
   label: string;
   value: string;
   helper: string;
-  icon: ReactNode;
+  icon: React.ReactNode;
 }) {
   return (
     <div
@@ -3058,7 +2358,6 @@ function PerformanceStat({
         p-4
       "
     >
-
       <div
         className="
           flex
@@ -3075,20 +2374,16 @@ function PerformanceStat({
         {label}
       </div>
 
-
       <div className="mt-2 text-lg font-bold">
         {value}
       </div>
 
-
       <div className="mt-1 text-xs text-muted-foreground">
         {helper}
       </div>
-
     </div>
   );
 }
-
 
 /* ============================================================
    PREVIOUS MONTH
@@ -3101,9 +2396,7 @@ function EmployeePreviousMonth({
 }) {
   return (
     <Card>
-
       <CardHeader>
-
         <div
           className="
             flex
@@ -3112,19 +2405,15 @@ function EmployeePreviousMonth({
             gap-4
           "
         >
-
           <div>
-
             <CardTitle>
-              Previous Month Data
+              Previous Month
             </CardTitle>
 
             <CardDescription>
               Latest completed monthly performance.
             </CardDescription>
-
           </div>
-
 
           {performance && (
             <Badge variant="outline">
@@ -3133,16 +2422,11 @@ function EmployeePreviousMonth({
               )}
             </Badge>
           )}
-
         </div>
-
       </CardHeader>
 
-
       <CardContent>
-
         {!performance ? (
-
           <div
             className="
               rounded-xl
@@ -3152,17 +2436,12 @@ function EmployeePreviousMonth({
               text-center
             "
           >
-
             <p className="text-sm text-muted-foreground">
               No previous month performance available.
             </p>
-
           </div>
-
         ) : (
-
           <div className="space-y-5">
-
             <div
               className="
                 grid
@@ -3171,7 +2450,6 @@ function EmployeePreviousMonth({
                 lg:grid-cols-5
               "
             >
-
               <MiniMetric
                 label="Production"
                 value={`${safeNumber(
@@ -3180,7 +2458,6 @@ function EmployeePreviousMonth({
                   performance.productionTarget
                 )}`}
               />
-
 
               <MiniMetric
                 label="Tickets"
@@ -3191,7 +2468,6 @@ function EmployeePreviousMonth({
                 )}`}
               />
 
-
               <MiniMetric
                 label="Quality"
                 value={`${safeNumber(
@@ -3201,7 +2477,6 @@ function EmployeePreviousMonth({
                 )}`}
               />
 
-
               <MiniMetric
                 label="Attendance"
                 value={`${safeNumber(
@@ -3209,16 +2484,13 @@ function EmployeePreviousMonth({
                 ).toFixed(1)} / 10`}
               />
 
-
               <MiniMetric
                 label="Behavior"
                 value={`${safeNumber(
                   performance.behavior
                 ).toFixed(1)} / 5`}
               />
-
             </div>
-
 
             <div
               className="
@@ -3228,13 +2500,10 @@ function EmployeePreviousMonth({
                 p-4
               "
             >
-
               <div className="flex items-center justify-between">
-
                 <span className="text-sm font-medium">
                   Overall
                 </span>
-
 
                 <span className="text-lg font-bold">
                   {Math.round(
@@ -3243,9 +2512,7 @@ function EmployeePreviousMonth({
                     )
                   )}
                 </span>
-
               </div>
-
 
               <Progress
                 className="mt-3"
@@ -3259,23 +2526,13 @@ function EmployeePreviousMonth({
                   )
                 )}
               />
-
             </div>
-
           </div>
-
         )}
-
       </CardContent>
-
     </Card>
   );
 }
-
-
-/* ============================================================
-   MINI METRIC
-   ============================================================ */
 
 function MiniMetric({
   label,
@@ -3286,7 +2543,6 @@ function MiniMetric({
 }) {
   return (
     <div className="rounded-xl border p-4">
-
       <p className="text-xs text-muted-foreground">
         {label}
       </p>
@@ -3294,38 +2550,9 @@ function MiniMetric({
       <p className="mt-1 text-lg font-bold">
         {value}
       </p>
-
     </div>
   );
 }
-
-
-/* ============================================================
-   OVERALL LABEL
-   ============================================================ */
-
-function overallLabel(
-  value: number
-): string {
-  if (value >= 95) {
-    return "Excellent";
-  }
-
-  if (value >= 85) {
-    return "Very Good";
-  }
-
-  if (value >= 75) {
-    return "Good";
-  }
-
-  if (value >= 60) {
-    return "Needs Improvement";
-  }
-
-  return "Poor";
-}
-
 
 /* ============================================================
    EDIT FORM
@@ -3346,7 +2573,6 @@ function EditForm({
   const qc =
     useQueryClient();
 
-
   const deptQ =
     useQuery({
       queryKey: [
@@ -3355,7 +2581,6 @@ function EditForm({
       queryFn:
         listDepartments,
     });
-
 
   const desigQ =
     useQuery({
@@ -3366,7 +2591,6 @@ function EditForm({
         listDesignations,
     });
 
-
   const locQ =
     useQuery({
       queryKey: [
@@ -3375,7 +2599,6 @@ function EditForm({
       queryFn:
         listLocations,
     });
-
 
   const leadQ =
     useQuery({
@@ -3386,7 +2609,6 @@ function EditForm({
         listTeamLeads,
     });
 
-
   const [
     updatedEmployeeId,
     setUpdatedEmployeeId,
@@ -3394,7 +2616,6 @@ function EditForm({
     initial.employeeId ??
       employeeId
   );
-
 
   const [
     email,
@@ -3404,7 +2625,6 @@ function EditForm({
       ""
   );
 
-
   const [
     department,
     setDepartment,
@@ -3412,7 +2632,6 @@ function EditForm({
     initial.department ??
       ""
   );
-
 
   const [
     designation,
@@ -3422,7 +2641,6 @@ function EditForm({
       ""
   );
 
-
   const [
     teamLead,
     setTeamLead,
@@ -3431,7 +2649,6 @@ function EditForm({
       ""
   );
 
-
   const [
     location,
     setLocation,
@@ -3439,7 +2656,6 @@ function EditForm({
     initial.location ??
       ""
   );
-
 
   const [
     joiningDate,
@@ -3451,7 +2667,6 @@ function EditForm({
         ).slice(0, 10)
       : ""
   );
-
 
   const mutation =
     useMutation({
@@ -3527,7 +2742,6 @@ function EditForm({
       },
     });
 
-
   function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -3544,12 +2758,9 @@ function EditForm({
     mutation.mutate();
   }
 
-
   return (
     <Card>
-
       <CardHeader>
-
         <CardTitle>
           Edit Employee
         </CardTitle>
@@ -3557,12 +2768,9 @@ function EditForm({
         <CardDescription>
           Update employee master information.
         </CardDescription>
-
       </CardHeader>
 
-
       <CardContent>
-
         <form
           className="
             grid
@@ -3573,13 +2781,10 @@ function EditForm({
             handleSubmit
           }
         >
-
           {user?.role ===
             "super_admin" && (
             <>
-
               <div className="space-y-1.5">
-
                 <label
                   className="text-sm font-medium"
                   htmlFor="edit-employee-id"
@@ -3599,12 +2804,9 @@ function EditForm({
                   }
                   required
                 />
-
               </div>
 
-
               <div className="space-y-1.5">
-
                 <label
                   className="text-sm font-medium"
                   htmlFor="edit-email"
@@ -3625,12 +2827,9 @@ function EditForm({
                   }
                   required
                 />
-
               </div>
-
             </>
           )}
-
 
           <Picker
             label="Department"
@@ -3646,7 +2845,6 @@ function EditForm({
             }
           />
 
-
           <Picker
             label="Designation"
             value={
@@ -3660,7 +2858,6 @@ function EditForm({
               []
             }
           />
-
 
           <Picker
             label="Team Lead"
@@ -3676,7 +2873,6 @@ function EditForm({
             }
           />
 
-
           <Picker
             label="Location"
             value={
@@ -3691,9 +2887,7 @@ function EditForm({
             }
           />
 
-
           <div className="space-y-1.5">
-
             <label
               className="text-sm font-medium"
               htmlFor="edit-joining"
@@ -3713,9 +2907,7 @@ function EditForm({
                 )
               }
             />
-
           </div>
-
 
           <div
             className="
@@ -3726,7 +2918,6 @@ function EditForm({
               sm:col-span-2
             "
           >
-
             <Button
               type="button"
               variant="outline"
@@ -3736,7 +2927,6 @@ function EditForm({
             >
               Cancel
             </Button>
-
 
             <Button
               type="submit"
@@ -3748,17 +2938,12 @@ function EditForm({
                 ? "Saving…"
                 : "Save changes"}
             </Button>
-
           </div>
-
         </form>
-
       </CardContent>
-
     </Card>
   );
 }
-
 
 /* ============================================================
    PICKER
@@ -3793,14 +2978,11 @@ function Picker({
       )
     );
 
-
   return (
     <div className="space-y-1.5">
-
       <label className="text-sm font-medium">
         {label}
       </label>
-
 
       <Select
         value={
@@ -3810,16 +2992,13 @@ function Picker({
           onChange
         }
       >
-
         <SelectTrigger>
           <SelectValue
             placeholder={`Select ${label.toLowerCase()}`}
           />
         </SelectTrigger>
 
-
         <SelectContent>
-
           {uniqueOptions.map(
             (option) => (
               <SelectItem
@@ -3830,15 +3009,11 @@ function Picker({
               </SelectItem>
             )
           )}
-
         </SelectContent>
-
       </Select>
-
     </div>
   );
 }
-
 
 /* ============================================================
    DATE
@@ -3851,12 +3026,10 @@ function formatJoiningDate(
     return "—";
   }
 
-
   const date =
     new Date(
       String(value)
     );
-
 
   if (
     Number.isNaN(
@@ -3867,7 +3040,6 @@ function formatJoiningDate(
       value
     );
   }
-
 
   return date.toLocaleDateString(
     "en-GB"
