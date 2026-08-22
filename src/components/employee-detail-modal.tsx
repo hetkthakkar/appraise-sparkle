@@ -704,209 +704,129 @@ export function EmployeeDetailModal({
       );
     }, [performanceRows]);
 
-  const teamSummary =
-    useMemo(() => {
-      if (!teamEmployees.length) {
-        return null;
-      }
+  const teamSummary = useMemo(() => {
+  if (directTeamPerformance.length === 0) {
+    return null;
+  }
 
-      const rows =
-        teamEmployees
-          .map(
-            (employee) =>
-              getPerformanceForMonth(
-                performanceRows,
-                employee.employeeId,
-                effectiveTeamMonth
-              )
-          )
-          .filter(
-            (
-              row
-            ): row is SheetPerformance =>
-              !!row
-          );
+  const rows = directTeamPerformance
+    .map((item) => item.performance)
+    .filter(
+      (row): row is SheetPerformance =>
+        !!row
+    );
 
-      if (!rows.length) {
-        return null;
-      }
+  if (rows.length === 0) {
+    return null;
+  }
 
-      const productionTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.productionTarget
-            ),
-          0
-        );
+  // --------------------------------------------------
+  // TOTALS
+  // --------------------------------------------------
 
-      const productionActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.productionActual
-            ),
-          0
-        );
+  const productionActual = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.productionActual
+      ),
+    0
+  );
 
-      const ticketTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.ticketTarget
-            ),
-          0
-        );
+  const productionTarget = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.productionTarget
+      ),
+    0
+  );
 
-      const ticketActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.ticketActual
-            ),
-          0
-        );
+  const ticketActual = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.ticketActual
+      ),
+    0
+  );
 
-      const errorTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.errorTarget
-            ),
-          0
-        );
+  const ticketTarget = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.ticketTarget
+      ),
+    0
+  );
 
-      const errorActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.errorActual
-            ),
-          0
-        );
+  const errorActual = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.errorActual
+      ),
+    0
+  );
 
-      const attendance =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.attendance
-            ),
-          0
-        ) / rows.length;
+  const errorTarget = rows.reduce(
+    (sum, row) =>
+      sum +
+      safeNumber(
+        row.errorTarget
+      ),
+    0
+  );
 
-      const behavior =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.behavior
-            ),
-          0
-        ) / rows.length;
+  // --------------------------------------------------
+  // SCORES = AVERAGE
+  // --------------------------------------------------
 
-      const production =
-        productionTarget > 0
-          ? Math.min(
-              150,
-              (
-                productionActual /
-                productionTarget
-              ) *
-                100
-            )
-          : 0;
+  const attendance =
+    rows.reduce(
+      (sum, row) =>
+        sum +
+        safeNumber(
+          row.attendance
+        ),
+      0
+    ) / rows.length;
 
-      const tickets =
-        ticketTarget > 0
-          ? Math.min(
-              150,
-              (
-                ticketActual /
-                ticketTarget
-              ) *
-                100
-            )
-          : 0;
+  const behavior =
+    rows.reduce(
+      (sum, row) =>
+        sum +
+        safeNumber(
+          row.behavior
+        ),
+      0
+    ) / rows.length;
 
-      const quality =
-        errorTarget <= 0
-          ? errorActual <= 0
-            ? 100
-            : 0
-          : errorActual <= 0
-          ? 100
-          : Math.min(
-              150,
-              (
-                errorTarget /
-                errorActual
-              ) *
-                100
-            );
+  return {
+    people:
+      directReports.length,
 
-      const attendancePct =
-        Math.min(
-          100,
-          (
-            attendance /
-            10
-          ) *
-            100
-        );
+    employeesWithPerformance:
+      rows.length,
 
-      const behaviorPct =
-        Math.min(
-          100,
-          (
-            behavior /
-            5
-          ) *
-            100
-        );
+    productionActual,
+    productionTarget,
 
-      const overall =
-        (
-          production +
-          tickets +
-          quality +
-          attendancePct +
-          behaviorPct
-        ) / 5;
+    ticketActual,
+    ticketTarget,
 
-      return {
-        people:
-          directReports.length,
+    errorActual,
+    errorTarget,
 
-        employeesWithPerformance:
-          rows.length,
+    attendance,
+    behavior,
 
-        productionActual,
-        productionTarget,
-
-        ticketActual,
-        ticketTarget,
-
-        errorActual,
-        errorTarget,
-
-        attendance,
-        behavior,
-
-        overall,
-      };
-    }, [
-      teamEmployees,
-      directReports,
-      performanceRows,
-      effectiveTeamMonth,
-    ]);
+    overall: 0,
+  };
+}, [
+  directTeamPerformance,
+  directReports,
+]);
 
   const currentPerformance =
     detailQ.data?.currentMonth ??
