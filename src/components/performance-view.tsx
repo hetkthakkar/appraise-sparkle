@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -15,8 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MetricRow } from "@/components/metric-row";
-import { monthToLabel, type MyDashboard } from "@/lib/sheetsApi";
+import { monthToLabel, type MyDashboard, type SheetPerformance } from "@/lib/sheetsApi";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import {
@@ -34,43 +32,19 @@ export function Field({
   label: string;
   value?: unknown;
 }) {
-  const displayValue = value == null ? "" : String(value).trim();
+  const displayValue =
+    value == null
+      ? ""
+      : String(value).trim();
 
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
+
       <div className="mt-0.5 font-medium">
         {displayValue || "—"}
-      </div>
-    </div>
-  );
-}
-
-function ScoreBlock({
-  label,
-  value,
-  outOf,
-}: {
-  label: string;
-  value: number;
-  outOf: number;
-}) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-sm text-muted-foreground">
-        {label}
-      </div>
-
-      <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-2xl font-semibold">
-          {Number(value || 0).toFixed(1)}
-        </span>
-
-        <span className="text-sm text-muted-foreground">
-          / {outOf}
-        </span>
       </div>
     </div>
   );
@@ -89,64 +63,165 @@ export function PerformanceView({
     data?.profile ??
     ({} as MyDashboard["profile"]);
 
-  const current = data?.currentMonth;
+  const currentMonth =
+    data?.currentMonth ?? null;
 
   const previousMonths =
-    data?.previousMonths;
+    data?.previousMonths ?? [];
 
   const [selectedYear, setSelectedYear] =
     useState("all");
 
   /*
-   * Get all years available in Previous Months.
+   * ----------------------------------------------------------
+   * COMBINE CURRENT + PREVIOUS MONTHS
+   * ----------------------------------------------------------
+   *
+   * The current month is no longer shown separately.
+   * Everything goes into one table.
+   *
+   * We also de-duplicate by month so that if the backend
+   * accidentally returns the same month twice, only one row
+   * is shown.
    */
-  const availableYears = useMemo(() => {
-    const months = previousMonths ?? [];
+  const allPerformance =
+    useMemo(() => {
+      const map =
+        new Map<
+          string,
+          SheetPerformance
+        >();
 
-    const years = months
-      .map((item) =>
-        String(item.month ?? "").slice(0, 4)
-      )
-      .filter((year) =>
-        /^\d{4}$/.test(year)
+      previousMonths.forEach(
+        (item) => {
+          if (
+            item?.month
+          ) {
+            map.set(
+              String(item.month),
+              item
+            );
+          }
+        }
       );
 
-    return Array.from(new Set(years)).sort(
-      (a, b) => Number(b) - Number(a)
-    );
-  }, [previousMonths]);
+      if (
+        currentMonth?.month
+      ) {
+        map.set(
+          String(currentMonth.month),
+          currentMonth
+        );
+      }
+
+      return Array.from(
+        map.values()
+      ).sort(
+        (a, b) =>
+          String(a.month).localeCompare(
+            String(b.month)
+          )
+      );
+    }, [
+      currentMonth,
+      previousMonths,
+    ]);
+
 
   /*
-   * Filter ONLY Previous Months.
-   * Current Month remains unchanged.
+   * ----------------------------------------------------------
+   * AVAILABLE YEARS
+   * ----------------------------------------------------------
    */
-  const history = useMemo(() => {
-    const months = [
-      ...(previousMonths ?? []),
-    ];
-
-    const filtered =
-      selectedYear === "all"
-        ? months
-        : months.filter(
-            (item) =>
-              String(item.month ?? "").slice(0, 4) ===
-              selectedYear
+  const availableYears =
+    useMemo(() => {
+      const years =
+        allPerformance
+          .map((item) =>
+            String(
+              item.month ?? ""
+            ).slice(0, 4)
+          )
+          .filter((year) =>
+            /^\d{4}$/.test(year)
           );
 
-    return filtered.sort((a, b) =>
-      a.month < b.month ? 1 : -1
-    );
-  }, [previousMonths, selectedYear]);
+      return Array.from(
+        new Set(years)
+      ).sort(
+        (a, b) =>
+          Number(a) - Number(b)
+      );
+    }, [
+      allPerformance,
+    ]);
+
+
+  /*
+   * ----------------------------------------------------------
+   * FILTER + SORT
+   * ----------------------------------------------------------
+   *
+   * Jan -> Dec
+   *
+   * For multiple years:
+   * 2025 Jan -> 2025 Dec
+   * 2026 Jan -> 2026 Dec
+   */
+  const history =
+    useMemo(() => {
+      const filtered =
+        selectedYear === "all"
+          ? allPerformance
+          : allPerformance.filter(
+              (item) =>
+                String(
+                  item.month ?? ""
+                ).slice(0, 4) ===
+                selectedYear
+            );
+
+      return [
+        ...filtered,
+      ].sort(
+        (a, b) =>
+          String(a.month).localeCompare(
+            String(b.month)
+          )
+      );
+    }, [
+      allPerformance,
+      selectedYear,
+    ]);
+
+
+  /*
+   * ----------------------------------------------------------
+   * CURRENT MONTH KEY
+   * ----------------------------------------------------------
+   *
+   * Used only to visually identify the current month
+   * inside the same table.
+   */
+  const currentMonthKey =
+    currentMonth?.month
+      ? String(currentMonth.month)
+      : "";
+
 
   return (
     <div className="space-y-6">
-      {/* PROFILE */}
+
+      {/* ======================================================
+          PROFILE
+          ====================================================== */}
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle>
-              {compact ? "Profile" : "My Profile"}
+              {compact
+                ? "Profile"
+                : "My Profile"}
             </CardTitle>
 
             <CardDescription>
@@ -166,7 +241,8 @@ export function PerformanceView({
           )}
         </CardHeader>
 
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+        <CardContent className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+
           <Field
             label="Employee ID"
             value={profile.employeeId}
@@ -212,135 +288,41 @@ export function PerformanceView({
                 : ""
             }
           />
+
         </CardContent>
       </Card>
 
-      {/* CURRENT MONTH */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                Current Month —{" "}
-                {current
-                  ? monthToLabel(
-                      current.month
-                    )
-                  : "—"}
-              </CardTitle>
 
-              <CardDescription>
-                Live snapshot of KPIs.
-              </CardDescription>
-            </div>
-
-            {current && (
-              <Badge variant="secondary">
-                Updated
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {!current ? (
-            <p className="text-sm text-muted-foreground">
-              No performance data uploaded
-              for this month yet.
-            </p>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <MetricRow
-                  label="Production"
-                  target={Number(
-                    current.productionTarget
-                  )}
-                  actual={Number(
-                    current.productionActual
-                  )}
-                />
-
-                <MetricRow
-                  label="Tickets"
-                  target={Number(
-                    current.ticketTarget
-                  )}
-                  actual={Number(
-                    current.ticketActual
-                  )}
-                />
-
-                <MetricRow
-                  label="Internal Errors / Rejections"
-                  target={Number(
-                    current.errorTarget
-                  )}
-                  actual={Number(
-                    current.errorActual
-                  )}
-                  invert
-                />
-              </div>
-
-              <div className="space-y-4">
-                <ScoreBlock
-                  label="Attendance"
-                  value={Number(
-                    current.attendance
-                  )}
-                  outOf={10}
-                />
-
-                <ScoreBlock
-                  label="Behavior"
-                  value={Number(
-                    current.behavior
-                  )}
-                  outOf={5}
-                />
-
-                <div>
-                  <p className="text-sm font-medium">
-                    Manager Remarks
-                  </p>
-
-                  <p className="mt-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-                    {current.managerRemarks ||
-                      "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* PREVIOUS MONTHS */}
+      {/* ======================================================
+          PERSONAL PERFORMANCE - SINGLE TABLE
+          ====================================================== */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
+
             <div>
               <CardTitle>
-                Previous Months
+                Personal Performance
               </CardTitle>
 
               <CardDescription>
-                Performance history.
+                Monthly performance history.
               </CardDescription>
             </div>
 
-            {/* YEAR FILTER */}
             {availableYears.length > 0 && (
               <Select
                 value={selectedYear}
-                onValueChange={setSelectedYear}
+                onValueChange={
+                  setSelectedYear
+                }
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
 
                 <SelectContent>
+
                   <SelectItem value="all">
                     All Years
                   </SelectItem>
@@ -355,96 +337,165 @@ export function PerformanceView({
                       </SelectItem>
                     )
                   )}
+
                 </SelectContent>
               </Select>
             )}
+
           </div>
         </CardHeader>
 
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  Month
-                </TableHead>
 
-                <TableHead>
-                  Production
-                </TableHead>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No performance data available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
 
-                <TableHead>
-                  Tickets
-                </TableHead>
+              <Table>
 
-                <TableHead>
-                  Errors
-                </TableHead>
+                <TableHeader>
+                  <TableRow>
 
-                <TableHead>
-                  Attendance
-                </TableHead>
+                    <TableHead>
+                      Month
+                    </TableHead>
 
-                <TableHead>
-                  Behavior
-                </TableHead>
-              </TableRow>
-            </TableHeader>
+                    <TableHead>
+                      Production
+                    </TableHead>
 
-            <TableBody>
-              {history.map((p) => (
-                <TableRow
-                  key={p.month}
-                >
-                  <TableCell className="font-medium">
-                    {monthToLabel(
-                      p.month
-                    )}
-                  </TableCell>
+                    <TableHead>
+                      Tickets
+                    </TableHead>
 
-                  <TableCell>
-                    {p.productionActual} /{" "}
-                    {p.productionTarget}
-                  </TableCell>
+                    <TableHead>
+                      Errors / Rejections
+                    </TableHead>
 
-                  <TableCell>
-                    {p.ticketActual} /{" "}
-                    {p.ticketTarget}
-                  </TableCell>
+                    <TableHead>
+                      Attendance
+                    </TableHead>
 
-                  <TableCell>
-                    {p.errorActual} /{" "}
-                    {p.errorTarget}
-                  </TableCell>
+                    <TableHead>
+                      Behavior
+                    </TableHead>
 
-                  <TableCell>
-                    {Number(
-                      p.attendance || 0
-                    ).toFixed(1)}
-                  </TableCell>
+                    <TableHead>
+                      Manager Remarks
+                    </TableHead>
 
-                  <TableCell>
-                    {Number(
-                      p.behavior || 0
-                    ).toFixed(1)}
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                </TableHeader>
 
-              {history.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center text-muted-foreground"
-                  >
-                    No history yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+
+                <TableBody>
+
+                  {history.map(
+                    (p) => {
+
+                      const isCurrent =
+                        String(
+                          p.month
+                        ) ===
+                        currentMonthKey;
+
+                      return (
+                        <TableRow
+                          key={p.month}
+                          className={
+                            isCurrent
+                              ? "bg-muted/40"
+                              : undefined
+                          }
+                        >
+
+                          <TableCell className="font-medium whitespace-nowrap">
+
+                            <div className="flex items-center gap-2">
+
+                              {monthToLabel(
+                                p.month
+                              )}
+
+                              {isCurrent && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                  Current
+                                </span>
+                              )}
+
+                            </div>
+
+                          </TableCell>
+
+
+                          <TableCell className="whitespace-nowrap">
+                            {p.productionActual ??
+                              0}{" "}
+                            /{" "}
+                            {p.productionTarget ??
+                              0}
+                          </TableCell>
+
+
+                          <TableCell className="whitespace-nowrap">
+                            {p.ticketActual ??
+                              0}{" "}
+                            /{" "}
+                            {p.ticketTarget ??
+                              0}
+                          </TableCell>
+
+
+                          <TableCell className="whitespace-nowrap">
+                            {p.errorActual ??
+                              0}{" "}
+                            /{" "}
+                            {p.errorTarget ??
+                              0}
+                          </TableCell>
+
+
+                          <TableCell className="whitespace-nowrap">
+                            {Number(
+                              p.attendance ??
+                                0
+                            ).toFixed(1)}
+                            /10
+                          </TableCell>
+
+
+                          <TableCell className="whitespace-nowrap">
+                            {Number(
+                              p.behavior ??
+                                0
+                            ).toFixed(1)}
+                            /5
+                          </TableCell>
+
+
+                          <TableCell className="min-w-[220px] max-w-[320px]">
+                            {p.managerRemarks ||
+                              "—"}
+                          </TableCell>
+
+                        </TableRow>
+                      );
+                    }
+                  )}
+
+                </TableBody>
+
+              </Table>
+
+            </div>
+          )}
+
         </CardContent>
       </Card>
+
     </div>
   );
 }
