@@ -314,11 +314,16 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
   const [editing, setEditing] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
 
+  // NEW: lets the user override the auto-selected month for the Team section.
+  // null = "no manual override yet", fall back to the auto-computed default (teamMonth).
+  const [selectedTeamMonth, setSelectedTeamMonth] = useState<string | null>(null);
+
   useEffect(() => {
     setActiveEmployeeId(employeeId);
     setHistory([]);
     setEditing(false);
     setYearFilter("all");
+    setSelectedTeamMonth(null);
   }, [employeeId]);
 
   const detailQ = useQuery({
@@ -357,6 +362,8 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
 
   const performanceRows = performanceQ.data ?? [];
 
+  // Auto-computed default month: current month if the team has data for it,
+  // otherwise the latest month the team has data for.
   const teamMonth = useMemo(() => {
     if (!teamEmployees.length) return getCurrentMonthKey();
     const teamIds = new Set(teamEmployees.map((employee) => String(employee.employeeId)));
@@ -367,11 +374,27 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
     return getLatestMonth(teamRows) ?? current;
   }, [teamEmployees, performanceRows]);
 
+  // NEW: the month actually used for team calculations — manual selection wins if set.
+  const effectiveTeamMonth = selectedTeamMonth ?? teamMonth;
+
+  // NEW: list of months to show in the dropdown. Built from every month present in
+  // the performance data, plus the current month so it's always selectable even if
+  // there's no data uploaded for it yet.
+  const availableTeamMonths = useMemo(() => {
+    const months = new Set<string>();
+    performanceRows.forEach((row) => {
+      const m = String(row.month ?? "").slice(0, 7);
+      if (m) months.add(m);
+    });
+    months.add(getCurrentMonthKey());
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [performanceRows]);
+
   const teamSummary = useMemo(() => {
     if (!teamEmployees.length) return null;
 
     const rows = teamEmployees
-      .map((employee) => getPerformanceForMonth(performanceRows, employee.employeeId, teamMonth))
+      .map((employee) => getPerformanceForMonth(performanceRows, employee.employeeId, effectiveTeamMonth))
       .filter((row): row is SheetPerformance => !!row);
 
     if (!rows.length) return null;
@@ -409,7 +432,7 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
       behavior,
       overall,
     };
-  }, [teamEmployees, directReports, performanceRows, teamMonth]);
+  }, [teamEmployees, directReports, performanceRows, effectiveTeamMonth]);
 
   const currentPerformance = detailQ.data?.currentMonth ?? null;
   const previousMonths = detailQ.data?.previousMonths ?? [];
@@ -439,7 +462,7 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
         const subRows = performanceRows.filter(
-          (r) => subIds.has(String(r.employeeId)) && String(r.month).slice(0, 7) === teamMonth
+          (r) => subIds.has(String(r.employeeId)) && String(r.month).slice(0, 7) === effectiveTeamMonth
         );
 
         if (subRows.length > 0) {
@@ -462,7 +485,7 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
           return {
             employee,
             performance: {
-              month: teamMonth,
+              month: effectiveTeamMonth,
               employeeId: employee.employeeId,
               productionTarget: pTar,
               productionActual: pAct,
@@ -478,14 +501,14 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
         }
       }
 
-      const performance = getPerformanceForMonth(performanceRows, employee.employeeId, teamMonth);
+      const performance = getPerformanceForMonth(performanceRows, employee.employeeId, effectiveTeamMonth);
       return {
         employee,
         performance,
         calculatedOverall: performance ? Math.round(overallPercent(performance)) : 0,
       };
     });
-  }, [directReports, allEmployees, performanceRows, teamMonth]);
+  }, [directReports, allEmployees, performanceRows, effectiveTeamMonth]);
 
   const handleSelectDrilldown = (targetEmployeeId: string) => {
     if (activeEmployeeId) {
@@ -577,7 +600,9 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
                 directReports={directReports}
                 teamSummary={teamSummary}
                 directTeamPerformance={directTeamPerformance}
-                teamMonth={teamMonth}
+                teamMonth={effectiveTeamMonth}
+                availableTeamMonths={availableTeamMonths}
+                onTeamMonthChange={setSelectedTeamMonth}
                 performanceLoading={performanceQ.isLoading}
                 onSelectMember={handleSelectDrilldown}
               />
@@ -723,6 +748,8 @@ function TeamSection({
   teamSummary,
   directTeamPerformance,
   teamMonth,
+  availableTeamMonths,
+  onTeamMonthChange,
   performanceLoading,
   onSelectMember,
 }: {
@@ -736,6 +763,8 @@ function TeamSection({
     calculatedOverall?: number;
   }[];
   teamMonth: string;
+  availableTeamMonths: string[];
+  onTeamMonthChange: (month: string) => void;
   performanceLoading: boolean;
   onSelectMember?: (id: string) => void;
 }) {
@@ -756,9 +785,20 @@ function TeamSection({
             </CardDescription>
           </div>
 
-          <Badge variant="secondary" className="rounded-md px-2.5 py-0.5 text-xs font-medium text-muted-foreground bg-muted/60">
-            {monthToLabel(teamMonth)}
-          </Badge>
+          {/* Month/Year filter for the Team section — defaults to current/latest month,
+              but the user can pick any month that has data. */}
+          <Select value={teamMonth} onValueChange={onTeamMonthChange}>
+            <SelectTrigger className="w-[160px] h-8 text-xs bg-background">
+              <SelectValue placeholder="Select month" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTeamMonths.map((m) => (
+                <SelectItem key={m} value={m} className="text-xs">
+                  {monthToLabel(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
 
