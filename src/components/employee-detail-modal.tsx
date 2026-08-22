@@ -96,6 +96,25 @@ interface EmployeeProfile {
 }
 
 /* ============================================================
+   MONTH OPTIONS (for the separate Team month/year filters)
+   ============================================================ */
+
+const MONTH_OPTIONS = [
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+/* ============================================================
    ROLE & DESIGNATION TIER SYSTEM
    ============================================================ */
 
@@ -314,16 +333,18 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
   const [editing, setEditing] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
 
-  // NEW: lets the user override the auto-selected month for the Team section.
+  // NEW: separate year/month overrides for the Team section filter.
   // null = "no manual override yet", fall back to the auto-computed default (teamMonth).
-  const [selectedTeamMonth, setSelectedTeamMonth] = useState<string | null>(null);
+  const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
+  const [selectedTeamMonthNum, setSelectedTeamMonthNum] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveEmployeeId(employeeId);
     setHistory([]);
     setEditing(false);
     setYearFilter("all");
-    setSelectedTeamMonth(null);
+    setSelectedTeamYear(null);
+    setSelectedTeamMonthNum(null);
   }, [employeeId]);
 
   const detailQ = useQuery({
@@ -374,20 +395,24 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
     return getLatestMonth(teamRows) ?? current;
   }, [teamEmployees, performanceRows]);
 
-  // NEW: the month actually used for team calculations — manual selection wins if set.
-  const effectiveTeamMonth = selectedTeamMonth ?? teamMonth;
+  // Split the auto-computed default ("YYYY-MM") into its year/month parts.
+  const [defaultTeamYear, defaultTeamMonthNum] = teamMonth.split("-");
 
-  // NEW: list of months to show in the dropdown. Built from every month present in
-  // the performance data, plus the current month so it's always selectable even if
-  // there's no data uploaded for it yet.
-  const availableTeamMonths = useMemo(() => {
-    const months = new Set<string>();
+  // NEW: the year/month actually used for team calculations — manual selection wins if set.
+  const effectiveTeamYear = selectedTeamYear ?? defaultTeamYear;
+  const effectiveTeamMonthNum = selectedTeamMonthNum ?? defaultTeamMonthNum;
+  const effectiveTeamMonth = `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
+
+  // NEW: list of years to show in the Year dropdown. Built from every year present in
+  // the performance data, plus the current year so it's always selectable.
+  const availableTeamYears = useMemo(() => {
+    const years = new Set<string>();
     performanceRows.forEach((row) => {
-      const m = String(row.month ?? "").slice(0, 7);
-      if (m) months.add(m);
+      const y = String(row.month ?? "").slice(0, 4);
+      if (y) years.add(y);
     });
-    months.add(getCurrentMonthKey());
-    return Array.from(months).sort((a, b) => b.localeCompare(a));
+    years.add(String(new Date().getFullYear()));
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [performanceRows]);
 
   const teamSummary = useMemo(() => {
@@ -601,8 +626,11 @@ export function EmployeeDetailModal({ employeeId, onOpenChange }: Props) {
                 teamSummary={teamSummary}
                 directTeamPerformance={directTeamPerformance}
                 teamMonth={effectiveTeamMonth}
-                availableTeamMonths={availableTeamMonths}
-                onTeamMonthChange={setSelectedTeamMonth}
+                teamYear={effectiveTeamYear}
+                teamMonthNum={effectiveTeamMonthNum}
+                availableTeamYears={availableTeamYears}
+                onTeamYearChange={setSelectedTeamYear}
+                onTeamMonthChange={setSelectedTeamMonthNum}
                 performanceLoading={performanceQ.isLoading}
                 onSelectMember={handleSelectDrilldown}
               />
@@ -748,7 +776,10 @@ function TeamSection({
   teamSummary,
   directTeamPerformance,
   teamMonth,
-  availableTeamMonths,
+  teamYear,
+  teamMonthNum,
+  availableTeamYears,
+  onTeamYearChange,
   onTeamMonthChange,
   performanceLoading,
   onSelectMember,
@@ -763,7 +794,10 @@ function TeamSection({
     calculatedOverall?: number;
   }[];
   teamMonth: string;
-  availableTeamMonths: string[];
+  teamYear: string;
+  teamMonthNum: string;
+  availableTeamYears: string[];
+  onTeamYearChange: (year: string) => void;
   onTeamMonthChange: (month: string) => void;
   performanceLoading: boolean;
   onSelectMember?: (id: string) => void;
@@ -785,20 +819,35 @@ function TeamSection({
             </CardDescription>
           </div>
 
-          {/* Month/Year filter for the Team section — defaults to current/latest month,
-              but the user can pick any month that has data. */}
-          <Select value={teamMonth} onValueChange={onTeamMonthChange}>
-            <SelectTrigger className="w-[160px] h-8 text-xs bg-background">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableTeamMonths.map((m) => (
-                <SelectItem key={m} value={m} className="text-xs">
-                  {monthToLabel(m)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Separate Month and Year filters for the Team section — default to the
+              current/latest month, but the user can pick any month/year. */}
+          <div className="flex items-center gap-2">
+            <Select value={teamMonthNum} onValueChange={onTeamMonthChange}>
+              <SelectTrigger className="w-[130px] h-8 text-xs bg-background">
+                <SelectValue placeholder="Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="text-xs">
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={teamYear} onValueChange={onTeamYearChange}>
+              <SelectTrigger className="w-[90px] h-8 text-xs bg-background">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableTeamYears.map((y) => (
+                  <SelectItem key={y} value={y} className="text-xs">
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
 
