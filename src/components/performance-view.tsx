@@ -14,7 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { monthToLabel, type MyDashboard, type SheetPerformance } from "@/lib/sheetsApi";
+import {
+  monthToLabel,
+  type MyDashboard,
+  type SheetPerformance,
+} from "@/lib/sheetsApi";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import {
@@ -33,9 +37,7 @@ export function Field({
   value?: unknown;
 }) {
   const displayValue =
-    value == null
-      ? ""
-      : String(value).trim();
+    value == null ? "" : String(value).trim();
 
   return (
     <div>
@@ -77,27 +79,20 @@ export function PerformanceView({
    * COMBINE CURRENT + PREVIOUS MONTHS
    * ----------------------------------------------------------
    *
-   * The current month is no longer shown separately.
-   * Everything goes into one table.
+   * All personal performance is shown in ONE table.
    *
-   * We also de-duplicate by month so that if the backend
-   * accidentally returns the same month twice, only one row
-   * is shown.
+   * We merge currentMonth and previousMonths and
+   * de-duplicate by month.
    */
   const allPerformance =
     useMemo(() => {
-      const map =
-        new Map<
-          string,
-          SheetPerformance
-        >();
+      const monthMap =
+        new Map<string, SheetPerformance>();
 
       previousMonths.forEach(
         (item) => {
-          if (
-            item?.month
-          ) {
-            map.set(
+          if (item?.month) {
+            monthMap.set(
               String(item.month),
               item
             );
@@ -105,17 +100,15 @@ export function PerformanceView({
         }
       );
 
-      if (
-        currentMonth?.month
-      ) {
-        map.set(
+      if (currentMonth?.month) {
+        monthMap.set(
           String(currentMonth.month),
           currentMonth
         );
       }
 
       return Array.from(
-        map.values()
+        monthMap.values()
       ).sort(
         (a, b) =>
           String(a.month).localeCompare(
@@ -126,7 +119,6 @@ export function PerformanceView({
       currentMonth,
       previousMonths,
     ]);
-
 
   /*
    * ----------------------------------------------------------
@@ -152,10 +144,7 @@ export function PerformanceView({
         (a, b) =>
           Number(a) - Number(b)
       );
-    }, [
-      allPerformance,
-    ]);
-
+    }, [allPerformance]);
 
   /*
    * ----------------------------------------------------------
@@ -164,9 +153,15 @@ export function PerformanceView({
    *
    * Jan -> Dec
    *
-   * For multiple years:
-   * 2025 Jan -> 2025 Dec
-   * 2026 Jan -> 2026 Dec
+   * When "All Years" is selected:
+   *
+   * 2025 Jan
+   * 2025 Feb
+   * ...
+   * 2025 Dec
+   * 2026 Jan
+   * 2026 Feb
+   * ...
    */
   const history =
     useMemo(() => {
@@ -181,9 +176,7 @@ export function PerformanceView({
                 selectedYear
             );
 
-      return [
-        ...filtered,
-      ].sort(
+      return [...filtered].sort(
         (a, b) =>
           String(a.month).localeCompare(
             String(b.month)
@@ -194,20 +187,17 @@ export function PerformanceView({
       selectedYear,
     ]);
 
-
   /*
    * ----------------------------------------------------------
-   * CURRENT MONTH KEY
+   * CURRENT MONTH
    * ----------------------------------------------------------
    *
-   * Used only to visually identify the current month
-   * inside the same table.
+   * Current month is highlighted inside the same table.
    */
   const currentMonthKey =
     currentMonth?.month
       ? String(currentMonth.month)
       : "";
-
 
   return (
     <div className="space-y-6">
@@ -310,6 +300,8 @@ export function PerformanceView({
               </CardDescription>
             </div>
 
+
+            {/* YEAR FILTER */}
             {availableYears.length > 0 && (
               <Select
                 value={selectedYear}
@@ -322,7 +314,6 @@ export function PerformanceView({
                 </SelectTrigger>
 
                 <SelectContent>
-
                   <SelectItem value="all">
                     All Years
                   </SelectItem>
@@ -337,13 +328,13 @@ export function PerformanceView({
                       </SelectItem>
                     )
                   )}
-
                 </SelectContent>
               </Select>
             )}
 
           </div>
         </CardHeader>
+
 
         <CardContent>
 
@@ -412,7 +403,8 @@ export function PerformanceView({
                           }
                         >
 
-                          <TableCell className="font-medium whitespace-nowrap">
+                          {/* MONTH */}
+                          <TableCell className="whitespace-nowrap font-medium">
 
                             <div className="flex items-center gap-2">
 
@@ -431,33 +423,37 @@ export function PerformanceView({
                           </TableCell>
 
 
+                          {/* PRODUCTION */}
                           <TableCell className="whitespace-nowrap">
                             {p.productionActual ??
-                              0}{" "}
-                            /{" "}
+                              0}
+                            {" / "}
                             {p.productionTarget ??
                               0}
                           </TableCell>
 
 
+                          {/* TICKETS */}
                           <TableCell className="whitespace-nowrap">
                             {p.ticketActual ??
-                              0}{" "}
-                            /{" "}
+                              0}
+                            {" / "}
                             {p.ticketTarget ??
                               0}
                           </TableCell>
 
 
+                          {/* ERRORS */}
                           <TableCell className="whitespace-nowrap">
                             {p.errorActual ??
-                              0}{" "}
-                            /{" "}
+                              0}
+                            {" / "}
                             {p.errorTarget ??
                               0}
                           </TableCell>
 
 
+                          {/* ATTENDANCE */}
                           <TableCell className="whitespace-nowrap">
                             {Number(
                               p.attendance ??
@@ -467,6 +463,7 @@ export function PerformanceView({
                           </TableCell>
 
 
+                          {/* BEHAVIOR */}
                           <TableCell className="whitespace-nowrap">
                             {Number(
                               p.behavior ??
@@ -476,6 +473,7 @@ export function PerformanceView({
                           </TableCell>
 
 
+                          {/* REMARKS */}
                           <TableCell className="min-w-[220px] max-w-[320px]">
                             {p.managerRemarks ||
                               "—"}
