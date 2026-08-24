@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
 import {
   Dialog,
   DialogContent,
@@ -7,10 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+
 import {
   Select,
   SelectContent,
@@ -18,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import {
   Card,
   CardContent,
@@ -25,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
 import {
   Table,
   TableBody,
@@ -33,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import {
   Users,
   TrendingUp,
@@ -48,9 +54,11 @@ import {
   ArrowDown,
   Search,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/mock-auth";
+
 import {
   adminUpdateEmployee,
   getEmployeeDetail,
@@ -103,6 +111,38 @@ function normalizeText(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Safely convert a value to a number.
+ */
+function safeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Decimal display formatter.
+ *
+ * This fixes JavaScript floating-point display problems.
+ *
+ * 1.021265415       -> 1.02
+ * 1.016             -> 1.02
+ * 71260.19000000002 -> 71260.19
+ * 0                 -> 0.00
+ */
+function formatDecimal(value: unknown): string {
+  return safeNumber(value).toFixed(2);
+}
+
+/**
+ * Whole-number display formatter.
+ *
+ * 71260.19000000002 -> 71260
+ * 125167.000000001  -> 125167
+ */
+function formatNumber(value: unknown): string {
+  return Math.round(safeNumber(value)).toString();
+}
+
 function getRoleTier(designation: unknown): number {
   const value = normalizeText(designation);
 
@@ -137,7 +177,14 @@ function getRoleTier(designation: unknown): number {
 
 function getRoleBadgeText(designation: unknown): string {
   const value = normalizeText(designation);
-  if (value.includes("assistant") || value.includes("atl")) return "ATL";
+
+  if (
+    value.includes("assistant") ||
+    value.includes("atl")
+  ) {
+    return "ATL";
+  }
+
   return "TL";
 }
 
@@ -159,13 +206,19 @@ function samePerson(a: unknown, b: unknown): boolean {
     return true;
   }
 
-  const wordsA = strA.split(" ").filter((w) => w.length > 1);
-  const wordsB = strB.split(" ").filter((w) => w.length > 1);
+  const wordsA = strA
+    .split(" ")
+    .filter((w) => w.length > 1);
+
+  const wordsB = strB
+    .split(" ")
+    .filter((w) => w.length > 1);
 
   if (wordsA.length >= 2 && wordsB.length >= 2) {
     if (
       wordsA[0] === wordsB[0] &&
-      wordsA[wordsA.length - 1] === wordsB[wordsB.length - 1]
+      wordsA[wordsA.length - 1] ===
+        wordsB[wordsB.length - 1]
     ) {
       return true;
     }
@@ -174,51 +227,85 @@ function samePerson(a: unknown, b: unknown): boolean {
   return false;
 }
 
-function safeNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
 function productionPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-  const target = safeNumber(performance.productionTarget);
-  const actual = safeNumber(performance.productionActual);
+
+  const target = safeNumber(
+    performance.productionTarget
+  );
+
+  const actual = safeNumber(
+    performance.productionActual
+  );
+
   if (target <= 0) return 0;
-  return Math.max(0, Math.min(150, (actual / target) * 100));
+
+  return Math.max(
+    0,
+    Math.min(150, (actual / target) * 100)
+  );
 }
 
 function ticketPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-  const target = safeNumber(performance.ticketTarget);
-  const actual = safeNumber(performance.ticketActual);
+
+  const target = safeNumber(
+    performance.ticketTarget
+  );
+
+  const actual = safeNumber(
+    performance.ticketActual
+  );
+
   if (target <= 0) return 0;
-  return Math.max(0, Math.min(150, (actual / target) * 100));
+
+  return Math.max(
+    0,
+    Math.min(150, (actual / target) * 100)
+  );
 }
 
 function qualityPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-  const target = safeNumber(performance.errorTarget);
-  const actual = safeNumber(performance.errorActual);
+
+  const target = safeNumber(
+    performance.errorTarget
+  );
+
+  const actual = safeNumber(
+    performance.errorActual
+  );
+
   if (target <= 0) {
     return actual <= 0 ? 100 : 0;
   }
+
   if (actual <= 0) return 100;
-  return Math.max(0, Math.min(150, (target / actual) * 100));
+
+  return Math.max(
+    0,
+    Math.min(150, (target / actual) * 100)
+  );
 }
 
 function attendancePercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
+
   return Math.max(
     0,
-    Math.min(100, (safeNumber(performance.attendance) / 10) * 100)
+    Math.min(
+      100,
+      (safeNumber(performance.attendance) / 10) *
+        100
+    )
   );
 }
 
@@ -226,9 +313,14 @@ function behaviorPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
+
   return Math.max(
     0,
-    Math.min(100, (safeNumber(performance.behavior) / 5) * 100)
+    Math.min(
+      100,
+      (safeNumber(performance.behavior) / 5) *
+        100
+    )
   );
 }
 
@@ -236,6 +328,7 @@ function overallPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
+
   const values = [
     productionPercent(performance),
     ticketPercent(performance),
@@ -243,24 +336,40 @@ function overallPercent(
     attendancePercent(performance),
     behaviorPercent(performance),
   ];
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  return (
+    values.reduce(
+      (sum, value) => sum + value,
+      0
+    ) / values.length
+  );
 }
 
 function getCurrentMonthKey(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  return `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
 }
 
-function getLatestMonth(rows: SheetPerformance[]): string | null {
+function getLatestMonth(
+  rows: SheetPerformance[]
+): string | null {
   if (!rows.length) return null;
+
   const months = Array.from(
     new Set(
       rows
-        .map((row) => String(row.month ?? "").slice(0, 7))
+        .map((row) =>
+          String(row.month ?? "").slice(0, 7)
+        )
         .filter(Boolean)
     )
   );
+
   months.sort((a, b) => b.localeCompare(a));
+
   return months[0] ?? null;
 }
 
@@ -272,7 +381,8 @@ function getPerformanceForMonth(
   return (
     rows.find(
       (row) =>
-        String(row.employeeId).trim() === String(employeeId).trim() &&
+        String(row.employeeId).trim() ===
+          String(employeeId).trim() &&
         String(row.month).slice(0, 7) === month
     ) ?? null
   );
@@ -284,7 +394,10 @@ function getDescendants(
 ): SheetEmployee[] {
   const result: SheetEmployee[] = [];
   const visited = new Set<string>();
-  const managerId = String(manager.employeeId ?? "").trim();
+
+  const managerId = String(
+    manager.employeeId ?? ""
+  ).trim();
 
   if (managerId) {
     visited.add(managerId);
@@ -292,20 +405,27 @@ function getDescendants(
 
   function walk(parent: SheetEmployee) {
     employees.forEach((employee) => {
-      const id = String(employee.employeeId ?? "").trim();
+      const id = String(
+        employee.employeeId ?? ""
+      ).trim();
+
       if (!id || visited.has(id)) {
         return;
       }
+
       if (!samePerson(employee.teamLead, parent.name)) {
         return;
       }
+
       visited.add(id);
       result.push(employee);
+
       walk(employee);
     });
   }
 
   walk(manager);
+
   return result;
 }
 
@@ -313,28 +433,31 @@ function getDirectReports(
   manager: SheetEmployee,
   employees: SheetEmployee[]
 ): SheetEmployee[] {
-  const managerTier = getRoleTier(manager.designation);
+  const managerTier = getRoleTier(
+    manager.designation
+  );
 
   return employees.filter((employee) => {
     const isDirect =
-      samePerson(employee.teamLead, manager.name) &&
-      String(employee.employeeId).trim() !== String(manager.employeeId).trim();
+      samePerson(
+        employee.teamLead,
+        manager.name
+      ) &&
+      String(employee.employeeId).trim() !==
+        String(manager.employeeId).trim();
 
     if (!isDirect) {
       return false;
     }
 
-    const subTier = getRoleTier(employee.designation);
+    const subTier = getRoleTier(
+      employee.designation
+    );
 
-    if (managerTier === 4) {
-      return true;
-    }
-    if (managerTier === 3) {
-      return subTier === 2;
-    }
-    if (managerTier === 2) {
-      return subTier === 1;
-    }
+    if (managerTier === 4) return true;
+    if (managerTier === 3) return subTier === 2;
+    if (managerTier === 2) return subTier === 1;
+
     return false;
   });
 }
@@ -344,11 +467,27 @@ export function EmployeeDetailModal({
   onOpenChange,
 }: Props) {
   const { user } = useAuth();
-  const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(employeeId);
-  const [history, setHistory] = useState<string[]>([]);
+
+  const [
+    activeEmployeeId,
+    setActiveEmployeeId,
+  ] = useState<string | null>(employeeId);
+
+  const [history, setHistory] = useState<string[]>(
+    []
+  );
+
   const [editing, setEditing] = useState(false);
-  const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
-  const [selectedTeamMonthNum, setSelectedTeamMonthNum] = useState<string | null>(null);
+
+  const [
+    selectedTeamYear,
+    setSelectedTeamYear,
+  ] = useState<string | null>(null);
+
+  const [
+    selectedTeamMonthNum,
+    setSelectedTeamMonthNum,
+  ] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveEmployeeId(employeeId);
@@ -359,310 +498,569 @@ export function EmployeeDetailModal({
   }, [employeeId]);
 
   const detailQ = useQuery({
-    queryKey: ["employeeDetail", activeEmployeeId, user?.email],
-    queryFn: () => getEmployeeDetail(user!.email, activeEmployeeId!),
-    enabled: !!user && !!activeEmployeeId,
+    queryKey: [
+      "employeeDetail",
+      activeEmployeeId,
+      user?.email,
+    ],
+    queryFn: () =>
+      getEmployeeDetail(
+        user!.email,
+        activeEmployeeId!
+      ),
+    enabled:
+      !!user && !!activeEmployeeId,
   });
 
   const employeesQ = useQuery({
     queryKey: ["employees", user?.email],
-    queryFn: () => listEmployees(user!.email),
+    queryFn: () =>
+      listEmployees(user!.email),
     enabled:
       !!user &&
       !!activeEmployeeId &&
-      (user.role === "super_admin" || user.role === "admin"),
+      (user.role === "super_admin" ||
+        user.role === "admin"),
   });
 
   const performanceQ = useQuery({
-    queryKey: ["performance", "employee-detail", user?.email],
-    queryFn: () => listPerformance(user!.email),
+    queryKey: [
+      "performance",
+      "employee-detail",
+      user?.email,
+    ],
+    queryFn: () =>
+      listPerformance(user!.email),
     enabled:
       !!user &&
       !!activeEmployeeId &&
-      (user.role === "super_admin" || user.role === "admin"),
+      (user.role === "super_admin" ||
+        user.role === "admin"),
   });
 
   const profile = detailQ.data?.profile;
-  const tier = getRoleTier(profile?.designation);
+
+  const tier = getRoleTier(
+    profile?.designation
+  );
+
   const allEmployees = employeesQ.data ?? [];
 
   const directReports = useMemo(() => {
     if (!profile) return [];
-    return getDirectReports(profile, allEmployees);
+
+    return getDirectReports(
+      profile,
+      allEmployees
+    );
   }, [profile, allEmployees]);
 
   const teamEmployees = useMemo(() => {
     if (!profile) return [];
+
     if (tier >= 3) {
-      return getDescendants(profile, allEmployees);
+      return getDescendants(
+        profile,
+        allEmployees
+      );
     }
+
     if (tier === 2) {
       return directReports;
     }
-    return [];
-  }, [profile, allEmployees, directReports, tier]);
 
-  const performanceRows = performanceQ.data ?? [];
+    return [];
+  }, [
+    profile,
+    allEmployees,
+    directReports,
+    tier,
+  ]);
+
+  const performanceRows =
+    performanceQ.data ?? [];
 
   const teamMonth = useMemo(() => {
-    const allMembers = profile ? [profile, ...teamEmployees] : teamEmployees;
+    const allMembers = profile
+      ? [profile, ...teamEmployees]
+      : teamEmployees;
+
     if (!allMembers.length) {
       return getCurrentMonthKey();
     }
 
-    const teamIds = new Set(allMembers.map((e) => String(e.employeeId)));
-    const teamRows = performanceRows.filter((row) =>
-      teamIds.has(String(row.employeeId))
+    const teamIds = new Set(
+      allMembers.map((e) =>
+        String(e.employeeId)
+      )
     );
 
-    const current = getCurrentMonthKey();
-    const hasCurrent = teamRows.some(
-      (row) => String(row.month).slice(0, 7) === current
-    );
+    const teamRows =
+      performanceRows.filter((row) =>
+        teamIds.has(
+          String(row.employeeId)
+        )
+      );
+
+    const current =
+      getCurrentMonthKey();
+
+    const hasCurrent =
+      teamRows.some(
+        (row) =>
+          String(row.month).slice(0, 7) ===
+          current
+      );
 
     if (hasCurrent) {
       return current;
     }
 
-    return getLatestMonth(teamRows) ?? current;
-  }, [profile, teamEmployees, performanceRows]);
+    return (
+      getLatestMonth(teamRows) ??
+      current
+    );
+  }, [
+    profile,
+    teamEmployees,
+    performanceRows,
+  ]);
 
-  const [defaultTeamYear, defaultTeamMonthNum] = teamMonth.split("-");
-  const effectiveTeamYear = selectedTeamYear ?? defaultTeamYear;
-  const effectiveTeamMonthNum = selectedTeamMonthNum ?? defaultTeamMonthNum;
-  const effectiveTeamMonth = `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
+  const [
+    defaultTeamYear,
+    defaultTeamMonthNum,
+  ] = teamMonth.split("-");
+
+  const effectiveTeamYear =
+    selectedTeamYear ??
+    defaultTeamYear;
+
+  const effectiveTeamMonthNum =
+    selectedTeamMonthNum ??
+    defaultTeamMonthNum;
+
+  const effectiveTeamMonth =
+    `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
 
   const availableTeamYears = useMemo(() => {
     const years = new Set<string>();
+
     performanceRows.forEach((row) => {
-      const year = String(row.month ?? "").slice(0, 4);
+      const year = String(
+        row.month ?? ""
+      ).slice(0, 4);
+
       if (year) {
         years.add(year);
       }
     });
-    years.add(String(new Date().getFullYear()));
-    return Array.from(years).sort((a, b) => b.localeCompare(a));
+
+    years.add(
+      String(new Date().getFullYear())
+    );
+
+    return Array.from(years).sort(
+      (a, b) => b.localeCompare(a)
+    );
   }, [performanceRows]);
 
-  // ==========================================================
-  // DIRECT TEAM PERFORMANCE (TL / ATL AT TOP WITH PERSONAL METRICS)
-  // ==========================================================
+  const directTeamPerformance =
+    useMemo(() => {
+      if (!profile) return [];
 
-  const directTeamPerformance = useMemo(() => {
-    if (!profile) return [];
-
-    const des = normalizeText(profile.designation);
-
-    // Check if current profile is TL or ATL
-    const isTLorATL =
-      tier === 2 ||
-      des.includes("team leader") ||
-      des.includes("team lead") ||
-      des.includes("assistant team leader") ||
-      des.includes("assistant team lead") ||
-      des.includes("atl") ||
-      des.startsWith("atl ") ||
-      des === "tl" ||
-      des.startsWith("tl ");
-
-    // 1. Only for TL and ATL: fetch their own personal performance for this month
-    let leaderItem: {
-      employee: SheetEmployee;
-      performance: SheetPerformance | null;
-      calculatedOverall?: number;
-      isLeader?: boolean;
-      leaderTag?: string;
-    } | null = null;
-
-    if (isTLorATL && tier < 3) {
-      const leaderPersonalPerformance = getPerformanceForMonth(
-        performanceRows,
-        profile.employeeId,
-        effectiveTeamMonth
+      const des = normalizeText(
+        profile.designation
       );
 
-      leaderItem = {
-        employee: profile,
-        performance: leaderPersonalPerformance, // Personal targets & actuals
-        calculatedOverall: leaderPersonalPerformance
-          ? Math.round(overallPercent(leaderPersonalPerformance))
-          : 0,
-        isLeader: true,
-        leaderTag: getRoleBadgeText(profile.designation),
-      };
-    }
+      const isTLorATL =
+        tier === 2 ||
+        des.includes("team leader") ||
+        des.includes("team lead") ||
+        des.includes(
+          "assistant team leader"
+        ) ||
+        des.includes(
+          "assistant team lead"
+        ) ||
+        des.includes("atl") ||
+        des.startsWith("atl ") ||
+        des === "tl" ||
+        des.startsWith("tl ");
 
-    // 2. Direct reports list
-    const reportsItems = directReports.map((employee) => {
-      const subTier = getRoleTier(employee.designation);
+      let leaderItem: {
+        employee: SheetEmployee;
+        performance:
+          | SheetPerformance
+          | null;
+        calculatedOverall?: number;
+        isLeader?: boolean;
+        leaderTag?: string;
+      } | null = null;
 
-      // When viewing Head TL (tier >= 3), calculate roll-up for subordinate TLs
-      if (tier >= 3 && subTier >= 2) {
-        const subDownline = getDescendants(employee, allEmployees);
-        const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
-        const subRows = performanceRows.filter(
-          (r) =>
-            subIds.has(String(r.employeeId)) &&
-            String(r.month).slice(0, 7) === effectiveTeamMonth
-        );
+      if (isTLorATL && tier < 3) {
+        const leaderPersonalPerformance =
+          getPerformanceForMonth(
+            performanceRows,
+            profile.employeeId,
+            effectiveTeamMonth
+          );
 
-        if (subRows.length > 0) {
-          const productionTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.productionTarget),
-            0
-          );
-          const productionActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.productionActual),
-            0
-          );
-          const ticketTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.ticketTarget),
-            0
-          );
-          const ticketActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.ticketActual),
-            0
-          );
-          const errorTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.errorTarget),
-            0
-          );
-          const errorActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.errorActual),
-            0
-          );
-          const attendance =
-            subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
-            subRows.length;
-          const behavior =
-            subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
-            subRows.length;
+        leaderItem = {
+          employee: profile,
+          performance:
+            leaderPersonalPerformance,
+          calculatedOverall:
+            leaderPersonalPerformance
+              ? Math.round(
+                  overallPercent(
+                    leaderPersonalPerformance
+                  )
+                )
+              : 0,
+          isLeader: true,
+          leaderTag:
+            getRoleBadgeText(
+              profile.designation
+            ),
+        };
+      }
 
-          const production =
-            productionTarget > 0
-              ? Math.round((productionActual / productionTarget) * 100)
-              : 0;
-          const tickets =
-            ticketTarget > 0
-              ? Math.round((ticketActual / ticketTarget) * 100)
-              : 0;
-          const quality =
-            errorTarget <= 0
-              ? errorActual <= 0
-                ? 100
-                : 0
-              : Math.max(
-                  0,
-                  Math.round(100 - (errorActual / errorTarget) * 100)
+      const reportsItems =
+        directReports.map((employee) => {
+          const subTier =
+            getRoleTier(
+              employee.designation
+            );
+
+          if (
+            tier >= 3 &&
+            subTier >= 2
+          ) {
+            const subDownline =
+              getDescendants(
+                employee,
+                allEmployees
+              );
+
+            const subIds = new Set(
+              subDownline.map((e) =>
+                String(e.employeeId)
+              )
+            );
+
+            const subRows =
+              performanceRows.filter(
+                (r) =>
+                  subIds.has(
+                    String(r.employeeId)
+                  ) &&
+                  String(
+                    r.month
+                  ).slice(0, 7) ===
+                    effectiveTeamMonth
+              );
+
+            if (subRows.length > 0) {
+              const productionTarget =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.productionTarget
+                    ),
+                  0
                 );
-          const attendancePercent = Math.round((attendance / 10) * 100);
-          const behaviorPercent = Math.round((behavior / 5) * 100);
-          const overall = Math.round(
-            (production + tickets + quality + attendancePercent + behaviorPercent) / 5
-          );
+
+              const productionActual =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.productionActual
+                    ),
+                  0
+                );
+
+              const ticketTarget =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.ticketTarget
+                    ),
+                  0
+                );
+
+              const ticketActual =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.ticketActual
+                    ),
+                  0
+                );
+
+              const errorTarget =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.errorTarget
+                    ),
+                  0
+                );
+
+              const errorActual =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.errorActual
+                    ),
+                  0
+                );
+
+              const attendance =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.attendance
+                    ),
+                  0
+                ) / subRows.length;
+
+              const behavior =
+                subRows.reduce(
+                  (sum, row) =>
+                    sum +
+                    safeNumber(
+                      row.behavior
+                    ),
+                  0
+                ) / subRows.length;
+
+              const production =
+                productionTarget > 0
+                  ? Math.round(
+                      (productionActual /
+                        productionTarget) *
+                        100
+                    )
+                  : 0;
+
+              const tickets =
+                ticketTarget > 0
+                  ? Math.round(
+                      (ticketActual /
+                        ticketTarget) *
+                        100
+                    )
+                  : 0;
+
+              const quality =
+                errorTarget <= 0
+                  ? errorActual <= 0
+                    ? 100
+                    : 0
+                  : Math.max(
+                      0,
+                      Math.round(
+                        100 -
+                          (errorActual /
+                            errorTarget) *
+                            100
+                      )
+                    );
+
+              const attendancePercent =
+                Math.round(
+                  (attendance / 10) *
+                    100
+                );
+
+              const behaviorPercent =
+                Math.round(
+                  (behavior / 5) *
+                    100
+                );
+
+              const overall =
+                Math.round(
+                  (production +
+                    tickets +
+                    quality +
+                    attendancePercent +
+                    behaviorPercent) /
+                    5
+                );
+
+              return {
+                employee,
+                performance: {
+                  month:
+                    effectiveTeamMonth,
+                  employeeId:
+                    employee.employeeId,
+                  productionTarget,
+                  productionActual,
+                  ticketTarget,
+                  ticketActual,
+                  errorTarget,
+                  errorActual,
+                  attendance,
+                  behavior,
+                } as SheetPerformance,
+                calculatedOverall:
+                  overall,
+                isLeader: false,
+              };
+            }
+          }
+
+          const performance =
+            getPerformanceForMonth(
+              performanceRows,
+              employee.employeeId,
+              effectiveTeamMonth
+            );
 
           return {
             employee,
-            performance: {
-              month: effectiveTeamMonth,
-              employeeId: employee.employeeId,
-              productionTarget,
-              productionActual,
-              ticketTarget,
-              ticketActual,
-              errorTarget,
-              errorActual,
-              attendance,
-              behavior,
-            } as SheetPerformance,
-            calculatedOverall: overall,
+            performance,
+            calculatedOverall:
+              performance
+                ? Math.round(
+                    overallPercent(
+                      performance
+                    )
+                  )
+                : 0,
             isLeader: false,
           };
-        }
-      }
+        });
 
-      // Normal employee row
-      const performance = getPerformanceForMonth(
-        performanceRows,
-        employee.employeeId,
-        effectiveTeamMonth
-      );
-
-      return {
-        employee,
-        performance,
-        calculatedOverall: performance
-          ? Math.round(overallPercent(performance))
-          : 0,
-        isLeader: false,
-      };
-    });
-
-    return leaderItem ? [leaderItem, ...reportsItems] : reportsItems;
-  }, [
-    profile,
-    tier,
-    directReports,
-    allEmployees,
-    performanceRows,
-    effectiveTeamMonth,
-  ]);
-
-  // ==========================================================
-  // TEAM SUMMARY
-  // ==========================================================
+      return leaderItem
+        ? [leaderItem, ...reportsItems]
+        : reportsItems;
+    }, [
+      profile,
+      tier,
+      directReports,
+      allEmployees,
+      performanceRows,
+      effectiveTeamMonth,
+    ]);
 
   const teamSummary = useMemo(() => {
-    if (directTeamPerformance.length === 0) {
+    if (
+      directTeamPerformance.length === 0
+    ) {
       return null;
     }
 
-    const rows = directTeamPerformance
-      .map((item) => item.performance)
-      .filter((row): row is SheetPerformance => !!row);
+    const rows =
+      directTeamPerformance
+        .map(
+          (item) =>
+            item.performance
+        )
+        .filter(
+          (
+            row
+          ): row is SheetPerformance =>
+            !!row
+        );
 
     if (rows.length === 0) {
       return null;
     }
 
-    const productionActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.productionActual),
-      0
-    );
-    const productionTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.productionTarget),
-      0
-    );
+    const productionActual =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.productionActual
+          ),
+        0
+      );
 
-    const ticketActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.ticketActual),
-      0
-    );
-    const ticketTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.ticketTarget),
-      0
-    );
+    const productionTarget =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.productionTarget
+          ),
+        0
+      );
 
-    const errorActual = rows.reduce(
-      (sum, row) => sum + safeNumber(row.errorActual),
-      0
-    );
-    const errorTarget = rows.reduce(
-      (sum, row) => sum + safeNumber(row.errorTarget),
-      0
-    );
+    const ticketActual =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.ticketActual
+          ),
+        0
+      );
+
+    const ticketTarget =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.ticketTarget
+          ),
+        0
+      );
+
+    const errorActual =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.errorActual
+          ),
+        0
+      );
+
+    const errorTarget =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.errorTarget
+          ),
+        0
+      );
 
     const attendance =
-      rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
-      rows.length;
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.attendance
+          ),
+        0
+      ) / rows.length;
 
     const behavior =
-      rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
-      rows.length;
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          safeNumber(
+            row.behavior
+          ),
+        0
+      ) / rows.length;
 
     return {
       people: directReports.length,
-      employeesWithPerformance: rows.length,
+      employeesWithPerformance:
+        rows.length,
       productionActual,
       productionTarget,
       ticketActual,
@@ -673,62 +1071,120 @@ export function EmployeeDetailModal({
       behavior,
       overall: 0,
     };
-  }, [directTeamPerformance, directReports]);
+  }, [
+    directTeamPerformance,
+    directReports,
+  ]);
 
-  const currentPerformance = detailQ.data?.currentMonth ?? null;
-  const previousMonths = detailQ.data?.previousMonths ?? [];
+  const currentPerformance =
+    detailQ.data?.currentMonth ?? null;
 
-  const personalPerformance = useMemo(() => {
-    const monthMap = new Map<string, SheetPerformance>();
+  const previousMonths =
+    detailQ.data?.previousMonths ?? [];
 
-    previousMonths.forEach((row) => {
-      const month = String(row?.month ?? "").slice(0, 7);
-      if (month) {
-        monthMap.set(month, row);
+  const personalPerformance =
+    useMemo(() => {
+      const monthMap = new Map<
+        string,
+        SheetPerformance
+      >();
+
+      previousMonths.forEach((row) => {
+        const month = String(
+          row?.month ?? ""
+        ).slice(0, 7);
+
+        if (month) {
+          monthMap.set(
+            month,
+            row
+          );
+        }
+      });
+
+      if (currentPerformance?.month) {
+        const month = String(
+          currentPerformance.month
+        ).slice(0, 7);
+
+        monthMap.set(
+          month,
+          currentPerformance
+        );
       }
-    });
 
-    if (currentPerformance?.month) {
-      const month = String(currentPerformance.month).slice(0, 7);
-      monthMap.set(month, currentPerformance);
-    }
+      return Array.from(
+        monthMap.values()
+      ).sort((a, b) =>
+        String(a.month ?? "").localeCompare(
+          String(b.month ?? "")
+        )
+      );
+    }, [
+      currentPerformance,
+      previousMonths,
+    ]);
 
-    return Array.from(monthMap.values()).sort((a, b) =>
-      String(a.month ?? "").localeCompare(String(b.month ?? ""))
-    );
-  }, [currentPerformance, previousMonths]);
+  const availablePerformanceYears =
+    useMemo(() => {
+      const years = new Set<string>();
 
-  const availablePerformanceYears = useMemo(() => {
-    const years = new Set<string>();
-    personalPerformance.forEach((row) => {
-      const year = String(row.month ?? "").slice(0, 4);
-      if (/^\d{4}$/.test(year)) {
-        years.add(year);
-      }
-    });
-    return Array.from(years).sort((a, b) => Number(a) - Number(b));
-  }, [personalPerformance]);
+      personalPerformance.forEach(
+        (row) => {
+          const year = String(
+            row.month ?? ""
+          ).slice(0, 4);
 
-  const handleSelectDrilldown = (targetEmployeeId: string) => {
+          if (/^\d{4}$/.test(year)) {
+            years.add(year);
+          }
+        }
+      );
+
+      return Array.from(years).sort(
+        (a, b) =>
+          Number(a) - Number(b)
+      );
+    }, [personalPerformance]);
+
+  const handleSelectDrilldown = (
+    targetEmployeeId: string
+  ) => {
     if (activeEmployeeId) {
-      setHistory((prev) => [...prev, activeEmployeeId]);
+      setHistory((prev) => [
+        ...prev,
+        activeEmployeeId,
+      ]);
     }
-    setActiveEmployeeId(targetEmployeeId);
+
+    setActiveEmployeeId(
+      targetEmployeeId
+    );
   };
 
   const handleBack = () => {
     if (history.length > 0) {
-      const prev = history[history.length - 1];
-      setHistory((p) => p.slice(0, -1));
+      const prev =
+        history[history.length - 1];
+
+      setHistory((p) =>
+        p.slice(0, -1)
+      );
+
       setActiveEmployeeId(prev);
     }
   };
 
   const canEdit =
-    !!user && (user.role === "super_admin" || user.role === "admin");
+    !!user &&
+    (user.role === "super_admin" ||
+      user.role === "admin");
 
   return (
-    <Dialog open={!!employeeId} onOpenChange={onOpenChange}>
+    <Dialog
+      open={!!employeeId}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
         <DialogHeader className="sticky top-0 z-20 border-b bg-background px-6 py-5">
           <div className="flex items-start justify-between gap-4">
@@ -746,8 +1202,10 @@ export function EmployeeDetailModal({
 
               <div>
                 <DialogTitle className="text-xl font-bold uppercase tracking-tight text-foreground">
-                  {profile?.name ?? "Employee detail"}
+                  {profile?.name ??
+                    "Employee detail"}
                 </DialogTitle>
+
                 <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
                   Profile and employee performance history.
                 </DialogDescription>
@@ -759,7 +1217,9 @@ export function EmployeeDetailModal({
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs font-medium"
-                onClick={() => setEditing((v) => !v)}
+                onClick={() =>
+                  setEditing((v) => !v)
+                }
               >
                 <Pencil className="mr-1 size-3.5" />
                 Edit details
@@ -780,22 +1240,31 @@ export function EmployeeDetailModal({
           <div className="px-6 py-6">
             <p className="text-sm text-destructive">
               Failed to load employee details:{" "}
-              {detailQ.error instanceof Error
+              {detailQ.error instanceof
+              Error
                 ? detailQ.error.message
-                : String(detailQ.error)}
+                : String(
+                    detailQ.error
+                  )}
             </p>
           </div>
         )}
 
         {detailQ.data && profile && (
           <div className="space-y-6 px-6 py-6">
-            <ProfileSection profile={profile} />
+            <ProfileSection
+              profile={profile}
+            />
 
             {editing && (
               <EditForm
-                employeeId={activeEmployeeId!}
+                employeeId={
+                  activeEmployeeId!
+                }
                 initial={profile}
-                onDone={() => setEditing(false)}
+                onDone={() =>
+                  setEditing(false)
+                }
               />
             )}
 
@@ -803,23 +1272,49 @@ export function EmployeeDetailModal({
               <TeamSection
                 profile={profile}
                 tier={tier}
-                directReports={directReports}
-                teamSummary={teamSummary}
-                directTeamPerformance={directTeamPerformance}
-                teamMonth={effectiveTeamMonth}
-                teamYear={effectiveTeamYear}
-                teamMonthNum={effectiveTeamMonthNum}
-                availableTeamYears={availableTeamYears}
-                onTeamYearChange={setSelectedTeamYear}
-                onTeamMonthChange={setSelectedTeamMonthNum}
-                performanceLoading={performanceQ.isLoading}
-                onSelectMember={handleSelectDrilldown}
+                directReports={
+                  directReports
+                }
+                teamSummary={
+                  teamSummary
+                }
+                directTeamPerformance={
+                  directTeamPerformance
+                }
+                teamMonth={
+                  effectiveTeamMonth
+                }
+                teamYear={
+                  effectiveTeamYear
+                }
+                teamMonthNum={
+                  effectiveTeamMonthNum
+                }
+                availableTeamYears={
+                  availableTeamYears
+                }
+                onTeamYearChange={
+                  setSelectedTeamYear
+                }
+                onTeamMonthChange={
+                  setSelectedTeamMonthNum
+                }
+                performanceLoading={
+                  performanceQ.isLoading
+                }
+                onSelectMember={
+                  handleSelectDrilldown
+                }
               />
             )}
 
             <EmployeePerformanceTable
-              performanceList={personalPerformance}
-              availableYears={availablePerformanceYears}
+              performanceList={
+                personalPerformance
+              }
+              availableYears={
+                availablePerformanceYears
+              }
             />
           </div>
         )}
@@ -828,13 +1323,18 @@ export function EmployeeDetailModal({
   );
 }
 
-function ProfileSection({ profile }: { profile: SheetEmployee }) {
+function ProfileSection({
+  profile,
+}: {
+  profile: SheetEmployee;
+}) {
   return (
     <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-6 pb-3 pt-5">
         <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
           Profile
         </CardTitle>
+
         <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
           Details from the employee master.
         </CardDescription>
@@ -846,20 +1346,27 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               EMPLOYEE ID
             </p>
-            <p className="mt-1 text-sm font-bold">{profile.employeeId || "—"}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {profile.employeeId || "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               NAME
             </p>
-            <p className="mt-1 text-sm font-bold">{profile.name || "—"}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {profile.name || "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               EMAIL
             </p>
+
             <p className="mt-1 break-all text-sm font-bold">
               {profile.email || "—"}
             </p>
@@ -869,6 +1376,7 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               DEPARTMENT
             </p>
+
             <p className="mt-1 text-sm font-bold">
               {profile.department || "—"}
             </p>
@@ -878,6 +1386,7 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               DESIGNATION
             </p>
+
             <p className="mt-1 text-sm font-bold">
               {profile.designation || "—"}
             </p>
@@ -887,22 +1396,31 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               TEAM LEAD
             </p>
-            <p className="mt-1 text-sm font-bold">{profile.teamLead || "—"}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {profile.teamLead || "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               LOCATION
             </p>
-            <p className="mt-1 text-sm font-bold">{profile.location || "—"}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {profile.location || "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               JOINING DATE
             </p>
+
             <p className="mt-1 text-sm font-bold">
-              {formatJoiningDate(profile.joiningDate)}
+              {formatJoiningDate(
+                profile.joiningDate
+              )}
             </p>
           </div>
         </div>
@@ -955,103 +1473,228 @@ function TeamSection({
   teamYear: string;
   teamMonthNum: string;
   availableTeamYears: string[];
-  onTeamYearChange: (year: string) => void;
-  onTeamMonthChange: (month: string) => void;
+  onTeamYearChange: (
+    year: string
+  ) => void;
+  onTeamMonthChange: (
+    month: string
+  ) => void;
   performanceLoading: boolean;
-  onSelectMember?: (id: string) => void;
+  onSelectMember?: (
+    id: string
+  ) => void;
 }) {
   const isHigherLead = tier >= 3;
 
-  // Search & Sorting States
-  const [searchFilter, setSearchFilter] = useState("");
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [
+    searchFilter,
+    setSearchFilter,
+  ] = useState("");
 
-  const handleSort = (field: string) => {
+  const [
+    sortField,
+    setSortField,
+  ] = useState<string | null>(
+    null
+  );
+
+  const [
+    sortOrder,
+    setSortOrder,
+  ] = useState<"asc" | "desc">(
+    "asc"
+  );
+
+  const handleSort = (
+    field: string
+  ) => {
     if (sortField === field) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSortOrder((prev) =>
+        prev === "asc"
+          ? "desc"
+          : "asc"
+      );
     } else {
       setSortField(field);
       setSortOrder("asc");
     }
   };
 
-  // Separate leader row and members for pinned leader view
-  const leaderRow = directTeamPerformance.find((item) => item.isLeader);
-  const memberRows = directTeamPerformance.filter((item) => !item.isLeader);
+  const leaderRow =
+    directTeamPerformance.find(
+      (item) => item.isLeader
+    );
 
-  const filteredAndSortedMembers = useMemo(() => {
-    let list = [...memberRows];
+  const memberRows =
+    directTeamPerformance.filter(
+      (item) => !item.isLeader
+    );
 
-    // Filter by name or designation
-    if (searchFilter.trim()) {
-      const q = searchFilter.toLowerCase().trim();
-      list = list.filter(
-        (item) =>
-          item.employee.name?.toLowerCase().includes(q) ||
-          item.employee.designation?.toLowerCase().includes(q)
-      );
-    }
+  const filteredAndSortedMembers =
+    useMemo(() => {
+      let list = [...memberRows];
 
-    // Sort column
-    if (sortField) {
-      list.sort((a, b) => {
-        let valA: any = 0;
-        let valB: any = 0;
+      if (searchFilter.trim()) {
+        const q =
+          searchFilter
+            .toLowerCase()
+            .trim();
 
-        if (sortField === "name") {
-          valA = a.employee.name || "";
-          valB = b.employee.name || "";
+        list = list.filter(
+          (item) =>
+            item.employee.name
+              ?.toLowerCase()
+              .includes(q) ||
+            item.employee.designation
+              ?.toLowerCase()
+              .includes(q)
+        );
+      }
+
+      if (sortField) {
+        list.sort((a, b) => {
+          let valA: any = 0;
+          let valB: any = 0;
+
+          if (sortField === "name") {
+            valA =
+              a.employee.name || "";
+            valB =
+              b.employee.name || "";
+
+            return sortOrder === "asc"
+              ? valA.localeCompare(
+                  valB
+                )
+              : valB.localeCompare(
+                  valA
+                );
+          }
+
+          if (
+            sortField ===
+            "designation"
+          ) {
+            valA =
+              a.employee.designation ||
+              "";
+
+            valB =
+              b.employee.designation ||
+              "";
+
+            return sortOrder === "asc"
+              ? valA.localeCompare(
+                  valB
+                )
+              : valB.localeCompare(
+                  valA
+                );
+          }
+
+          if (
+            sortField ===
+            "production"
+          ) {
+            valA = safeNumber(
+              a.performance
+                ?.productionActual
+            );
+
+            valB = safeNumber(
+              b.performance
+                ?.productionActual
+            );
+          } else if (
+            sortField === "tickets"
+          ) {
+            valA = safeNumber(
+              a.performance
+                ?.ticketActual
+            );
+
+            valB = safeNumber(
+              b.performance
+                ?.ticketActual
+            );
+          } else if (
+            sortField === "errors"
+          ) {
+            valA = safeNumber(
+              a.performance
+                ?.errorActual
+            );
+
+            valB = safeNumber(
+              b.performance
+                ?.errorActual
+            );
+          } else if (
+            sortField === "attendance"
+          ) {
+            valA = safeNumber(
+              a.performance
+                ?.attendance
+            );
+
+            valB = safeNumber(
+              b.performance
+                ?.attendance
+            );
+          } else if (
+            sortField === "behavior"
+          ) {
+            valA = safeNumber(
+              a.performance
+                ?.behavior
+            );
+
+            valB = safeNumber(
+              b.performance
+                ?.behavior
+            );
+          }
+
           return sortOrder === "asc"
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        }
+            ? valA - valB
+            : valB - valA;
+        });
+      }
 
-        if (sortField === "designation") {
-          valA = a.employee.designation || "";
-          valB = b.employee.designation || "";
-          return sortOrder === "asc"
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        }
-
-        if (sortField === "production") {
-          valA = safeNumber(a.performance?.productionActual);
-          valB = safeNumber(b.performance?.productionActual);
-        } else if (sortField === "tickets") {
-          valA = safeNumber(a.performance?.ticketActual);
-          valB = safeNumber(b.performance?.ticketActual);
-        } else if (sortField === "errors") {
-          valA = safeNumber(a.performance?.errorActual);
-          valB = safeNumber(b.performance?.errorActual);
-        } else if (sortField === "attendance") {
-          valA = safeNumber(a.performance?.attendance);
-          valB = safeNumber(b.performance?.attendance);
-        } else if (sortField === "behavior") {
-          valA = safeNumber(a.performance?.behavior);
-          valB = safeNumber(b.performance?.behavior);
-        }
-
-        return sortOrder === "asc" ? valA - valB : valB - valA;
-      });
-    }
-
-    return list;
-  }, [memberRows, searchFilter, sortField, sortOrder]);
+      return list;
+    }, [
+      memberRows,
+      searchFilter,
+      sortField,
+      sortOrder,
+    ]);
 
   const showLeader =
     leaderRow &&
     (!searchFilter.trim() ||
-      leaderRow.employee.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      leaderRow.employee.name
+        ?.toLowerCase()
+        .includes(
+          searchFilter
+            .toLowerCase()
+        ) ||
       leaderRow.employee.designation
         ?.toLowerCase()
-        .includes(searchFilter.toLowerCase()));
+        .includes(
+          searchFilter
+            .toLowerCase()
+        ));
 
   const displayRows = showLeader
-    ? [leaderRow, ...filteredAndSortedMembers]
+    ? [
+        leaderRow,
+        ...filteredAndSortedMembers,
+      ]
     : filteredAndSortedMembers;
 
-  const renderSortIcon = (field: string) => {
+  const renderSortIcon = (
+    field: string
+  ) => {
     if (sortField === field) {
       return sortOrder === "asc" ? (
         <ArrowUp className="size-3.5 text-primary" />
@@ -1059,7 +1702,10 @@ function TeamSection({
         <ArrowDown className="size-3.5 text-primary" />
       );
     }
-    return <ArrowUpDown className="size-3.5 opacity-40 group-hover:opacity-100" />;
+
+    return (
+      <ArrowUpDown className="size-3.5 opacity-40 group-hover:opacity-100" />
+    );
   };
 
   return (
@@ -1067,7 +1713,10 @@ function TeamSection({
       <CardHeader className="pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle className="text-sm font-bold">Team</CardTitle>
+            <CardTitle className="text-sm font-bold">
+              Team
+            </CardTitle>
+
             <CardDescription className="text-xs text-muted-foreground">
               {isHigherLead
                 ? `Direct leads reporting to ${profile.name} are shown here.`
@@ -1076,29 +1725,53 @@ function TeamSection({
           </div>
 
           <div className="flex items-center gap-2">
-            <Select value={teamMonthNum} onValueChange={onTeamMonthChange}>
+            <Select
+              value={teamMonthNum}
+              onValueChange={
+                onTeamMonthChange
+              }
+            >
               <SelectTrigger className="h-8 w-[130px] bg-background text-xs">
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
+
               <SelectContent>
-                {MONTH_OPTIONS.map((m) => (
-                  <SelectItem key={m.value} value={m.value} className="text-xs">
-                    {m.label}
-                  </SelectItem>
-                ))}
+                {MONTH_OPTIONS.map(
+                  (m) => (
+                    <SelectItem
+                      key={m.value}
+                      value={m.value}
+                      className="text-xs"
+                    >
+                      {m.label}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
 
-            <Select value={teamYear} onValueChange={onTeamYearChange}>
+            <Select
+              value={teamYear}
+              onValueChange={
+                onTeamYearChange
+              }
+            >
               <SelectTrigger className="h-8 w-[90px] bg-background text-xs">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
+
               <SelectContent>
-                {availableTeamYears.map((y) => (
-                  <SelectItem key={y} value={y} className="text-xs">
-                    {y}
-                  </SelectItem>
-                ))}
+                {availableTeamYears.map(
+                  (y) => (
+                    <SelectItem
+                      key={y}
+                      value={y}
+                      className="text-xs"
+                    >
+                      {y}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -1108,51 +1781,93 @@ function TeamSection({
       <CardContent className="space-y-6">
         {performanceLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-24 w-full" />
+            {Array.from({
+              length: 6,
+            }).map((_, index) => (
+              <Skeleton
+                key={index}
+                className="h-24 w-full"
+              />
             ))}
           </div>
         ) : teamSummary ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <TeamMetricCard
-              icon={<Users className="size-3.5" />}
-              label={getSubordinateTypeLabel(tier)}
-              value={directReports.length}
+              icon={
+                <Users className="size-3.5" />
+              }
+              label={getSubordinateTypeLabel(
+                tier
+              )}
+              value={
+                directReports.length
+              }
               suffix=""
             />
+
             <TeamMetricCard
-              icon={<TrendingUp className="size-3.5" />}
+              icon={
+                <TrendingUp className="size-3.5" />
+              }
               label="PRODUCTION"
-              value={teamSummary.productionActual}
-              secondaryValue={teamSummary.productionTarget}
+              value={
+                teamSummary.productionActual
+              }
+              secondaryValue={
+                teamSummary.productionTarget
+              }
               suffix=""
             />
+
             <TeamMetricCard
-              icon={<Ticket className="size-3.5" />}
+              icon={
+                <Ticket className="size-3.5" />
+              }
               label="TICKETS"
-              value={teamSummary.ticketActual}
-              secondaryValue={teamSummary.ticketTarget}
+              value={
+                teamSummary.ticketActual
+              }
+              secondaryValue={
+                teamSummary.ticketTarget
+              }
               suffix=""
             />
+
             <TeamMetricCard
-              icon={<ShieldCheck className="size-3.5" />}
+              icon={
+                <ShieldCheck className="size-3.5" />
+              }
               label="ERRORS"
-              value={teamSummary.errorActual}
-              secondaryValue={teamSummary.errorTarget}
+              value={
+                teamSummary.errorActual
+              }
+              secondaryValue={
+                teamSummary.errorTarget
+              }
               suffix=""
             />
+
             <TeamMetricCard
-              icon={<CalendarCheck className="size-3.5" />}
+              icon={
+                <CalendarCheck className="size-3.5" />
+              }
               label="ATTENDANCE"
-              value={teamSummary.attendance}
+              value={
+                teamSummary.attendance
+              }
               secondaryValue={10}
               suffix=""
               decimals
             />
+
             <TeamMetricCard
-              icon={<Brain className="size-3.5" />}
+              icon={
+                <Brain className="size-3.5" />
+              }
               label="BEHAVIOR"
-              value={teamSummary.behavior}
+              value={
+                teamSummary.behavior
+              }
               secondaryValue={5}
               suffix=""
               decimals
@@ -1160,14 +1875,18 @@ function TeamSection({
           </div>
         ) : (
           <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm font-medium">No team performance data available.</p>
+            <p className="text-sm font-medium">
+              No team performance data available.
+            </p>
+
             <p className="mt-1 text-xs text-muted-foreground">
-              No monthly performance records were found for {monthToLabel(teamMonth)}.
+              No monthly performance
+              records were found for{" "}
+              {monthToLabel(teamMonth)}.
             </p>
           </div>
         )}
 
-        {/* TEAM LEADERS / TEAM MEMBERS TABLE */}
         <div>
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1178,6 +1897,7 @@ function TeamSection({
                   ? "Team Leaders Under This Head TL"
                   : "Team Members"}
               </p>
+
               <p className="text-[11px] text-muted-foreground">
                 {tier >= 3
                   ? "Click any team leader to drill down into their team performance."
@@ -1185,13 +1905,17 @@ function TeamSection({
               </p>
             </div>
 
-            {/* Search Filter Input */}
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+
               <Input
                 placeholder="Filter by name / designation..."
                 value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
+                onChange={(e) =>
+                  setSearchFilter(
+                    e.target.value
+                  )
+                }
                 className="h-8 pl-8 text-xs"
               />
             </div>
@@ -1210,86 +1934,153 @@ function TeamSection({
                   <TableRow className="border-b border-border/60 hover:bg-transparent">
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("name")}
+                      onClick={() =>
+                        handleSort("name")
+                      }
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Name</span>
-                        {renderSortIcon("name")}
+                        {renderSortIcon(
+                          "name"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("designation")}
+                      onClick={() =>
+                        handleSort(
+                          "designation"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Designation</span>
-                        {renderSortIcon("designation")}
+                        <span>
+                          Designation
+                        </span>
+
+                        {renderSortIcon(
+                          "designation"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("production")}
+                      onClick={() =>
+                        handleSort(
+                          "production"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Production</span>
-                        {renderSortIcon("production")}
+                        <span>
+                          Production
+                        </span>
+
+                        {renderSortIcon(
+                          "production"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("tickets")}
+                      onClick={() =>
+                        handleSort(
+                          "tickets"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Tickets</span>
-                        {renderSortIcon("tickets")}
+                        <span>
+                          Tickets
+                        </span>
+
+                        {renderSortIcon(
+                          "tickets"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("errors")}
+                      onClick={() =>
+                        handleSort(
+                          "errors"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Errors</span>
-                        {renderSortIcon("errors")}
+                        <span>
+                          Errors
+                        </span>
+
+                        {renderSortIcon(
+                          "errors"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("attendance")}
+                      onClick={() =>
+                        handleSort(
+                          "attendance"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Attendance</span>
-                        {renderSortIcon("attendance")}
+                        <span>
+                          Attendance
+                        </span>
+
+                        {renderSortIcon(
+                          "attendance"
+                        )}
                       </div>
                     </TableHead>
 
                     <TableHead
                       className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSort("behavior")}
+                      onClick={() =>
+                        handleSort(
+                          "behavior"
+                        )
+                      }
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>Behavior</span>
-                        {renderSortIcon("behavior")}
+                        <span>
+                          Behavior
+                        </span>
+
+                        {renderSortIcon(
+                          "behavior"
+                        )}
                       </div>
                     </TableHead>
 
-                    {isHigherLead && <TableHead className="w-10" />}
+                    {isHigherLead && (
+                      <TableHead className="w-10" />
+                    )}
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
                   {displayRows.map(
-                    ({ employee, performance, isLeader, leaderTag }) => (
+                    ({
+                      employee,
+                      performance,
+                      isLeader,
+                      leaderTag,
+                    }) => (
                       <TableRow
-                        key={employee.employeeId}
+                        key={
+                          employee.employeeId
+                        }
                         className={cn(
                           isLeader
-                            ? "bg-primary/[0.05] font-medium border-b border-border/60 hover:bg-primary/[0.08]"
+                            ? "border-b border-border/60 bg-primary/[0.05] font-medium hover:bg-primary/[0.08]"
                             : isHigherLead
                             ? "cursor-pointer border-b border-border/40 hover:bg-muted/50"
                             : "border-b border-border/40 hover:bg-muted/30"
@@ -1301,33 +2092,42 @@ function TeamSection({
                             onSelectMember &&
                             employee.employeeId
                           ) {
-                            onSelectMember(employee.employeeId);
+                            onSelectMember(
+                              employee.employeeId
+                            );
                           }
                         }}
                       >
                         <TableCell className="py-3 text-xs font-semibold">
                           <div className="flex items-center gap-2">
-                            <span>{employee.name}</span>
+                            <span>
+                              {
+                                employee.name
+                              }
+                            </span>
+
                             {isLeader && (
                               <Badge
                                 variant="outline"
-                                className="bg-primary/10 text-primary border-primary/30 text-[10px] px-1.5 py-0 h-4.5 font-bold uppercase tracking-wider"
+                                className="h-4.5 border-primary/30 bg-primary/10 px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider text-primary"
                               >
-                                {leaderTag || "TL"}
+                                {leaderTag ||
+                                  "TL"}
                               </Badge>
                             )}
                           </div>
                         </TableCell>
 
                         <TableCell className="py-3 text-xs text-muted-foreground">
-                          {employee.designation || "—"}
+                          {employee.designation ||
+                            "—"}
                         </TableCell>
 
                         <TableCell className="py-3 text-xs">
                           {performance
-                            ? `${safeNumber(
+                            ? `${formatNumber(
                                 performance.productionActual
-                              )} / ${safeNumber(
+                              )} / ${formatNumber(
                                 performance.productionTarget
                               )}`
                             : "—"}
@@ -1335,9 +2135,9 @@ function TeamSection({
 
                         <TableCell className="py-3 text-xs">
                           {performance
-                            ? `${safeNumber(
+                            ? `${formatNumber(
                                 performance.ticketActual
-                              )} / ${safeNumber(
+                              )} / ${formatNumber(
                                 performance.ticketTarget
                               )}`
                             : "—"}
@@ -1345,9 +2145,9 @@ function TeamSection({
 
                         <TableCell className="py-3 text-xs">
                           {performance
-                            ? `${safeNumber(
+                            ? `${formatNumber(
                                 performance.errorActual
-                              )} / ${safeNumber(
+                              )} / ${formatNumber(
                                 performance.errorTarget
                               )}`
                             : "—"}
@@ -1355,17 +2155,17 @@ function TeamSection({
 
                         <TableCell className="py-3 text-xs">
                           {performance
-                            ? `${safeNumber(
+                            ? `${formatDecimal(
                                 performance.attendance
-                              ).toFixed(1)}/10`
+                              )}/10`
                             : "—"}
                         </TableCell>
 
                         <TableCell className="py-3 text-xs">
                           {performance
-                            ? `${safeNumber(
+                            ? `${formatDecimal(
                                 performance.behavior
-                              ).toFixed(1)}/5`
+                              )}/5`
                             : "—"}
                         </TableCell>
 
@@ -1404,11 +2204,14 @@ function TeamMetricCard({
   suffix: string;
   decimals?: boolean;
 }) {
-  const formatValue = (number: number) => {
+  const formatValue = (
+    number: number
+  ) => {
     if (decimals) {
-      return number.toFixed(1);
+      return formatDecimal(number);
     }
-    return Math.round(number);
+
+    return formatNumber(number);
   };
 
   return (
@@ -1424,7 +2227,9 @@ function TeamMetricCard({
         {secondaryValue !== undefined && (
           <span className="text-sm font-normal text-muted-foreground">
             {" / "}
-            {formatValue(secondaryValue)}
+            {formatValue(
+              secondaryValue
+            )}
           </span>
         )}
 
@@ -1441,22 +2246,40 @@ function EmployeePerformanceTable({
   performanceList: SheetPerformance[];
   availableYears: string[];
 }) {
-  const [yearFilter, setYearFilter] = useState("all");
+  const [
+    yearFilter,
+    setYearFilter,
+  ] = useState("all");
 
   const history = useMemo(() => {
     const filtered =
       yearFilter === "all"
         ? performanceList
         : performanceList.filter(
-            (item) => String(item.month ?? "").slice(0, 4) === yearFilter
+            (item) =>
+              String(
+                item.month ?? ""
+              ).slice(0, 4) ===
+              yearFilter
           );
 
-    return [...filtered].sort((a, b) =>
-      String(a.month ?? "").localeCompare(String(b.month ?? ""))
+    return [...filtered].sort(
+      (a, b) =>
+        String(
+          a.month ?? ""
+        ).localeCompare(
+          String(
+            b.month ?? ""
+          )
+        )
     );
-  }, [performanceList, yearFilter]);
+  }, [
+    performanceList,
+    yearFilter,
+  ]);
 
-  const currentMonthKey = getCurrentMonthKey();
+  const currentMonthKey =
+    getCurrentMonthKey();
 
   return (
     <Card className="border border-border/70 shadow-sm">
@@ -1466,23 +2289,38 @@ function EmployeePerformanceTable({
             <CardTitle className="text-sm font-bold">
               Personal Performance
             </CardTitle>
+
             <CardDescription className="text-xs text-muted-foreground">
               Monthly performance history.
             </CardDescription>
           </div>
 
           {availableYears.length > 0 && (
-            <Select value={yearFilter} onValueChange={setYearFilter}>
+            <Select
+              value={yearFilter}
+              onValueChange={
+                setYearFilter
+              }
+            >
               <SelectTrigger className="h-8 w-[130px] text-xs">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
+
               <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">
+                  All Years
+                </SelectItem>
+
+                {availableYears.map(
+                  (year) => (
+                    <SelectItem
+                      key={year}
+                      value={year}
+                    >
+                      {year}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
           )}
@@ -1504,21 +2342,27 @@ function EmployeePerformanceTable({
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Month
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Production
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Tickets
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Errors / Rejections
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Attendance
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Behavior
                   </TableHead>
+
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Manager Remarks
                   </TableHead>
@@ -1526,55 +2370,98 @@ function EmployeePerformanceTable({
               </TableHeader>
 
               <TableBody>
-                {history.map((performance) => {
-                  const month = String(performance.month ?? "").slice(0, 7);
-                  const isCurrent = month === currentMonthKey;
+                {history.map(
+                  (performance) => {
+                    const month =
+                      String(
+                        performance.month ??
+                          ""
+                      ).slice(
+                        0,
+                        7
+                      );
 
-                  return (
-                    <TableRow
-                      key={month}
-                      className={isCurrent ? "bg-muted/40" : undefined}
-                    >
-                      <TableCell className="whitespace-nowrap py-3 text-xs font-semibold">
-                        <div className="flex items-center gap-2">
-                          <span>{monthToLabel(month)}</span>
-                          {isCurrent && (
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                              Current
+                    const isCurrent =
+                      month ===
+                      currentMonthKey;
+
+                    return (
+                      <TableRow
+                        key={month}
+                        className={
+                          isCurrent
+                            ? "bg-muted/40"
+                            : undefined
+                        }
+                      >
+                        <TableCell className="whitespace-nowrap py-3 text-xs font-semibold">
+                          <div className="flex items-center gap-2">
+                            <span>
+                              {monthToLabel(
+                                month
+                              )}
                             </span>
+
+                            {isCurrent && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap py-3 text-xs">
+                          {formatNumber(
+                            performance.productionActual
+                          )}{" "}
+                          /{" "}
+                          {formatNumber(
+                            performance.productionTarget
                           )}
-                        </div>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.productionActual)} /{" "}
-                        {safeNumber(performance.productionTarget)}
-                      </TableCell>
+                        <TableCell className="whitespace-nowrap py-3 text-xs">
+                          {formatNumber(
+                            performance.ticketActual
+                          )}{" "}
+                          /{" "}
+                          {formatNumber(
+                            performance.ticketTarget
+                          )}
+                        </TableCell>
 
-                      <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.ticketActual)} /{" "}
-                        {safeNumber(performance.ticketTarget)}
-                      </TableCell>
+                        <TableCell className="whitespace-nowrap py-3 text-xs">
+                          {formatNumber(
+                            performance.errorActual
+                          )}{" "}
+                          /{" "}
+                          {formatNumber(
+                            performance.errorTarget
+                          )}
+                        </TableCell>
 
-                      <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.errorActual)} /{" "}
-                        {safeNumber(performance.errorTarget)}
-                      </TableCell>
+                        <TableCell className="whitespace-nowrap py-3 text-xs">
+                          {formatDecimal(
+                            performance.attendance
+                          )}
+                          /10
+                        </TableCell>
 
-                      <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.attendance).toFixed(1)}/10
-                      </TableCell>
+                        <TableCell className="whitespace-nowrap py-3 text-xs">
+                          {formatDecimal(
+                            performance.behavior
+                          )}
+                          /5
+                        </TableCell>
 
-                      <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.behavior).toFixed(1)}/5
-                      </TableCell>
-
-                      <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs text-muted-foreground">
-                        {performance.managerRemarks?.trim() || "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs text-muted-foreground">
+                          {performance.managerRemarks?.trim() ||
+                            "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                )}
               </TableBody>
             </Table>
           </div>
@@ -1616,102 +2503,204 @@ function EditForm({
     queryFn: listTeamLeads,
   });
 
-  const [updatedEmployeeId, setUpdatedEmployeeId] = useState(
-    initial.employeeId ?? employeeId
+  const [
+    updatedEmployeeId,
+    setUpdatedEmployeeId,
+  ] = useState(
+    initial.employeeId ??
+      employeeId
   );
-  const [email, setEmail] = useState(initial.email ?? "");
-  const [department, setDepartment] = useState(initial.department ?? "");
-  const [designation, setDesignation] = useState(initial.designation ?? "");
-  const [teamLead, setTeamLead] = useState(initial.teamLead ?? "");
-  const [location, setLocation] = useState(initial.location ?? "");
-  const [joiningDate, setJoiningDate] = useState(
-    initial.joiningDate ? String(initial.joiningDate).slice(0, 10) : ""
+
+  const [email, setEmail] =
+    useState(
+      initial.email ?? ""
+    );
+
+  const [
+    department,
+    setDepartment,
+  ] = useState(
+    initial.department ?? ""
+  );
+
+  const [
+    designation,
+    setDesignation,
+  ] = useState(
+    initial.designation ?? ""
+  );
+
+  const [
+    teamLead,
+    setTeamLead,
+  ] = useState(
+    initial.teamLead ?? ""
+  );
+
+  const [
+    location,
+    setLocation,
+  ] = useState(
+    initial.location ?? ""
+  );
+
+  const [
+    joiningDate,
+    setJoiningDate,
+  ] = useState(
+    initial.joiningDate
+      ? String(
+          initial.joiningDate
+        ).slice(0, 10)
+      : ""
   );
 
   const mutation = useMutation({
     mutationFn: () =>
-      adminUpdateEmployee(user!.email, employeeId, {
-        ...(user?.role === "super_admin"
-          ? {
-              employeeId: updatedEmployeeId,
-              email,
-            }
-          : {}),
-        department,
-        designation,
-        teamLead,
-        location,
-        joiningDate,
-      }),
+      adminUpdateEmployee(
+        user!.email,
+        employeeId,
+        {
+          ...(user?.role ===
+          "super_admin"
+            ? {
+                employeeId:
+                  updatedEmployeeId,
+                email,
+              }
+            : {}),
+          department,
+          designation,
+          teamLead,
+          location,
+          joiningDate,
+        }
+      ),
+
     onSuccess: async () => {
       await Promise.all([
         qc.refetchQueries({
-          queryKey: ["employeeDetail", employeeId],
+          queryKey: [
+            "employeeDetail",
+            employeeId,
+          ],
         }),
+
         qc.refetchQueries({
-          queryKey: ["employees"],
+          queryKey: [
+            "employees",
+          ],
         }),
+
         qc.refetchQueries({
-          queryKey: ["performance"],
+          queryKey: [
+            "performance",
+          ],
         }),
+
         qc.refetchQueries({
-          queryKey: ["teamLeads"],
+          queryKey: [
+            "teamLeads",
+          ],
         }),
       ]);
-      toast.success("Employee updated");
+
+      toast.success(
+        "Employee updated"
+      );
+
       onDone();
     },
+
     onError: (error) => {
-      toast.error("Update failed", {
-        description:
-          error instanceof Error ? error.message : String(error),
-      });
+      toast.error(
+        "Update failed",
+        {
+          description:
+            error instanceof
+            Error
+              ? error.message
+              : String(error),
+        }
+      );
     },
   });
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     if (!user) {
-      toast.error("User session not found");
+      toast.error(
+        "User session not found"
+      );
+
       return;
     }
+
     mutation.mutate();
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-bold">Edit Employee</CardTitle>
+        <CardTitle className="text-sm font-bold">
+          Edit Employee
+        </CardTitle>
+
         <CardDescription className="text-xs text-muted-foreground">
           Update employee master information.
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
-          {user?.role === "super_admin" && (
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={handleSubmit}
+        >
+          {user?.role ===
+            "super_admin" && (
             <>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium" htmlFor="edit-employee-id">
+                <label
+                  className="text-xs font-medium"
+                  htmlFor="edit-employee-id"
+                >
                   Employee ID
                 </label>
+
                 <Input
                   id="edit-employee-id"
-                  value={updatedEmployeeId}
-                  onChange={(e) => setUpdatedEmployeeId(e.target.value)}
+                  value={
+                    updatedEmployeeId
+                  }
+                  onChange={(e) =>
+                    setUpdatedEmployeeId(
+                      e.target.value
+                    )
+                  }
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium" htmlFor="edit-email">
+                <label
+                  className="text-xs font-medium"
+                  htmlFor="edit-email"
+                >
                   Email
                 </label>
+
                 <Input
                   id="edit-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) =>
+                    setEmail(
+                      e.target.value
+                    )
+                  }
                   required
                 />
               </div>
@@ -1721,49 +2710,87 @@ function EditForm({
           <Picker
             label="Department"
             value={department}
-            onChange={setDepartment}
-            options={deptQ.data ?? []}
+            onChange={
+              setDepartment
+            }
+            options={
+              deptQ.data ?? []
+            }
           />
 
           <Picker
             label="Designation"
             value={designation}
-            onChange={setDesignation}
-            options={desigQ.data ?? []}
+            onChange={
+              setDesignation
+            }
+            options={
+              desigQ.data ?? []
+            }
           />
 
           <Picker
             label="Team Lead"
             value={teamLead}
-            onChange={setTeamLead}
-            options={leadQ.data ?? []}
+            onChange={
+              setTeamLead
+            }
+            options={
+              leadQ.data ?? []
+            }
           />
 
           <Picker
             label="Location"
             value={location}
-            onChange={setLocation}
-            options={locQ.data ?? []}
+            onChange={
+              setLocation
+            }
+            options={
+              locQ.data ?? []
+            }
           />
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium" htmlFor="edit-joining">
+            <label
+              className="text-xs font-medium"
+              htmlFor="edit-joining"
+            >
               Joining Date
             </label>
+
             <Input
               id="edit-joining"
               type="date"
               value={joiningDate}
-              onChange={(e) => setJoiningDate(e.target.value)}
+              onChange={(e) =>
+                setJoiningDate(
+                  e.target.value
+                )
+              }
             />
           </div>
 
           <div className="flex items-end justify-end gap-2 sm:col-span-2">
-            <Button type="button" variant="outline" size="sm" onClick={onDone}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDone}
+            >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={mutation.isPending}>
-              {mutation.isPending ? "Saving…" : "Save changes"}
+
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                mutation.isPending
+              }
+            >
+              {mutation.isPending
+                ? "Saving…"
+                : "Save changes"}
             </Button>
           </div>
         </form>
@@ -1780,35 +2807,74 @@ function Picker({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   options: string[];
 }) {
-  const uniqueOptions = Array.from(
-    new Set((options ?? []).map((o) => String(o).trim()).filter(Boolean))
-  );
+  const uniqueOptions =
+    Array.from(
+      new Set(
+        (options ?? [])
+          .map((o) =>
+            String(o).trim()
+          )
+          .filter(Boolean)
+      )
+    );
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium">{label}</label>
-      <Select value={value} onValueChange={onChange}>
+      <label className="text-xs font-medium">
+        {label}
+      </label>
+
+      <Select
+        value={value}
+        onValueChange={onChange}
+      >
         <SelectTrigger className="h-9 text-xs">
-          <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
+          <SelectValue
+            placeholder={`Select ${label.toLowerCase()}`}
+          />
         </SelectTrigger>
+
         <SelectContent>
-          {uniqueOptions.map((option) => (
-            <SelectItem key={option} value={option} className="text-xs">
-              {option}
-            </SelectItem>
-          ))}
+          {uniqueOptions.map(
+            (option) => (
+              <SelectItem
+                key={option}
+                value={option}
+                className="text-xs"
+              >
+                {option}
+              </SelectItem>
+            )
+          )}
         </SelectContent>
       </Select>
     </div>
   );
 }
 
-function formatJoiningDate(value: unknown): string {
+function formatJoiningDate(
+  value: unknown
+): string {
   if (!value) return "—";
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString().slice(0, 10);
+
+  const date = new Date(
+    String(value)
+  );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return String(value);
+  }
+
+  return date
+    .toISOString()
+    .slice(0, 10);
 }
