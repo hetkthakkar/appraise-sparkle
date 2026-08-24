@@ -1,16 +1,5 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react";
-
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -30,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 import {
   Card,
   CardContent,
@@ -38,7 +25,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
 import {
   Table,
   TableBody,
@@ -47,7 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
 import {
   Users,
   TrendingUp,
@@ -58,12 +43,14 @@ import {
   Pencil,
   ArrowLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Search,
 } from "lucide-react";
-
 import { toast } from "sonner";
-
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/mock-auth";
-
 import {
   adminUpdateEmployee,
   getEmployeeDetail,
@@ -133,7 +120,10 @@ function getRoleTier(designation: unknown): number {
   if (
     value.includes("team leader") ||
     value.includes("team lead") ||
+    value.includes("assistant team leader") ||
     value.includes("assistant team lead") ||
+    value.includes("atl") ||
+    value.startsWith("atl ") ||
     value.includes("supervisior") ||
     value.includes("supervisor") ||
     value === "tl" ||
@@ -143,6 +133,12 @@ function getRoleTier(designation: unknown): number {
   }
 
   return 1;
+}
+
+function getRoleBadgeText(designation: unknown): string {
+  const value = normalizeText(designation);
+  if (value.includes("assistant") || value.includes("atl")) return "ATL";
+  return "TL";
 }
 
 function getSubordinateTypeLabel(tier: number): string {
@@ -163,19 +159,13 @@ function samePerson(a: unknown, b: unknown): boolean {
     return true;
   }
 
-  const wordsA = strA
-    .split(" ")
-    .filter((w) => w.length > 1);
-
-  const wordsB = strB
-    .split(" ")
-    .filter((w) => w.length > 1);
+  const wordsA = strA.split(" ").filter((w) => w.length > 1);
+  const wordsB = strB.split(" ").filter((w) => w.length > 1);
 
   if (wordsA.length >= 2 && wordsB.length >= 2) {
     if (
       wordsA[0] === wordsB[0] &&
-      wordsA[wordsA.length - 1] ===
-        wordsB[wordsB.length - 1]
+      wordsA[wordsA.length - 1] === wordsB[wordsB.length - 1]
     ) {
       return true;
     }
@@ -193,89 +183,42 @@ function productionPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
-  const target = safeNumber(
-    performance.productionTarget
-  );
-
-  const actual = safeNumber(
-    performance.productionActual
-  );
-
+  const target = safeNumber(performance.productionTarget);
+  const actual = safeNumber(performance.productionActual);
   if (target <= 0) return 0;
-
-  return Math.max(
-    0,
-    Math.min(
-      150,
-      (actual / target) * 100
-    )
-  );
+  return Math.max(0, Math.min(150, (actual / target) * 100));
 }
 
 function ticketPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
-  const target = safeNumber(
-    performance.ticketTarget
-  );
-
-  const actual = safeNumber(
-    performance.ticketActual
-  );
-
+  const target = safeNumber(performance.ticketTarget);
+  const actual = safeNumber(performance.ticketActual);
   if (target <= 0) return 0;
-
-  return Math.max(
-    0,
-    Math.min(
-      150,
-      (actual / target) * 100
-    )
-  );
+  return Math.max(0, Math.min(150, (actual / target) * 100));
 }
 
 function qualityPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
-  const target = safeNumber(
-    performance.errorTarget
-  );
-
-  const actual = safeNumber(
-    performance.errorActual
-  );
-
+  const target = safeNumber(performance.errorTarget);
+  const actual = safeNumber(performance.errorActual);
   if (target <= 0) {
     return actual <= 0 ? 100 : 0;
   }
-
   if (actual <= 0) return 100;
-
-  return Math.max(
-    0,
-    Math.min(
-      150,
-      (target / actual) * 100
-    )
-  );
+  return Math.max(0, Math.min(150, (target / actual) * 100));
 }
 
 function attendancePercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
   return Math.max(
     0,
-    Math.min(
-      100,
-      (safeNumber(performance.attendance) / 10) * 100
-    )
+    Math.min(100, (safeNumber(performance.attendance) / 10) * 100)
   );
 }
 
@@ -283,13 +226,9 @@ function behaviorPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
   return Math.max(
     0,
-    Math.min(
-      100,
-      (safeNumber(performance.behavior) / 5) * 100
-    )
+    Math.min(100, (safeNumber(performance.behavior) / 5) * 100)
   );
 }
 
@@ -297,7 +236,6 @@ function overallPercent(
   performance: SheetPerformance | null | undefined
 ): number {
   if (!performance) return 0;
-
   const values = [
     productionPercent(performance),
     ticketPercent(performance),
@@ -305,44 +243,24 @@ function overallPercent(
     attendancePercent(performance),
     behaviorPercent(performance),
   ];
-
-  return (
-    values.reduce(
-      (sum, value) => sum + value,
-      0
-    ) / values.length
-  );
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function getCurrentMonthKey(): string {
   const now = new Date();
-
-  return `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getLatestMonth(
-  rows: SheetPerformance[]
-): string | null {
+function getLatestMonth(rows: SheetPerformance[]): string | null {
   if (!rows.length) return null;
-
   const months = Array.from(
     new Set(
       rows
-        .map((row) =>
-          String(
-            row.month ?? ""
-          ).slice(0, 7)
-        )
+        .map((row) => String(row.month ?? "").slice(0, 7))
         .filter(Boolean)
     )
   );
-
-  months.sort((a, b) =>
-    b.localeCompare(a)
-  );
-
+  months.sort((a, b) => b.localeCompare(a));
   return months[0] ?? null;
 }
 
@@ -354,8 +272,7 @@ function getPerformanceForMonth(
   return (
     rows.find(
       (row) =>
-        String(row.employeeId).trim() ===
-          String(employeeId).trim() &&
+        String(row.employeeId).trim() === String(employeeId).trim() &&
         String(row.month).slice(0, 7) === month
     ) ?? null
   );
@@ -367,47 +284,28 @@ function getDescendants(
 ): SheetEmployee[] {
   const result: SheetEmployee[] = [];
   const visited = new Set<string>();
-
-  const managerId =
-    String(
-      manager.employeeId ?? ""
-    ).trim();
+  const managerId = String(manager.employeeId ?? "").trim();
 
   if (managerId) {
     visited.add(managerId);
   }
 
   function walk(parent: SheetEmployee) {
-    employees.forEach(
-      (employee) => {
-        const id =
-          String(
-            employee.employeeId ?? ""
-          ).trim();
-
-        if (!id || visited.has(id)) {
-          return;
-        }
-
-        if (
-          !samePerson(
-            employee.teamLead,
-            parent.name
-          )
-        ) {
-          return;
-        }
-
-        visited.add(id);
-        result.push(employee);
-
-        walk(employee);
+    employees.forEach((employee) => {
+      const id = String(employee.employeeId ?? "").trim();
+      if (!id || visited.has(id)) {
+        return;
       }
-    );
+      if (!samePerson(employee.teamLead, parent.name)) {
+        return;
+      }
+      visited.add(id);
+      result.push(employee);
+      walk(employee);
+    });
   }
 
   walk(manager);
-
   return result;
 }
 
@@ -415,45 +313,30 @@ function getDirectReports(
   manager: SheetEmployee,
   employees: SheetEmployee[]
 ): SheetEmployee[] {
-  const managerTier =
-    getRoleTier(
-      manager.designation
-    );
+  const managerTier = getRoleTier(manager.designation);
 
-  return employees.filter(
-    (employee) => {
-      const isDirect =
-        samePerson(
-          employee.teamLead,
-          manager.name
-        ) &&
-        String(employee.employeeId).trim() !==
-          String(manager.employeeId).trim();
+  return employees.filter((employee) => {
+    const isDirect =
+      samePerson(employee.teamLead, manager.name) &&
+      String(employee.employeeId).trim() !== String(manager.employeeId).trim();
 
-      if (!isDirect) {
-        return false;
-      }
-
-      const subTier =
-        getRoleTier(
-          employee.designation
-        );
-
-      if (managerTier === 4) {
-        return true;
-      }
-
-      if (managerTier === 3) {
-        return subTier === 2;
-      }
-
-      if (managerTier === 2) {
-        return subTier === 1;
-      }
-
+    if (!isDirect) {
       return false;
     }
-  );
+
+    const subTier = getRoleTier(employee.designation);
+
+    if (managerTier === 4) {
+      return true;
+    }
+    if (managerTier === 3) {
+      return subTier === 2;
+    }
+    if (managerTier === 2) {
+      return subTier === 1;
+    }
+    return false;
+  });
 }
 
 export function EmployeeDetailModal({
@@ -461,35 +344,14 @@ export function EmployeeDetailModal({
   onOpenChange,
 }: Props) {
   const { user } = useAuth();
-
-  const [
-    activeEmployeeId,
-    setActiveEmployeeId,
-  ] = useState<string | null>(
-    employeeId
-  );
-
-  const [history, setHistory] =
-    useState<string[]>([]);
-
-  const [editing, setEditing] =
-    useState(false);
-
-  const [
-    selectedTeamYear,
-    setSelectedTeamYear,
-  ] = useState<string | null>(null);
-
-  const [
-    selectedTeamMonthNum,
-    setSelectedTeamMonthNum,
-  ] = useState<string | null>(null);
+  const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(employeeId);
+  const [history, setHistory] = useState<string[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
+  const [selectedTeamMonthNum, setSelectedTeamMonthNum] = useState<string | null>(null);
 
   useEffect(() => {
-    setActiveEmployeeId(
-      employeeId
-    );
-
+    setActiveEmployeeId(employeeId);
     setHistory([]);
     setEditing(false);
     setSelectedTeamYear(null);
@@ -497,838 +359,376 @@ export function EmployeeDetailModal({
   }, [employeeId]);
 
   const detailQ = useQuery({
-    queryKey: [
-      "employeeDetail",
-      activeEmployeeId,
-      user?.email,
-    ],
-
-    queryFn: () =>
-      getEmployeeDetail(
-        user!.email,
-        activeEmployeeId!
-      ),
-
-    enabled:
-      !!user &&
-      !!activeEmployeeId,
+    queryKey: ["employeeDetail", activeEmployeeId, user?.email],
+    queryFn: () => getEmployeeDetail(user!.email, activeEmployeeId!),
+    enabled: !!user && !!activeEmployeeId,
   });
 
   const employeesQ = useQuery({
-    queryKey: [
-      "employees",
-      user?.email,
-    ],
-
-    queryFn: () =>
-      listEmployees(
-        user!.email
-      ),
-
+    queryKey: ["employees", user?.email],
+    queryFn: () => listEmployees(user!.email),
     enabled:
       !!user &&
       !!activeEmployeeId &&
-      (
-        user.role === "super_admin" ||
-        user.role === "admin"
-      ),
+      (user.role === "super_admin" || user.role === "admin"),
   });
 
   const performanceQ = useQuery({
-    queryKey: [
-      "performance",
-      "employee-detail",
-      user?.email,
-    ],
-
-    queryFn: () =>
-      listPerformance(
-        user!.email
-      ),
-
+    queryKey: ["performance", "employee-detail", user?.email],
+    queryFn: () => listPerformance(user!.email),
     enabled:
       !!user &&
       !!activeEmployeeId &&
-      (
-        user.role === "super_admin" ||
-        user.role === "admin"
-      ),
+      (user.role === "super_admin" || user.role === "admin"),
   });
 
-  const profile =
-    detailQ.data?.profile;
+  const profile = detailQ.data?.profile;
+  const tier = getRoleTier(profile?.designation);
+  const allEmployees = employeesQ.data ?? [];
 
-  const tier =
-    getRoleTier(
-      profile?.designation
+  const directReports = useMemo(() => {
+    if (!profile) return [];
+    return getDirectReports(profile, allEmployees);
+  }, [profile, allEmployees]);
+
+  const teamEmployees = useMemo(() => {
+    if (!profile) return [];
+    if (tier >= 3) {
+      return getDescendants(profile, allEmployees);
+    }
+    if (tier === 2) {
+      return directReports;
+    }
+    return [];
+  }, [profile, allEmployees, directReports, tier]);
+
+  const performanceRows = performanceQ.data ?? [];
+
+  const teamMonth = useMemo(() => {
+    const allMembers = profile ? [profile, ...teamEmployees] : teamEmployees;
+    if (!allMembers.length) {
+      return getCurrentMonthKey();
+    }
+
+    const teamIds = new Set(allMembers.map((e) => String(e.employeeId)));
+    const teamRows = performanceRows.filter((row) =>
+      teamIds.has(String(row.employeeId))
     );
 
-  const allEmployees =
-    employeesQ.data ?? [];
+    const current = getCurrentMonthKey();
+    const hasCurrent = teamRows.some(
+      (row) => String(row.month).slice(0, 7) === current
+    );
 
-  const directReports =
-    useMemo(() => {
-      if (!profile) return [];
+    if (hasCurrent) {
+      return current;
+    }
 
-      return getDirectReports(
-        profile,
-        allEmployees
-      );
-    }, [
-      profile,
-      allEmployees,
-    ]);
+    return getLatestMonth(teamRows) ?? current;
+  }, [profile, teamEmployees, performanceRows]);
 
-  const teamEmployees =
-    useMemo(() => {
-      if (!profile) return [];
+  const [defaultTeamYear, defaultTeamMonthNum] = teamMonth.split("-");
+  const effectiveTeamYear = selectedTeamYear ?? defaultTeamYear;
+  const effectiveTeamMonthNum = selectedTeamMonthNum ?? defaultTeamMonthNum;
+  const effectiveTeamMonth = `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
 
-      if (tier >= 3) {
-        return getDescendants(
-          profile,
-          allEmployees
-        );
+  const availableTeamYears = useMemo(() => {
+    const years = new Set<string>();
+    performanceRows.forEach((row) => {
+      const year = String(row.month ?? "").slice(0, 4);
+      if (year) {
+        years.add(year);
       }
+    });
+    years.add(String(new Date().getFullYear()));
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [performanceRows]);
 
-      if (tier === 2) {
-        return directReports;
-      }
-
-      return [];
-    }, [
-      profile,
-      allEmployees,
-      directReports,
-      tier,
-    ]);
-
-  const performanceRows =
-    performanceQ.data ?? [];
-
-  const teamMonth =
-    useMemo(() => {
-      if (!teamEmployees.length) {
-        return getCurrentMonthKey();
-      }
-
-      const teamIds =
-        new Set(
-          teamEmployees.map(
-            (employee) =>
-              String(
-                employee.employeeId
-              )
-          )
-        );
-
-      const teamRows =
-        performanceRows.filter(
-          (row) =>
-            teamIds.has(
-              String(
-                row.employeeId
-              )
-            )
-        );
-
-      const current =
-        getCurrentMonthKey();
-
-      const hasCurrent =
-        teamRows.some(
-          (row) =>
-            String(
-              row.month
-            ).slice(0, 7) ===
-            current
-        );
-
-      if (hasCurrent) {
-        return current;
-      }
-
-      return (
-        getLatestMonth(
-          teamRows
-        ) ?? current
-      );
-    }, [
-      teamEmployees,
-      performanceRows,
-    ]);
-
-  const [
-    defaultTeamYear,
-    defaultTeamMonthNum,
-  ] = teamMonth.split("-");
-
-  const effectiveTeamYear =
-    selectedTeamYear ??
-    defaultTeamYear;
-
-  const effectiveTeamMonthNum =
-    selectedTeamMonthNum ??
-    defaultTeamMonthNum;
-
-  const effectiveTeamMonth =
-    `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
-
-  const availableTeamYears =
-    useMemo(() => {
-      const years =
-        new Set<string>();
-
-      performanceRows.forEach(
-        (row) => {
-          const year =
-            String(
-              row.month ?? ""
-            ).slice(0, 4);
-
-          if (year) {
-            years.add(year);
-          }
-        }
-      );
-
-      years.add(
-        String(
-          new Date().getFullYear()
-        )
-      );
-
-      return Array.from(
-        years
-      ).sort((a, b) =>
-        b.localeCompare(a)
-      );
-    }, [performanceRows]);
-
-    // ==========================================================
-  // DIRECT TEAM PERFORMANCE
+  // ==========================================================
+  // DIRECT TEAM PERFORMANCE (TL / ATL AT TOP WITH PERSONAL METRICS)
   // ==========================================================
 
-  const directTeamPerformance =
-    useMemo(() => {
-      return directReports.map(
-        (employee) => {
-          const subTier =
-            getRoleTier(
-              employee.designation
-            );
+  const directTeamPerformance = useMemo(() => {
+    if (!profile) return [];
 
-          /*
-           * For Team Leads / Assistant Team Leads:
-           * show the total performance of everyone
-           * reporting under that person.
-           *
-           * This is exactly what is shown in the
-           * Team Leaders Under This Head TL table.
-           */
-          if (subTier >= 2) {
-            const subDownline =
-              getDescendants(
-                employee,
-                allEmployees
-              );
+    const des = normalizeText(profile.designation);
 
-            const subIds =
-              new Set(
-                subDownline.map(
-                  (e) =>
-                    String(
-                      e.employeeId
-                    )
-                )
-              );
+    // Check if current profile is TL or ATL
+    const isTLorATL =
+      tier === 2 ||
+      des.includes("team leader") ||
+      des.includes("team lead") ||
+      des.includes("assistant team leader") ||
+      des.includes("assistant team lead") ||
+      des.includes("atl") ||
+      des.startsWith("atl ") ||
+      des === "tl" ||
+      des.startsWith("tl ");
 
-            const subRows =
-              performanceRows.filter(
-                (r) =>
-                  subIds.has(
-                    String(
-                      r.employeeId
-                    )
-                  ) &&
-                  String(
-                    r.month
-                  ).slice(
-                    0,
-                    7
-                  ) ===
-                    effectiveTeamMonth
-              );
+    // 1. Only for TL and ATL: fetch their own personal performance for this month
+    let leaderItem: {
+      employee: SheetEmployee;
+      performance: SheetPerformance | null;
+      calculatedOverall?: number;
+      isLeader?: boolean;
+      leaderTag?: string;
+    } | null = null;
 
-            if (
-              subRows.length > 0
-            ) {
-              const productionTarget =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.productionTarget
-                    ),
-                  0
+    if (isTLorATL && tier < 3) {
+      const leaderPersonalPerformance = getPerformanceForMonth(
+        performanceRows,
+        profile.employeeId,
+        effectiveTeamMonth
+      );
+
+      leaderItem = {
+        employee: profile,
+        performance: leaderPersonalPerformance, // Personal targets & actuals
+        calculatedOverall: leaderPersonalPerformance
+          ? Math.round(overallPercent(leaderPersonalPerformance))
+          : 0,
+        isLeader: true,
+        leaderTag: getRoleBadgeText(profile.designation),
+      };
+    }
+
+    // 2. Direct reports list
+    const reportsItems = directReports.map((employee) => {
+      const subTier = getRoleTier(employee.designation);
+
+      // When viewing Head TL (tier >= 3), calculate roll-up for subordinate TLs
+      if (tier >= 3 && subTier >= 2) {
+        const subDownline = getDescendants(employee, allEmployees);
+        const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
+        const subRows = performanceRows.filter(
+          (r) =>
+            subIds.has(String(r.employeeId)) &&
+            String(r.month).slice(0, 7) === effectiveTeamMonth
+        );
+
+        if (subRows.length > 0) {
+          const productionTarget = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.productionTarget),
+            0
+          );
+          const productionActual = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.productionActual),
+            0
+          );
+          const ticketTarget = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.ticketTarget),
+            0
+          );
+          const ticketActual = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.ticketActual),
+            0
+          );
+          const errorTarget = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.errorTarget),
+            0
+          );
+          const errorActual = subRows.reduce(
+            (sum, row) => sum + safeNumber(row.errorActual),
+            0
+          );
+          const attendance =
+            subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
+            subRows.length;
+          const behavior =
+            subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
+            subRows.length;
+
+          const production =
+            productionTarget > 0
+              ? Math.round((productionActual / productionTarget) * 100)
+              : 0;
+          const tickets =
+            ticketTarget > 0
+              ? Math.round((ticketActual / ticketTarget) * 100)
+              : 0;
+          const quality =
+            errorTarget <= 0
+              ? errorActual <= 0
+                ? 100
+                : 0
+              : Math.max(
+                  0,
+                  Math.round(100 - (errorActual / errorTarget) * 100)
                 );
-
-              const productionActual =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.productionActual
-                    ),
-                  0
-                );
-
-              const ticketTarget =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.ticketTarget
-                    ),
-                  0
-                );
-
-              const ticketActual =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.ticketActual
-                    ),
-                  0
-                );
-
-              const errorTarget =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.errorTarget
-                    ),
-                  0
-                );
-
-              const errorActual =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.errorActual
-                    ),
-                  0
-                );
-
-              const attendance =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.attendance
-                    ),
-                  0
-                ) /
-                subRows.length;
-
-              const behavior =
-                subRows.reduce(
-                  (sum, row) =>
-                    sum +
-                    safeNumber(
-                      row.behavior
-                    ),
-                  0
-                ) /
-                subRows.length;
-
-              const production =
-                productionTarget > 0
-                  ? Math.round(
-                      (
-                        productionActual /
-                        productionTarget
-                      ) *
-                        100
-                    )
-                  : 0;
-
-              const tickets =
-                ticketTarget > 0
-                  ? Math.round(
-                      (
-                        ticketActual /
-                        ticketTarget
-                      ) *
-                        100
-                    )
-                  : 0;
-
-              const quality =
-                errorTarget <= 0
-                  ? errorActual <= 0
-                    ? 100
-                    : 0
-                  : Math.max(
-                      0,
-                      Math.round(
-                        100 -
-                          (
-                            errorActual /
-                            errorTarget
-                          ) *
-                            100
-                      )
-                    );
-
-              const attendancePercent =
-                Math.round(
-                  (
-                    attendance /
-                    10
-                  ) *
-                    100
-                );
-
-              const behaviorPercent =
-                Math.round(
-                  (
-                    behavior /
-                    5
-                  ) *
-                    100
-                );
-
-              const overall =
-                Math.round(
-                  (
-                    production +
-                    tickets +
-                    quality +
-                    attendancePercent +
-                    behaviorPercent
-                  ) /
-                    5
-                );
-
-              return {
-                employee,
-
-                performance: {
-                  month:
-                    effectiveTeamMonth,
-
-                  employeeId:
-                    employee.employeeId,
-
-                  productionTarget,
-                  productionActual,
-
-                  ticketTarget,
-                  ticketActual,
-
-                  errorTarget,
-                  errorActual,
-
-                  attendance,
-                  behavior,
-                } as SheetPerformance,
-
-                calculatedOverall:
-                  overall,
-              };
-            }
-          }
-
-          /*
-           * Normal employee row.
-           */
-          const performance =
-            getPerformanceForMonth(
-              performanceRows,
-              employee.employeeId,
-              effectiveTeamMonth
-            );
+          const attendancePercent = Math.round((attendance / 10) * 100);
+          const behaviorPercent = Math.round((behavior / 5) * 100);
+          const overall = Math.round(
+            (production + tickets + quality + attendancePercent + behaviorPercent) / 5
+          );
 
           return {
             employee,
-
-            performance,
-
-            calculatedOverall:
-              performance
-                ? Math.round(
-                    overallPercent(
-                      performance
-                    )
-                  )
-                : 0,
+            performance: {
+              month: effectiveTeamMonth,
+              employeeId: employee.employeeId,
+              productionTarget,
+              productionActual,
+              ticketTarget,
+              ticketActual,
+              errorTarget,
+              errorActual,
+              attendance,
+              behavior,
+            } as SheetPerformance,
+            calculatedOverall: overall,
+            isLeader: false,
           };
         }
-      );
-    }, [
-      directReports,
-      allEmployees,
-      performanceRows,
-      effectiveTeamMonth,
-    ]);
+      }
 
+      // Normal employee row
+      const performance = getPerformanceForMonth(
+        performanceRows,
+        employee.employeeId,
+        effectiveTeamMonth
+      );
+
+      return {
+        employee,
+        performance,
+        calculatedOverall: performance
+          ? Math.round(overallPercent(performance))
+          : 0,
+        isLeader: false,
+      };
+    });
+
+    return leaderItem ? [leaderItem, ...reportsItems] : reportsItems;
+  }, [
+    profile,
+    tier,
+    directReports,
+    allEmployees,
+    performanceRows,
+    effectiveTeamMonth,
+  ]);
 
   // ==========================================================
   // TEAM SUMMARY
   // ==========================================================
-  //
-  // IMPORTANT:
-  // The top cards MUST total the SAME rows that are
-  // displayed in the Team Leaders Under This Head TL table.
-  //
-  // So:
-  //
-  // Production = sum of all visible Team Leader rows
-  // Tickets    = sum of all visible Team Leader rows
-  // Errors     = sum of all visible Team Leader rows
-  //
-  // Attendance / Behavior remain averages because
-  // they are scores out of 10 and 5.
-  // ==========================================================
 
-  const teamSummary =
-    useMemo(() => {
-
-      if (
-        directTeamPerformance.length ===
-        0
-      ) {
-        return null;
-      }
-
-      const rows =
-        directTeamPerformance
-          .map(
-            (item) =>
-              item.performance
-          )
-          .filter(
-            (
-              row
-            ): row is SheetPerformance =>
-              !!row
-          );
-
-      if (
-        rows.length === 0
-      ) {
-        return null;
-      }
-
-
-      // --------------------------------------------------------
-      // TOTAL PRODUCTION
-      // --------------------------------------------------------
-
-      const productionActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.productionActual
-            ),
-          0
-        );
-
-      const productionTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.productionTarget
-            ),
-          0
-        );
-
-
-      // --------------------------------------------------------
-      // TOTAL TICKETS
-      // --------------------------------------------------------
-
-      const ticketActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.ticketActual
-            ),
-          0
-        );
-
-      const ticketTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.ticketTarget
-            ),
-          0
-        );
-
-
-      // --------------------------------------------------------
-      // TOTAL ERRORS
-      // --------------------------------------------------------
-
-      const errorActual =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.errorActual
-            ),
-          0
-        );
-
-      const errorTarget =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.errorTarget
-            ),
-          0
-        );
-
-
-      // --------------------------------------------------------
-      // AVERAGE ATTENDANCE
-      // --------------------------------------------------------
-
-      const attendance =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.attendance
-            ),
-          0
-        ) /
-        rows.length;
-
-
-      // --------------------------------------------------------
-      // AVERAGE BEHAVIOR
-      // --------------------------------------------------------
-
-      const behavior =
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            safeNumber(
-              row.behavior
-            ),
-          0
-        ) /
-        rows.length;
-
-
-      return {
-
-        // This MUST remain the number of
-        // direct Team Leaders shown in the table.
-        people:
-          directReports.length,
-
-        employeesWithPerformance:
-          rows.length,
-
-        // Total quantities.
-        productionActual,
-        productionTarget,
-
-        ticketActual,
-        ticketTarget,
-
-        errorActual,
-        errorTarget,
-
-        // Average score values.
-        attendance,
-        behavior,
-
-        overall: 0,
-      };
-
-    }, [
-      directTeamPerformance,
-      directReports,
-    ]);
-
-
-  const currentPerformance =
-    detailQ.data?.currentMonth ??
-    null;
-
-  const previousMonths =
-    detailQ.data?.previousMonths ??
-    [];
-
-  const personalPerformance =
-    useMemo(() => {
-
-      const monthMap =
-        new Map<
-          string,
-          SheetPerformance
-        >();
-
-      previousMonths.forEach(
-        (row) => {
-
-          const month =
-            String(
-              row?.month ?? ""
-            ).slice(
-              0,
-              7
-            );
-
-          if (month) {
-            monthMap.set(
-              month,
-              row
-            );
-          }
-        }
-      );
-
-      if (
-        currentPerformance?.month
-      ) {
-
-        const month =
-          String(
-            currentPerformance.month
-          ).slice(
-            0,
-            7
-          );
-
-        monthMap.set(
-          month,
-          currentPerformance
-        );
-      }
-
-      return Array.from(
-        monthMap.values()
-      ).sort(
-        (a, b) =>
-          String(
-            a.month ?? ""
-          ).localeCompare(
-            String(
-              b.month ?? ""
-            )
-          )
-      );
-
-    }, [
-      currentPerformance,
-      previousMonths,
-    ]);
-
-  const availablePerformanceYears =
-    useMemo(() => {
-
-      const years =
-        new Set<string>();
-
-      personalPerformance.forEach(
-        (row) => {
-
-          const year =
-            String(
-              row.month ?? ""
-            ).slice(
-              0,
-              4
-            );
-
-          if (
-            /^\d{4}$/.test(
-              year
-            )
-          ) {
-            years.add(
-              year
-            );
-          }
-        }
-      );
-
-      return Array.from(
-        years
-      ).sort(
-        (a, b) =>
-          Number(a) -
-          Number(b)
-      );
-
-    }, [
-      personalPerformance,
-    ]);
-
-  const handleSelectDrilldown = (
-    targetEmployeeId: string
-  ) => {
-    if (activeEmployeeId) {
-      setHistory(
-        (prev) => [
-          ...prev,
-          activeEmployeeId,
-        ]
-      );
+  const teamSummary = useMemo(() => {
+    if (directTeamPerformance.length === 0) {
+      return null;
     }
 
-    setActiveEmployeeId(
-      targetEmployeeId
+    const rows = directTeamPerformance
+      .map((item) => item.performance)
+      .filter((row): row is SheetPerformance => !!row);
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const productionActual = rows.reduce(
+      (sum, row) => sum + safeNumber(row.productionActual),
+      0
     );
+    const productionTarget = rows.reduce(
+      (sum, row) => sum + safeNumber(row.productionTarget),
+      0
+    );
+
+    const ticketActual = rows.reduce(
+      (sum, row) => sum + safeNumber(row.ticketActual),
+      0
+    );
+    const ticketTarget = rows.reduce(
+      (sum, row) => sum + safeNumber(row.ticketTarget),
+      0
+    );
+
+    const errorActual = rows.reduce(
+      (sum, row) => sum + safeNumber(row.errorActual),
+      0
+    );
+    const errorTarget = rows.reduce(
+      (sum, row) => sum + safeNumber(row.errorTarget),
+      0
+    );
+
+    const attendance =
+      rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
+      rows.length;
+
+    const behavior =
+      rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
+      rows.length;
+
+    return {
+      people: directReports.length,
+      employeesWithPerformance: rows.length,
+      productionActual,
+      productionTarget,
+      ticketActual,
+      ticketTarget,
+      errorActual,
+      errorTarget,
+      attendance,
+      behavior,
+      overall: 0,
+    };
+  }, [directTeamPerformance, directReports]);
+
+  const currentPerformance = detailQ.data?.currentMonth ?? null;
+  const previousMonths = detailQ.data?.previousMonths ?? [];
+
+  const personalPerformance = useMemo(() => {
+    const monthMap = new Map<string, SheetPerformance>();
+
+    previousMonths.forEach((row) => {
+      const month = String(row?.month ?? "").slice(0, 7);
+      if (month) {
+        monthMap.set(month, row);
+      }
+    });
+
+    if (currentPerformance?.month) {
+      const month = String(currentPerformance.month).slice(0, 7);
+      monthMap.set(month, currentPerformance);
+    }
+
+    return Array.from(monthMap.values()).sort((a, b) =>
+      String(a.month ?? "").localeCompare(String(b.month ?? ""))
+    );
+  }, [currentPerformance, previousMonths]);
+
+  const availablePerformanceYears = useMemo(() => {
+    const years = new Set<string>();
+    personalPerformance.forEach((row) => {
+      const year = String(row.month ?? "").slice(0, 4);
+      if (/^\d{4}$/.test(year)) {
+        years.add(year);
+      }
+    });
+    return Array.from(years).sort((a, b) => Number(a) - Number(b));
+  }, [personalPerformance]);
+
+  const handleSelectDrilldown = (targetEmployeeId: string) => {
+    if (activeEmployeeId) {
+      setHistory((prev) => [...prev, activeEmployeeId]);
+    }
+    setActiveEmployeeId(targetEmployeeId);
   };
 
   const handleBack = () => {
     if (history.length > 0) {
-      const prev =
-        history[
-          history.length - 1
-        ];
-
-      setHistory(
-        (p) =>
-          p.slice(0, -1)
-      );
-
-      setActiveEmployeeId(
-        prev
-      );
+      const prev = history[history.length - 1];
+      setHistory((p) => p.slice(0, -1));
+      setActiveEmployeeId(prev);
     }
   };
 
   const canEdit =
-    !!user &&
-    (
-      user.role ===
-        "super_admin" ||
-      user.role ===
-        "admin"
-    );
+    !!user && (user.role === "super_admin" || user.role === "admin");
 
   return (
-    <Dialog
-      open={!!employeeId}
-      onOpenChange={
-        onOpenChange
-      }
-    >
+    <Dialog open={!!employeeId} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
         <DialogHeader className="sticky top-0 z-20 border-b bg-background px-6 py-5">
           <div className="flex items-start justify-between gap-4">
@@ -1337,9 +737,7 @@ export function EmployeeDetailModal({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={
-                    handleBack
-                  }
+                  onClick={handleBack}
                   className="h-8 w-8"
                 >
                   <ArrowLeft className="size-4" />
@@ -1348,10 +746,8 @@ export function EmployeeDetailModal({
 
               <div>
                 <DialogTitle className="text-xl font-bold uppercase tracking-tight text-foreground">
-                  {profile?.name ??
-                    "Employee detail"}
+                  {profile?.name ?? "Employee detail"}
                 </DialogTitle>
-
                 <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
                   Profile and employee performance history.
                 </DialogDescription>
@@ -1363,11 +759,7 @@ export function EmployeeDetailModal({
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs font-medium"
-                onClick={() =>
-                  setEditing(
-                    (v) => !v
-                  )
-                }
+                onClick={() => setEditing((v) => !v)}
               >
                 <Pencil className="mr-1 size-3.5" />
                 Edit details
@@ -1388,110 +780,61 @@ export function EmployeeDetailModal({
           <div className="px-6 py-6">
             <p className="text-sm text-destructive">
               Failed to load employee details:{" "}
-              {detailQ.error instanceof
-              Error
+              {detailQ.error instanceof Error
                 ? detailQ.error.message
-                : String(
-                    detailQ.error
-                  )}
+                : String(detailQ.error)}
             </p>
           </div>
         )}
 
-        {detailQ.data &&
-          profile && (
-            <div className="space-y-6 px-6 py-6">
-              <ProfileSection
-                profile={
-                  profile
-                }
+        {detailQ.data && profile && (
+          <div className="space-y-6 px-6 py-6">
+            <ProfileSection profile={profile} />
+
+            {editing && (
+              <EditForm
+                employeeId={activeEmployeeId!}
+                initial={profile}
+                onDone={() => setEditing(false)}
               />
+            )}
 
-              {editing && (
-                <EditForm
-                  employeeId={
-                    activeEmployeeId!
-                  }
-                  initial={
-                    profile
-                  }
-                  onDone={() =>
-                    setEditing(
-                      false
-                    )
-                  }
-                />
-              )}
-
-              {tier >= 2 && (
-                <TeamSection
-                  profile={
-                    profile
-                  }
-                  tier={tier}
-                  directReports={
-                    directReports
-                  }
-                  teamSummary={
-                    teamSummary
-                  }
-                  directTeamPerformance={
-                    directTeamPerformance
-                  }
-                  teamMonth={
-                    effectiveTeamMonth
-                  }
-                  teamYear={
-                    effectiveTeamYear
-                  }
-                  teamMonthNum={
-                    effectiveTeamMonthNum
-                  }
-                  availableTeamYears={
-                    availableTeamYears
-                  }
-                  onTeamYearChange={
-                    setSelectedTeamYear
-                  }
-                  onTeamMonthChange={
-                    setSelectedTeamMonthNum
-                  }
-                  performanceLoading={
-                    performanceQ.isLoading
-                  }
-                  onSelectMember={
-                    handleSelectDrilldown
-                  }
-                />
-              )}
-
-              <EmployeePerformanceTable
-                performanceList={
-                  personalPerformance
-                }
-                availableYears={
-                  availablePerformanceYears
-                }
+            {tier >= 2 && (
+              <TeamSection
+                profile={profile}
+                tier={tier}
+                directReports={directReports}
+                teamSummary={teamSummary}
+                directTeamPerformance={directTeamPerformance}
+                teamMonth={effectiveTeamMonth}
+                teamYear={effectiveTeamYear}
+                teamMonthNum={effectiveTeamMonthNum}
+                availableTeamYears={availableTeamYears}
+                onTeamYearChange={setSelectedTeamYear}
+                onTeamMonthChange={setSelectedTeamMonthNum}
+                performanceLoading={performanceQ.isLoading}
+                onSelectMember={handleSelectDrilldown}
               />
-            </div>
-          )}
+            )}
+
+            <EmployeePerformanceTable
+              performanceList={personalPerformance}
+              availableYears={availablePerformanceYears}
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function ProfileSection({
-  profile,
-}: {
-  profile: SheetEmployee;
-}) {
+function ProfileSection({ profile }: { profile: SheetEmployee }) {
   return (
     <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-6 pb-3 pt-5">
         <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
           Profile
         </CardTitle>
-
         <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
           Details from the employee master.
         </CardDescription>
@@ -1503,20 +846,14 @@ function ProfileSection({
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               EMPLOYEE ID
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.employeeId ||
-                "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.employeeId || "—"}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               NAME
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.name ||
-                "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.name || "—"}</p>
           </div>
 
           <div>
@@ -1524,8 +861,7 @@ function ProfileSection({
               EMAIL
             </p>
             <p className="mt-1 break-all text-sm font-bold">
-              {profile.email ||
-                "—"}
+              {profile.email || "—"}
             </p>
           </div>
 
@@ -1534,8 +870,7 @@ function ProfileSection({
               DEPARTMENT
             </p>
             <p className="mt-1 text-sm font-bold">
-              {profile.department ||
-                "—"}
+              {profile.department || "—"}
             </p>
           </div>
 
@@ -1544,8 +879,7 @@ function ProfileSection({
               DESIGNATION
             </p>
             <p className="mt-1 text-sm font-bold">
-              {profile.designation ||
-                "—"}
+              {profile.designation || "—"}
             </p>
           </div>
 
@@ -1553,20 +887,14 @@ function ProfileSection({
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               TEAM LEAD
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.teamLead ||
-                "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.teamLead || "—"}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               LOCATION
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.location ||
-                "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.location || "—"}</p>
           </div>
 
           <div>
@@ -1574,9 +902,7 @@ function ProfileSection({
               JOINING DATE
             </p>
             <p className="mt-1 text-sm font-bold">
-              {formatJoiningDate(
-                profile.joiningDate
-              )}
+              {formatJoiningDate(profile.joiningDate)}
             </p>
           </div>
         </div>
@@ -1588,19 +914,14 @@ function ProfileSection({
 interface TeamSummary {
   people: number;
   employeesWithPerformance: number;
-
   productionActual: number;
   productionTarget: number;
-
   ticketActual: number;
   ticketTarget: number;
-
   errorActual: number;
   errorTarget: number;
-
   attendance: number;
   behavior: number;
-
   overall: number;
 }
 
@@ -1623,108 +944,161 @@ function TeamSection({
   tier: number;
   directReports: SheetEmployee[];
   teamSummary: TeamSummary | null;
-
   directTeamPerformance: {
     employee: SheetEmployee;
-    performance:
-      | SheetPerformance
-      | null;
+    performance: SheetPerformance | null;
     calculatedOverall?: number;
+    isLeader?: boolean;
+    leaderTag?: string;
   }[];
-
   teamMonth: string;
   teamYear: string;
   teamMonthNum: string;
   availableTeamYears: string[];
-
-  onTeamYearChange:
-    (year: string) => void;
-
-  onTeamMonthChange:
-    (month: string) => void;
-
+  onTeamYearChange: (year: string) => void;
+  onTeamMonthChange: (month: string) => void;
   performanceLoading: boolean;
-
-  onSelectMember?:
-    (id: string) => void;
+  onSelectMember?: (id: string) => void;
 }) {
-  const isHigherLead =
-    tier >= 3;
+  const isHigherLead = tier >= 3;
+
+  // Search & Sorting States
+  const [searchFilter, setSearchFilter] = useState("");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  // Separate leader row and members for pinned leader view
+  const leaderRow = directTeamPerformance.find((item) => item.isLeader);
+  const memberRows = directTeamPerformance.filter((item) => !item.isLeader);
+
+  const filteredAndSortedMembers = useMemo(() => {
+    let list = [...memberRows];
+
+    // Filter by name or designation
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase().trim();
+      list = list.filter(
+        (item) =>
+          item.employee.name?.toLowerCase().includes(q) ||
+          item.employee.designation?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort column
+    if (sortField) {
+      list.sort((a, b) => {
+        let valA: any = 0;
+        let valB: any = 0;
+
+        if (sortField === "name") {
+          valA = a.employee.name || "";
+          valB = b.employee.name || "";
+          return sortOrder === "asc"
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        }
+
+        if (sortField === "designation") {
+          valA = a.employee.designation || "";
+          valB = b.employee.designation || "";
+          return sortOrder === "asc"
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        }
+
+        if (sortField === "production") {
+          valA = safeNumber(a.performance?.productionActual);
+          valB = safeNumber(b.performance?.productionActual);
+        } else if (sortField === "tickets") {
+          valA = safeNumber(a.performance?.ticketActual);
+          valB = safeNumber(b.performance?.ticketActual);
+        } else if (sortField === "errors") {
+          valA = safeNumber(a.performance?.errorActual);
+          valB = safeNumber(b.performance?.errorActual);
+        } else if (sortField === "attendance") {
+          valA = safeNumber(a.performance?.attendance);
+          valB = safeNumber(b.performance?.attendance);
+        } else if (sortField === "behavior") {
+          valA = safeNumber(a.performance?.behavior);
+          valB = safeNumber(b.performance?.behavior);
+        }
+
+        return sortOrder === "asc" ? valA - valB : valB - valA;
+      });
+    }
+
+    return list;
+  }, [memberRows, searchFilter, sortField, sortOrder]);
+
+  const showLeader =
+    leaderRow &&
+    (!searchFilter.trim() ||
+      leaderRow.employee.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      leaderRow.employee.designation
+        ?.toLowerCase()
+        .includes(searchFilter.toLowerCase()));
+
+  const displayRows = showLeader
+    ? [leaderRow, ...filteredAndSortedMembers]
+    : filteredAndSortedMembers;
+
+  const renderSortIcon = (field: string) => {
+    if (sortField === field) {
+      return sortOrder === "asc" ? (
+        <ArrowUp className="size-3.5 text-primary" />
+      ) : (
+        <ArrowDown className="size-3.5 text-primary" />
+      );
+    }
+    return <ArrowUpDown className="size-3.5 opacity-40 group-hover:opacity-100" />;
+  };
 
   return (
     <Card className="border border-border/70 shadow-sm">
       <CardHeader className="pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle className="text-sm font-bold">
-              Team
-            </CardTitle>
-
+            <CardTitle className="text-sm font-bold">Team</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               {isHigherLead
                 ? `Direct leads reporting to ${profile.name} are shown here.`
-                : `Employees reporting to ${profile.name}.`}
+                : `Leader and employees reporting to ${profile.name}.`}
             </CardDescription>
           </div>
 
           <div className="flex items-center gap-2">
-            <Select
-              value={
-                teamMonthNum
-              }
-              onValueChange={
-                onTeamMonthChange
-              }
-            >
+            <Select value={teamMonthNum} onValueChange={onTeamMonthChange}>
               <SelectTrigger className="h-8 w-[130px] bg-background text-xs">
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
-
               <SelectContent>
-                {MONTH_OPTIONS.map(
-                  (m) => (
-                    <SelectItem
-                      key={
-                        m.value
-                      }
-                      value={
-                        m.value
-                      }
-                      className="text-xs"
-                    >
-                      {
-                        m.label
-                      }
-                    </SelectItem>
-                  )
-                )}
+                {MONTH_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="text-xs">
+                    {m.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
-            <Select
-              value={
-                teamYear
-              }
-              onValueChange={
-                onTeamYearChange
-              }
-            >
+            <Select value={teamYear} onValueChange={onTeamYearChange}>
               <SelectTrigger className="h-8 w-[90px] bg-background text-xs">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
-
               <SelectContent>
-                {availableTeamYears.map(
-                  (y) => (
-                    <SelectItem
-                      key={y}
-                      value={y}
-                      className="text-xs"
-                    >
-                      {y}
-                    </SelectItem>
-                  )
-                )}
+                {availableTeamYears.map((y) => (
+                  <SelectItem key={y} value={y} className="text-xs">
+                    {y}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1734,146 +1108,99 @@ function TeamSection({
       <CardContent className="space-y-6">
         {performanceLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {Array.from(
-              {
-                length: 6,
-              }
-            ).map(
-              (_, index) => (
-                <Skeleton
-                  key={
-                    index
-                  }
-                  className="h-24 w-full"
-                />
-              )
-            )}
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 w-full" />
+            ))}
           </div>
         ) : teamSummary ? (
-          <>
-            {/* KEEP UPPER TEAM METRIC CARDS */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <TeamMetricCard
-                icon={
-                  <Users className="size-3.5" />
-                }
-                label={getSubordinateTypeLabel(
-                  tier
-                )}
-                value={
-                  directReports.length
-                }
-                suffix=""
-              />
-
-              <TeamMetricCard
-                icon={
-                  <TrendingUp className="size-3.5" />
-                }
-                label="PRODUCTION"
-                value={
-                  teamSummary.productionActual
-                }
-                secondaryValue={
-                  teamSummary.productionTarget
-                }
-                suffix=""
-              />
-
-              <TeamMetricCard
-                icon={
-                  <Ticket className="size-3.5" />
-                }
-                label="TICKETS"
-                value={
-                  teamSummary.ticketActual
-                }
-                secondaryValue={
-                  teamSummary.ticketTarget
-                }
-                suffix=""
-              />
-
-              <TeamMetricCard
-                icon={
-                  <ShieldCheck className="size-3.5" />
-                }
-                label="ERRORS"
-                value={
-                  teamSummary.errorActual
-                }
-                secondaryValue={
-                  teamSummary.errorTarget
-                }
-                suffix=""
-              />
-
-              <TeamMetricCard
-                icon={
-                  <CalendarCheck className="size-3.5" />
-                }
-                label="ATTENDANCE"
-                value={
-                  teamSummary.attendance
-                }
-                secondaryValue={10}
-                suffix=""
-                decimals
-              />
-
-              <TeamMetricCard
-                icon={
-                  <Brain className="size-3.5" />
-                }
-                label="BEHAVIOR"
-                value={
-                  teamSummary.behavior
-                }
-                secondaryValue={5}
-                suffix=""
-                decimals
-              />
-            </div>
-          </>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <TeamMetricCard
+              icon={<Users className="size-3.5" />}
+              label={getSubordinateTypeLabel(tier)}
+              value={directReports.length}
+              suffix=""
+            />
+            <TeamMetricCard
+              icon={<TrendingUp className="size-3.5" />}
+              label="PRODUCTION"
+              value={teamSummary.productionActual}
+              secondaryValue={teamSummary.productionTarget}
+              suffix=""
+            />
+            <TeamMetricCard
+              icon={<Ticket className="size-3.5" />}
+              label="TICKETS"
+              value={teamSummary.ticketActual}
+              secondaryValue={teamSummary.ticketTarget}
+              suffix=""
+            />
+            <TeamMetricCard
+              icon={<ShieldCheck className="size-3.5" />}
+              label="ERRORS"
+              value={teamSummary.errorActual}
+              secondaryValue={teamSummary.errorTarget}
+              suffix=""
+            />
+            <TeamMetricCard
+              icon={<CalendarCheck className="size-3.5" />}
+              label="ATTENDANCE"
+              value={teamSummary.attendance}
+              secondaryValue={10}
+              suffix=""
+              decimals
+            />
+            <TeamMetricCard
+              icon={<Brain className="size-3.5" />}
+              label="BEHAVIOR"
+              value={teamSummary.behavior}
+              secondaryValue={5}
+              suffix=""
+              decimals
+            />
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm font-medium">
-              No team performance data available.
-            </p>
-
+            <p className="text-sm font-medium">No team performance data available.</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              No monthly performance records were found for{" "}
-              {monthToLabel(
-                teamMonth
-              )}
-              .
+              No monthly performance records were found for {monthToLabel(teamMonth)}.
             </p>
           </div>
         )}
 
         {/* TEAM LEADERS / TEAM MEMBERS TABLE */}
         <div>
-          <div className="mb-3">
-            <p className="text-xs font-bold">
-              {tier === 4
-                ? "Head TLs & Team Leaders Under This Manager"
-                : tier === 3
-                ? "Team Leaders Under This Head TL"
-                : "Team Members"}
-            </p>
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold">
+                {tier === 4
+                  ? "Head TLs & Team Leaders Under This Manager"
+                  : tier === 3
+                  ? "Team Leaders Under This Head TL"
+                  : "Team Members"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {tier >= 3
+                  ? "Click any team leader to drill down into their team performance."
+                  : "Leader and employees directly reporting to this Team Leader are shown here."}
+              </p>
+            </div>
 
-            <p className="text-[11px] text-muted-foreground">
-              {tier >= 3
-                ? "Click any team leader to drill down into their team performance."
-                : "Employees directly reporting to this Team Leader are shown here."}
-            </p>
+            {/* Search Filter Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Filter by name / designation..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
           </div>
 
-          {directTeamPerformance.length ===
-          0 ? (
+          {displayRows.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center">
               <p className="text-xs text-muted-foreground">
-                No direct subordinates found.
+                No matching team members found.
               </p>
             </div>
           ) : (
@@ -1881,76 +1208,119 @@ function TeamSection({
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-border/60 hover:bg-transparent">
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Name
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("name")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Name</span>
+                        {renderSortIcon("name")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Designation
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("designation")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Designation</span>
+                        {renderSortIcon("designation")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Production
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("production")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Production</span>
+                        {renderSortIcon("production")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Tickets
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("tickets")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Tickets</span>
+                        {renderSortIcon("tickets")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Errors
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("errors")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Errors</span>
+                        {renderSortIcon("errors")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Attendance
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("attendance")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Attendance</span>
+                        {renderSortIcon("attendance")}
+                      </div>
                     </TableHead>
 
-                    <TableHead className="text-xs font-semibold text-muted-foreground">
-                      Behavior
+                    <TableHead
+                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSort("behavior")}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Behavior</span>
+                        {renderSortIcon("behavior")}
+                      </div>
                     </TableHead>
 
-                    {isHigherLead && (
-                      <TableHead className="w-10" />
-                    )}
+                    {isHigherLead && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                  {directTeamPerformance.map(
-                    ({
-                      employee,
-                      performance,
-                    }) => (
+                  {displayRows.map(
+                    ({ employee, performance, isLeader, leaderTag }) => (
                       <TableRow
-                        key={
-                          employee.employeeId
-                        }
-                        className={
-                          isHigherLead
+                        key={employee.employeeId}
+                        className={cn(
+                          isLeader
+                            ? "bg-primary/[0.05] font-medium border-b border-border/60 hover:bg-primary/[0.08]"
+                            : isHigherLead
                             ? "cursor-pointer border-b border-border/40 hover:bg-muted/50"
                             : "border-b border-border/40 hover:bg-muted/30"
-                        }
+                        )}
                         onClick={() => {
                           if (
+                            !isLeader &&
                             isHigherLead &&
                             onSelectMember &&
                             employee.employeeId
                           ) {
-                            onSelectMember(
-                              employee.employeeId
-                            );
+                            onSelectMember(employee.employeeId);
                           }
                         }}
                       >
                         <TableCell className="py-3 text-xs font-semibold">
-                          {
-                            employee.name
-                          }
+                          <div className="flex items-center gap-2">
+                            <span>{employee.name}</span>
+                            {isLeader && (
+                              <Badge
+                                variant="outline"
+                                className="bg-primary/10 text-primary border-primary/30 text-[10px] px-1.5 py-0 h-4.5 font-bold uppercase tracking-wider"
+                              >
+                                {leaderTag || "TL"}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
 
                         <TableCell className="py-3 text-xs text-muted-foreground">
-                          {employee.designation ||
-                            "—"}
+                          {employee.designation || "—"}
                         </TableCell>
 
                         <TableCell className="py-3 text-xs">
@@ -1987,9 +1357,7 @@ function TeamSection({
                           {performance
                             ? `${safeNumber(
                                 performance.attendance
-                              ).toFixed(
-                                1
-                              )}/10`
+                              ).toFixed(1)}/10`
                             : "—"}
                         </TableCell>
 
@@ -1997,15 +1365,15 @@ function TeamSection({
                           {performance
                             ? `${safeNumber(
                                 performance.behavior
-                              ).toFixed(
-                                1
-                              )}/5`
+                              ).toFixed(1)}/5`
                             : "—"}
                         </TableCell>
 
                         {isHigherLead && (
                           <TableCell className="py-3">
-                            <ChevronRight className="size-4 text-muted-foreground" />
+                            {!isLeader && (
+                              <ChevronRight className="size-4 text-muted-foreground" />
+                            )}
                           </TableCell>
                         )}
                       </TableRow>
@@ -2036,16 +1404,12 @@ function TeamMetricCard({
   suffix: string;
   decimals?: boolean;
 }) {
-  const formatValue =
-    (number: number) => {
-      if (decimals) {
-        return number.toFixed(
-          1
-        );
-      }
-
-      return Math.round(number);
-    };
+  const formatValue = (number: number) => {
+    if (decimals) {
+      return number.toFixed(1);
+    }
+    return Math.round(number);
+  };
 
   return (
     <div className="rounded-xl border border-border/70 bg-card p-3.5 shadow-none">
@@ -2057,13 +1421,10 @@ function TeamMetricCard({
       <div className="mt-2 text-xl font-bold tracking-tight text-foreground">
         {formatValue(value)}
 
-        {secondaryValue !==
-          undefined && (
+        {secondaryValue !== undefined && (
           <span className="text-sm font-normal text-muted-foreground">
             {" / "}
-            {formatValue(
-              secondaryValue
-            )}
+            {formatValue(secondaryValue)}
           </span>
         )}
 
@@ -2080,43 +1441,22 @@ function EmployeePerformanceTable({
   performanceList: SheetPerformance[];
   availableYears: string[];
 }) {
-  const [
-    yearFilter,
-    setYearFilter,
-  ] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
 
-  const history =
-    useMemo(() => {
-      const filtered =
-        yearFilter === "all"
-          ? performanceList
-          : performanceList.filter(
-              (item) =>
-                String(
-                  item.month ?? ""
-                ).slice(0, 4) ===
-                yearFilter
-            );
+  const history = useMemo(() => {
+    const filtered =
+      yearFilter === "all"
+        ? performanceList
+        : performanceList.filter(
+            (item) => String(item.month ?? "").slice(0, 4) === yearFilter
+          );
 
-      return [
-        ...filtered,
-      ].sort(
-        (a, b) =>
-          String(
-            a.month ?? ""
-          ).localeCompare(
-            String(
-              b.month ?? ""
-            )
-          )
-      );
-    }, [
-      performanceList,
-      yearFilter,
-    ]);
+    return [...filtered].sort((a, b) =>
+      String(a.month ?? "").localeCompare(String(b.month ?? ""))
+    );
+  }, [performanceList, yearFilter]);
 
-  const currentMonthKey =
-    getCurrentMonthKey();
+  const currentMonthKey = getCurrentMonthKey();
 
   return (
     <Card className="border border-border/70 shadow-sm">
@@ -2126,39 +1466,23 @@ function EmployeePerformanceTable({
             <CardTitle className="text-sm font-bold">
               Personal Performance
             </CardTitle>
-
             <CardDescription className="text-xs text-muted-foreground">
               Monthly performance history.
             </CardDescription>
           </div>
 
-          {availableYears.length >
-            0 && (
-            <Select
-              value={yearFilter}
-              onValueChange={
-                setYearFilter
-              }
-            >
+          {availableYears.length > 0 && (
+            <Select value={yearFilter} onValueChange={setYearFilter}>
               <SelectTrigger className="h-8 w-[130px] text-xs">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
-
               <SelectContent>
-                <SelectItem value="all">
-                  All Years
-                </SelectItem>
-
-                {availableYears.map(
-                  (year) => (
-                    <SelectItem
-                      key={year}
-                      value={year}
-                    >
-                      {year}
-                    </SelectItem>
-                  )
-                )}
+                <SelectItem value="all">All Years</SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
@@ -2166,8 +1490,7 @@ function EmployeePerformanceTable({
       </CardHeader>
 
       <CardContent>
-        {history.length ===
-        0 ? (
+        {history.length === 0 ? (
           <div className="rounded-xl border border-dashed p-6 text-center">
             <p className="text-sm text-muted-foreground">
               No performance data available.
@@ -2181,27 +1504,21 @@ function EmployeePerformanceTable({
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Month
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Production
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Tickets
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Errors / Rejections
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Attendance
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Behavior
                   </TableHead>
-
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Manager Remarks
                   </TableHead>
@@ -2209,104 +1526,55 @@ function EmployeePerformanceTable({
               </TableHeader>
 
               <TableBody>
-                {history.map(
-                  (performance) => {
-                    const month =
-                      String(
-                        performance.month ??
-                          ""
-                      ).slice(
-                        0,
-                        7
-                      );
+                {history.map((performance) => {
+                  const month = String(performance.month ?? "").slice(0, 7);
+                  const isCurrent = month === currentMonthKey;
 
-                    const isCurrent =
-                      month ===
-                      currentMonthKey;
-
-                    return (
-                      <TableRow
-                        key={
-                          month
-                        }
-                        className={
-                          isCurrent
-                            ? "bg-muted/40"
-                            : undefined
-                        }
-                      >
-                        <TableCell className="whitespace-nowrap py-3 text-xs font-semibold">
-                          <div className="flex items-center gap-2">
-                            <span>
-                              {monthToLabel(
-                                month
-                              )}
+                  return (
+                    <TableRow
+                      key={month}
+                      className={isCurrent ? "bg-muted/40" : undefined}
+                    >
+                      <TableCell className="whitespace-nowrap py-3 text-xs font-semibold">
+                        <div className="flex items-center gap-2">
+                          <span>{monthToLabel(month)}</span>
+                          {isCurrent && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              Current
                             </span>
-
-                            {isCurrent && (
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="whitespace-nowrap py-3 text-xs">
-                          {safeNumber(
-                            performance.productionActual
-                          )}{" "}
-                          /{" "}
-                          {safeNumber(
-                            performance.productionTarget
                           )}
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        <TableCell className="whitespace-nowrap py-3 text-xs">
-                          {safeNumber(
-                            performance.ticketActual
-                          )}{" "}
-                          /{" "}
-                          {safeNumber(
-                            performance.ticketTarget
-                          )}
-                        </TableCell>
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        {safeNumber(performance.productionActual)} /{" "}
+                        {safeNumber(performance.productionTarget)}
+                      </TableCell>
 
-                        <TableCell className="whitespace-nowrap py-3 text-xs">
-                          {safeNumber(
-                            performance.errorActual
-                          )}{" "}
-                          /{" "}
-                          {safeNumber(
-                            performance.errorTarget
-                          )}
-                        </TableCell>
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        {safeNumber(performance.ticketActual)} /{" "}
+                        {safeNumber(performance.ticketTarget)}
+                      </TableCell>
 
-                        <TableCell className="whitespace-nowrap py-3 text-xs">
-                          {safeNumber(
-                            performance.attendance
-                          ).toFixed(
-                            1
-                          )}
-                          /10
-                        </TableCell>
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        {safeNumber(performance.errorActual)} /{" "}
+                        {safeNumber(performance.errorTarget)}
+                      </TableCell>
 
-                        <TableCell className="whitespace-nowrap py-3 text-xs">
-                          {safeNumber(
-                            performance.behavior
-                          ).toFixed(
-                            1
-                          )}
-                          /5
-                        </TableCell>
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        {safeNumber(performance.attendance).toFixed(1)}/10
+                      </TableCell>
 
-                        <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs text-muted-foreground">
-                          {performance.managerRemarks?.trim() ||
-                            "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
-                )}
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        {safeNumber(performance.behavior).toFixed(1)}/5
+                      </TableCell>
+
+                      <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs text-muted-foreground">
+                        {performance.managerRemarks?.trim() || "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -2325,276 +1593,125 @@ function EditForm({
   initial: EmployeeProfile;
   onDone: () => void;
 }) {
-  const { user } =
-    useAuth();
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
-  const qc =
-    useQueryClient();
+  const deptQ = useQuery({
+    queryKey: ["departments"],
+    queryFn: listDepartments,
+  });
 
-  const deptQ =
-    useQuery({
-      queryKey: [
-        "departments",
-      ],
-      queryFn:
-        listDepartments,
-    });
+  const desigQ = useQuery({
+    queryKey: ["designations"],
+    queryFn: listDesignations,
+  });
 
-  const desigQ =
-    useQuery({
-      queryKey: [
-        "designations",
-      ],
-      queryFn:
-        listDesignations,
-    });
+  const locQ = useQuery({
+    queryKey: ["locations"],
+    queryFn: listLocations,
+  });
 
-  const locQ =
-    useQuery({
-      queryKey: [
-        "locations",
-      ],
-      queryFn:
-        listLocations,
-    });
+  const leadQ = useQuery({
+    queryKey: ["teamLeads"],
+    queryFn: listTeamLeads,
+  });
 
-  const leadQ =
-    useQuery({
-      queryKey: [
-        "teamLeads",
-      ],
-      queryFn:
-        listTeamLeads,
-    });
-
-  const [
-    updatedEmployeeId,
-    setUpdatedEmployeeId,
-  ] = useState(
-    initial.employeeId ??
-      employeeId
+  const [updatedEmployeeId, setUpdatedEmployeeId] = useState(
+    initial.employeeId ?? employeeId
+  );
+  const [email, setEmail] = useState(initial.email ?? "");
+  const [department, setDepartment] = useState(initial.department ?? "");
+  const [designation, setDesignation] = useState(initial.designation ?? "");
+  const [teamLead, setTeamLead] = useState(initial.teamLead ?? "");
+  const [location, setLocation] = useState(initial.location ?? "");
+  const [joiningDate, setJoiningDate] = useState(
+    initial.joiningDate ? String(initial.joiningDate).slice(0, 10) : ""
   );
 
-  const [
-    email,
-    setEmail,
-  ] = useState(
-    initial.email ?? ""
-  );
+  const mutation = useMutation({
+    mutationFn: () =>
+      adminUpdateEmployee(user!.email, employeeId, {
+        ...(user?.role === "super_admin"
+          ? {
+              employeeId: updatedEmployeeId,
+              email,
+            }
+          : {}),
+        department,
+        designation,
+        teamLead,
+        location,
+        joiningDate,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({
+          queryKey: ["employeeDetail", employeeId],
+        }),
+        qc.refetchQueries({
+          queryKey: ["employees"],
+        }),
+        qc.refetchQueries({
+          queryKey: ["performance"],
+        }),
+        qc.refetchQueries({
+          queryKey: ["teamLeads"],
+        }),
+      ]);
+      toast.success("Employee updated");
+      onDone();
+    },
+    onError: (error) => {
+      toast.error("Update failed", {
+        description:
+          error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
 
-  const [
-    department,
-    setDepartment,
-  ] = useState(
-    initial.department ?? ""
-  );
-
-  const [
-    designation,
-    setDesignation,
-  ] = useState(
-    initial.designation ?? ""
-  );
-
-  const [
-    teamLead,
-    setTeamLead,
-  ] = useState(
-    initial.teamLead ?? ""
-  );
-
-  const [
-    location,
-    setLocation,
-  ] = useState(
-    initial.location ?? ""
-  );
-
-  const [
-    joiningDate,
-    setJoiningDate,
-  ] = useState(
-    initial.joiningDate
-      ? String(
-          initial.joiningDate
-        ).slice(0, 10)
-      : ""
-  );
-
-  const mutation =
-    useMutation({
-      mutationFn: () =>
-        adminUpdateEmployee(
-          user!.email,
-          employeeId,
-          {
-            ...(user?.role ===
-            "super_admin"
-              ? {
-                  employeeId:
-                    updatedEmployeeId,
-                  email,
-                }
-              : {}),
-
-            department,
-            designation,
-            teamLead,
-            location,
-            joiningDate,
-          }
-        ),
-
-      onSuccess:
-        async () => {
-          await Promise.all(
-            [
-              qc.refetchQueries(
-                {
-                  queryKey: [
-                    "employeeDetail",
-                    employeeId,
-                  ],
-                }
-              ),
-
-              qc.refetchQueries(
-                {
-                  queryKey: [
-                    "employees",
-                  ],
-                }
-              ),
-
-              qc.refetchQueries(
-                {
-                  queryKey: [
-                    "performance",
-                  ],
-                }
-              ),
-
-              qc.refetchQueries(
-                {
-                  queryKey: [
-                    "teamLeads",
-                  ],
-                }
-              ),
-            ]
-          );
-
-          toast.success(
-            "Employee updated"
-          );
-
-          onDone();
-        },
-
-      onError: (
-        error
-      ) => {
-        toast.error(
-          "Update failed",
-          {
-            description:
-              error instanceof
-              Error
-                ? error.message
-                : String(
-                    error
-                  ),
-          }
-        );
-      },
-    });
-
-  function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!user) {
-      toast.error(
-        "User session not found"
-      );
+      toast.error("User session not found");
       return;
     }
-
     mutation.mutate();
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-bold">
-          Edit Employee
-        </CardTitle>
-
+        <CardTitle className="text-sm font-bold">Edit Employee</CardTitle>
         <CardDescription className="text-xs text-muted-foreground">
           Update employee master information.
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        <form
-          className="grid gap-4 sm:grid-cols-2"
-          onSubmit={
-            handleSubmit
-          }
-        >
-          {user?.role ===
-            "super_admin" && (
+        <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
+          {user?.role === "super_admin" && (
             <>
               <div className="space-y-1.5">
-                <label
-                  className="text-xs font-medium"
-                  htmlFor="edit-employee-id"
-                >
+                <label className="text-xs font-medium" htmlFor="edit-employee-id">
                   Employee ID
                 </label>
-
                 <Input
                   id="edit-employee-id"
-                  value={
-                    updatedEmployeeId
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setUpdatedEmployeeId(
-                      event
-                        .target
-                        .value
-                    )
-                  }
+                  value={updatedEmployeeId}
+                  onChange={(e) => setUpdatedEmployeeId(e.target.value)}
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label
-                  className="text-xs font-medium"
-                  htmlFor="edit-email"
-                >
+                <label className="text-xs font-medium" htmlFor="edit-email">
                   Email
                 </label>
-
                 <Input
                   id="edit-email"
                   type="email"
-                  value={
-                    email
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setEmail(
-                      event
-                        .target
-                        .value
-                    )
-                  }
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
@@ -2603,108 +1720,50 @@ function EditForm({
 
           <Picker
             label="Department"
-            value={
-              department
-            }
-            onChange={
-              setDepartment
-            }
-            options={
-              deptQ.data ??
-              []
-            }
+            value={department}
+            onChange={setDepartment}
+            options={deptQ.data ?? []}
           />
 
           <Picker
             label="Designation"
-            value={
-              designation
-            }
-            onChange={
-              setDesignation
-            }
-            options={
-              desigQ.data ??
-              []
-            }
+            value={designation}
+            onChange={setDesignation}
+            options={desigQ.data ?? []}
           />
 
           <Picker
             label="Team Lead"
-            value={
-              teamLead
-            }
-            onChange={
-              setTeamLead
-            }
-            options={
-              leadQ.data ??
-              []
-            }
+            value={teamLead}
+            onChange={setTeamLead}
+            options={leadQ.data ?? []}
           />
 
           <Picker
             label="Location"
-            value={
-              location
-            }
-            onChange={
-              setLocation
-            }
-            options={
-              locQ.data ??
-              []
-            }
+            value={location}
+            onChange={setLocation}
+            options={locQ.data ?? []}
           />
 
           <div className="space-y-1.5">
-            <label
-              className="text-xs font-medium"
-              htmlFor="edit-joining"
-            >
+            <label className="text-xs font-medium" htmlFor="edit-joining">
               Joining Date
             </label>
-
             <Input
               id="edit-joining"
               type="date"
-              value={
-                joiningDate
-              }
-              onChange={(
-                event
-              ) =>
-                setJoiningDate(
-                  event
-                    .target
-                    .value
-                )
-              }
+              value={joiningDate}
+              onChange={(e) => setJoiningDate(e.target.value)}
             />
           </div>
 
           <div className="flex items-end justify-end gap-2 sm:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={
-                onDone
-              }
-            >
+            <Button type="button" variant="outline" size="sm" onClick={onDone}>
               Cancel
             </Button>
-
-            <Button
-              type="submit"
-              size="sm"
-              disabled={
-                mutation.isPending
-              }
-            >
-              {mutation.isPending
-                ? "Saving…"
-                : "Save changes"}
+            <Button type="submit" size="sm" disabled={mutation.isPending}>
+              {mutation.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </form>
@@ -2721,89 +1780,35 @@ function Picker({
 }: {
   label: string;
   value: string;
-  onChange: (
-    value: string
-  ) => void;
+  onChange: (value: string) => void;
   options: string[];
 }) {
-  const uniqueOptions =
-    Array.from(
-      new Set(
-        (
-          options ??
-          []
-        )
-          .map(
-            (option) =>
-              String(
-                option
-              ).trim()
-          )
-          .filter(Boolean)
-      )
-    );
+  const uniqueOptions = Array.from(
+    new Set((options ?? []).map((o) => String(o).trim()).filter(Boolean))
+  );
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium">
-        {label}
-      </label>
-
-      <Select
-        value={value}
-        onValueChange={
-          onChange
-        }
-      >
+      <label className="text-xs font-medium">{label}</label>
+      <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-9 text-xs">
-          <SelectValue
-            placeholder={`Select ${label.toLowerCase()}`}
-          />
+          <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
         </SelectTrigger>
-
         <SelectContent>
-          {uniqueOptions.map(
-            (option) => (
-              <SelectItem
-                key={
-                  option
-                }
-                value={
-                  option
-                }
-                className="text-xs"
-              >
-                {option}
-              </SelectItem>
-            )
-          )}
+          {uniqueOptions.map((option) => (
+            <SelectItem key={option} value={option} className="text-xs">
+              {option}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
   );
 }
 
-function formatJoiningDate(
-  value: unknown
-): string {
-  if (!value) {
-    return "—";
-  }
-
-  const date =
-    new Date(
-      String(value)
-    );
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return String(value);
-  }
-
-  return date
-    .toISOString()
-    .slice(0, 10);
+function formatJoiningDate(value: unknown): string {
+  if (!value) return "—";
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
 }
