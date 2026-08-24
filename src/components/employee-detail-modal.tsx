@@ -704,224 +704,9 @@ export function EmployeeDetailModal({
       );
     }, [performanceRows]);
 
-  const teamSummary = useMemo(() => {
-  if (directTeamPerformance.length === 0) {
-    return null;
-  }
-
-  const rows = directTeamPerformance
-    .map((item) => item.performance)
-    .filter(
-      (row): row is SheetPerformance =>
-        !!row
-    );
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  // --------------------------------------------------
-  // TOTALS
-  // --------------------------------------------------
-
-  const productionActual = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.productionActual
-      ),
-    0
-  );
-
-  const productionTarget = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.productionTarget
-      ),
-    0
-  );
-
-  const ticketActual = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.ticketActual
-      ),
-    0
-  );
-
-  const ticketTarget = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.ticketTarget
-      ),
-    0
-  );
-
-  const errorActual = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.errorActual
-      ),
-    0
-  );
-
-  const errorTarget = rows.reduce(
-    (sum, row) =>
-      sum +
-      safeNumber(
-        row.errorTarget
-      ),
-    0
-  );
-
-  // --------------------------------------------------
-  // SCORES = AVERAGE
-  // --------------------------------------------------
-
-  const attendance =
-    rows.reduce(
-      (sum, row) =>
-        sum +
-        safeNumber(
-          row.attendance
-        ),
-      0
-    ) / rows.length;
-
-  const behavior =
-    rows.reduce(
-      (sum, row) =>
-        sum +
-        safeNumber(
-          row.behavior
-        ),
-      0
-    ) / rows.length;
-
-  return {
-    people:
-      directReports.length,
-
-    employeesWithPerformance:
-      rows.length,
-
-    productionActual,
-    productionTarget,
-
-    ticketActual,
-    ticketTarget,
-
-    errorActual,
-    errorTarget,
-
-    attendance,
-    behavior,
-
-    overall: 0,
-  };
-}, [
-  directTeamPerformance,
-  directReports,
-]);
-
-  const currentPerformance =
-    detailQ.data?.currentMonth ??
-    null;
-
-  const previousMonths =
-    detailQ.data?.previousMonths ??
-    [];
-
-  const personalPerformance =
-    useMemo(() => {
-      const monthMap =
-        new Map<
-          string,
-          SheetPerformance
-        >();
-
-      previousMonths.forEach(
-        (row) => {
-          const month =
-            String(
-              row?.month ?? ""
-            ).slice(0, 7);
-
-          if (month) {
-            monthMap.set(
-              month,
-              row
-            );
-          }
-        }
-      );
-
-      if (
-        currentPerformance?.month
-      ) {
-        const month =
-          String(
-            currentPerformance.month
-          ).slice(0, 7);
-
-        monthMap.set(
-          month,
-          currentPerformance
-        );
-      }
-
-      return Array.from(
-        monthMap.values()
-      ).sort((a, b) =>
-        String(
-          a.month ?? ""
-        ).localeCompare(
-          String(
-            b.month ?? ""
-          )
-        )
-      );
-    }, [
-      currentPerformance,
-      previousMonths,
-    ]);
-
-  const availablePerformanceYears =
-    useMemo(() => {
-      const years =
-        new Set<string>();
-
-      personalPerformance.forEach(
-        (row) => {
-          const year =
-            String(
-              row.month ?? ""
-            ).slice(0, 4);
-
-          if (
-            /^\d{4}$/.test(
-              year
-            )
-          ) {
-            years.add(year);
-          }
-        }
-      );
-
-      return Array.from(
-        years
-      ).sort(
-        (a, b) =>
-          Number(a) -
-          Number(b)
-      );
-    }, [
-      personalPerformance,
-    ]);
+    // ==========================================================
+  // DIRECT TEAM PERFORMANCE
+  // ==========================================================
 
   const directTeamPerformance =
     useMemo(() => {
@@ -932,6 +717,14 @@ export function EmployeeDetailModal({
               employee.designation
             );
 
+          /*
+           * For Team Leads / Assistant Team Leads:
+           * show the total performance of everyone
+           * reporting under that person.
+           *
+           * This is exactly what is shown in the
+           * Team Leaders Under This Head TL table.
+           */
           if (subTier >= 2) {
             const subDownline =
               getDescendants(
@@ -969,113 +762,113 @@ export function EmployeeDetailModal({
             if (
               subRows.length > 0
             ) {
-              const pTar =
+              const productionTarget =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.productionTarget
+                      row.productionTarget
                     ),
                   0
                 );
 
-              const pAct =
+              const productionActual =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.productionActual
+                      row.productionActual
                     ),
                   0
                 );
 
-              const tTar =
+              const ticketTarget =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.ticketTarget
+                      row.ticketTarget
                     ),
                   0
                 );
 
-              const tAct =
+              const ticketActual =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.ticketActual
+                      row.ticketActual
                     ),
                   0
                 );
 
-              const eTar =
+              const errorTarget =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.errorTarget
+                      row.errorTarget
                     ),
                   0
                 );
 
-              const eAct =
+              const errorActual =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.errorActual
+                      row.errorActual
                     ),
                   0
                 );
 
-              const att =
+              const attendance =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.attendance
+                      row.attendance
                     ),
                   0
                 ) /
                 subRows.length;
 
-              const beh =
+              const behavior =
                 subRows.reduce(
-                  (s, r) =>
-                    s +
+                  (sum, row) =>
+                    sum +
                     safeNumber(
-                      r.behavior
+                      row.behavior
                     ),
                   0
                 ) /
                 subRows.length;
 
-              const prod =
-                pTar > 0
+              const production =
+                productionTarget > 0
                   ? Math.round(
                       (
-                        pAct /
-                        pTar
+                        productionActual /
+                        productionTarget
                       ) *
                         100
                     )
                   : 0;
 
-              const tick =
-                tTar > 0
+              const tickets =
+                ticketTarget > 0
                   ? Math.round(
                       (
-                        tAct /
-                        tTar
+                        ticketActual /
+                        ticketTarget
                       ) *
                         100
                     )
                   : 0;
 
-              const qual =
-                eTar <= 0
-                  ? eAct <= 0
+              const quality =
+                errorTarget <= 0
+                  ? errorActual <= 0
                     ? 100
                     : 0
                   : Math.max(
@@ -1083,39 +876,39 @@ export function EmployeeDetailModal({
                       Math.round(
                         100 -
                           (
-                            eAct /
-                            eTar
+                            errorActual /
+                            errorTarget
                           ) *
                             100
                       )
                     );
 
-              const attPct =
+              const attendancePercent =
                 Math.round(
                   (
-                    att /
+                    attendance /
                     10
                   ) *
                     100
                 );
 
-              const behPct =
+              const behaviorPercent =
                 Math.round(
                   (
-                    beh /
+                    behavior /
                     5
                   ) *
                     100
                 );
 
-              const ovr =
+              const overall =
                 Math.round(
                   (
-                    prod +
-                    tick +
-                    qual +
-                    attPct +
-                    behPct
+                    production +
+                    tickets +
+                    quality +
+                    attendancePercent +
+                    behaviorPercent
                   ) /
                     5
                 );
@@ -1130,37 +923,28 @@ export function EmployeeDetailModal({
                   employeeId:
                     employee.employeeId,
 
-                  productionTarget:
-                    pTar,
+                  productionTarget,
+                  productionActual,
 
-                  productionActual:
-                    pAct,
+                  ticketTarget,
+                  ticketActual,
 
-                  ticketTarget:
-                    tTar,
+                  errorTarget,
+                  errorActual,
 
-                  ticketActual:
-                    tAct,
-
-                  errorTarget:
-                    eTar,
-
-                  errorActual:
-                    eAct,
-
-                  attendance:
-                    att,
-
-                  behavior:
-                    beh,
-                } as unknown as SheetPerformance,
+                  attendance,
+                  behavior,
+                } as SheetPerformance,
 
                 calculatedOverall:
-                  ovr,
+                  overall,
               };
             }
           }
 
+          /*
+           * Normal employee row.
+           */
           const performance =
             getPerformanceForMonth(
               performanceRows,
@@ -1170,7 +954,9 @@ export function EmployeeDetailModal({
 
           return {
             employee,
+
             performance,
+
             calculatedOverall:
               performance
                 ? Math.round(
@@ -1187,6 +973,309 @@ export function EmployeeDetailModal({
       allEmployees,
       performanceRows,
       effectiveTeamMonth,
+    ]);
+
+
+  // ==========================================================
+  // TEAM SUMMARY
+  // ==========================================================
+  //
+  // IMPORTANT:
+  // The top cards MUST total the SAME rows that are
+  // displayed in the Team Leaders Under This Head TL table.
+  //
+  // So:
+  //
+  // Production = sum of all visible Team Leader rows
+  // Tickets    = sum of all visible Team Leader rows
+  // Errors     = sum of all visible Team Leader rows
+  //
+  // Attendance / Behavior remain averages because
+  // they are scores out of 10 and 5.
+  // ==========================================================
+
+  const teamSummary =
+    useMemo(() => {
+
+      if (
+        directTeamPerformance.length ===
+        0
+      ) {
+        return null;
+      }
+
+      const rows =
+        directTeamPerformance
+          .map(
+            (item) =>
+              item.performance
+          )
+          .filter(
+            (
+              row
+            ): row is SheetPerformance =>
+              !!row
+          );
+
+      if (
+        rows.length === 0
+      ) {
+        return null;
+      }
+
+
+      // --------------------------------------------------------
+      // TOTAL PRODUCTION
+      // --------------------------------------------------------
+
+      const productionActual =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.productionActual
+            ),
+          0
+        );
+
+      const productionTarget =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.productionTarget
+            ),
+          0
+        );
+
+
+      // --------------------------------------------------------
+      // TOTAL TICKETS
+      // --------------------------------------------------------
+
+      const ticketActual =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.ticketActual
+            ),
+          0
+        );
+
+      const ticketTarget =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.ticketTarget
+            ),
+          0
+        );
+
+
+      // --------------------------------------------------------
+      // TOTAL ERRORS
+      // --------------------------------------------------------
+
+      const errorActual =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.errorActual
+            ),
+          0
+        );
+
+      const errorTarget =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.errorTarget
+            ),
+          0
+        );
+
+
+      // --------------------------------------------------------
+      // AVERAGE ATTENDANCE
+      // --------------------------------------------------------
+
+      const attendance =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.attendance
+            ),
+          0
+        ) /
+        rows.length;
+
+
+      // --------------------------------------------------------
+      // AVERAGE BEHAVIOR
+      // --------------------------------------------------------
+
+      const behavior =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            safeNumber(
+              row.behavior
+            ),
+          0
+        ) /
+        rows.length;
+
+
+      return {
+
+        // This MUST remain the number of
+        // direct Team Leaders shown in the table.
+        people:
+          directReports.length,
+
+        employeesWithPerformance:
+          rows.length,
+
+        // Total quantities.
+        productionActual,
+        productionTarget,
+
+        ticketActual,
+        ticketTarget,
+
+        errorActual,
+        errorTarget,
+
+        // Average score values.
+        attendance,
+        behavior,
+
+        overall: 0,
+      };
+
+    }, [
+      directTeamPerformance,
+      directReports,
+    ]);
+
+
+  const currentPerformance =
+    detailQ.data?.currentMonth ??
+    null;
+
+  const previousMonths =
+    detailQ.data?.previousMonths ??
+    [];
+
+  const personalPerformance =
+    useMemo(() => {
+
+      const monthMap =
+        new Map<
+          string,
+          SheetPerformance
+        >();
+
+      previousMonths.forEach(
+        (row) => {
+
+          const month =
+            String(
+              row?.month ?? ""
+            ).slice(
+              0,
+              7
+            );
+
+          if (month) {
+            monthMap.set(
+              month,
+              row
+            );
+          }
+        }
+      );
+
+      if (
+        currentPerformance?.month
+      ) {
+
+        const month =
+          String(
+            currentPerformance.month
+          ).slice(
+            0,
+            7
+          );
+
+        monthMap.set(
+          month,
+          currentPerformance
+        );
+      }
+
+      return Array.from(
+        monthMap.values()
+      ).sort(
+        (a, b) =>
+          String(
+            a.month ?? ""
+          ).localeCompare(
+            String(
+              b.month ?? ""
+            )
+          )
+      );
+
+    }, [
+      currentPerformance,
+      previousMonths,
+    ]);
+
+  const availablePerformanceYears =
+    useMemo(() => {
+
+      const years =
+        new Set<string>();
+
+      personalPerformance.forEach(
+        (row) => {
+
+          const year =
+            String(
+              row.month ?? ""
+            ).slice(
+              0,
+              4
+            );
+
+          if (
+            /^\d{4}$/.test(
+              year
+            )
+          ) {
+            years.add(
+              year
+            );
+          }
+        }
+      );
+
+      return Array.from(
+        years
+      ).sort(
+        (a, b) =>
+          Number(a) -
+          Number(b)
+      );
+
+    }, [
+      personalPerformance,
     ]);
 
   const handleSelectDrilldown = (
