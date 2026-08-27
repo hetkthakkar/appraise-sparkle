@@ -74,16 +74,6 @@ export function PerformanceView({
   const [selectedYear, setSelectedYear] =
     useState("all");
 
-  /*
-   * ----------------------------------------------------------
-   * COMBINE CURRENT + PREVIOUS MONTHS
-   * ----------------------------------------------------------
-   *
-   * All personal performance is shown in ONE table.
-   *
-   * We merge currentMonth and previousMonths and
-   * de-duplicate by month.
-   */
   const allPerformance =
     useMemo(() => {
       const monthMap =
@@ -120,11 +110,6 @@ export function PerformanceView({
       previousMonths,
     ]);
 
-  /*
-   * ----------------------------------------------------------
-   * AVAILABLE YEARS
-   * ----------------------------------------------------------
-   */
   const availableYears =
     useMemo(() => {
       const years =
@@ -146,23 +131,6 @@ export function PerformanceView({
       );
     }, [allPerformance]);
 
-  /*
-   * ----------------------------------------------------------
-   * FILTER + SORT
-   * ----------------------------------------------------------
-   *
-   * Jan -> Dec
-   *
-   * When "All Years" is selected:
-   *
-   * 2025 Jan
-   * 2025 Feb
-   * ...
-   * 2025 Dec
-   * 2026 Jan
-   * 2026 Feb
-   * ...
-   */
   const history =
     useMemo(() => {
       const filtered =
@@ -187,13 +155,6 @@ export function PerformanceView({
       selectedYear,
     ]);
 
-  /*
-   * ----------------------------------------------------------
-   * CURRENT MONTH
-   * ----------------------------------------------------------
-   *
-   * Current month is highlighted inside the same table.
-   */
   const currentMonthKey =
     currentMonth?.month
       ? String(currentMonth.month)
@@ -201,10 +162,7 @@ export function PerformanceView({
 
   return (
     <div className="space-y-6">
-
-      {/* ======================================================
-          PROFILE
-          ====================================================== */}
+      {/* PROFILE */}
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
@@ -225,14 +183,13 @@ export function PerformanceView({
               size="sm"
               onClick={onEditProfile}
             >
-              <Pencil className="size-4" />
+              <Pencil className="size-4 mr-1" />
               Edit profile
             </Button>
           )}
         </CardHeader>
 
         <CardContent className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-
           <Field
             label="Employee ID"
             value={profile.employeeId}
@@ -278,18 +235,13 @@ export function PerformanceView({
                 : ""
             }
           />
-
         </CardContent>
       </Card>
 
-
-      {/* ======================================================
-          PERSONAL PERFORMANCE - SINGLE TABLE
-          ====================================================== */}
+      {/* PERSONAL PERFORMANCE */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
-
             <div>
               <CardTitle>
                 Personal Performance
@@ -300,8 +252,6 @@ export function PerformanceView({
               </CardDescription>
             </div>
 
-
-            {/* YEAR FILTER */}
             {availableYears.length > 0 && (
               <Select
                 value={selectedYear}
@@ -331,25 +281,19 @@ export function PerformanceView({
                 </SelectContent>
               </Select>
             )}
-
           </div>
         </CardHeader>
 
-
         <CardContent>
-
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No performance data available.
             </p>
           ) : (
             <div className="overflow-x-auto">
-
               <Table>
-
                 <TableHeader>
                   <TableRow>
-
                     <TableHead>
                       Month
                     </TableHead>
@@ -375,18 +319,18 @@ export function PerformanceView({
                     </TableHead>
 
                     <TableHead>
-                      Manager Remarks
+                      Performance Rating
                     </TableHead>
 
+                    <TableHead>
+                      Manager Remarks
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
 
-
                 <TableBody>
-
                   {history.map(
                     (p) => {
-
                       const isCurrent =
                         String(
                           p.month
@@ -402,12 +346,8 @@ export function PerformanceView({
                               : undefined
                           }
                         >
-
-                          {/* MONTH */}
                           <TableCell className="whitespace-nowrap font-medium">
-
                             <div className="flex items-center gap-2">
-
                               {monthToLabel(
                                 p.month
                               )}
@@ -417,83 +357,100 @@ export function PerformanceView({
                                   Current
                                 </span>
                               )}
-
                             </div>
-
                           </TableCell>
 
-
-                          {/* PRODUCTION */}
                           <TableCell className="whitespace-nowrap">
-                            {p.productionActual ??
-                              0}
+                            {p.productionActual ?? 0}
                             {" / "}
-                            {p.productionTarget ??
-                              0}
+                            {p.productionTarget ?? 0}
                           </TableCell>
 
-
-                          {/* TICKETS */}
                           <TableCell className="whitespace-nowrap">
-                            {p.ticketActual ??
-                              0}
+                            {p.ticketActual ?? 0}
                             {" / "}
-                            {p.ticketTarget ??
-                              0}
+                            {p.ticketTarget ?? 0}
                           </TableCell>
 
-
-                          {/* ERRORS */}
                           <TableCell className="whitespace-nowrap">
-                            {p.errorActual ??
-                              0}
+                            {p.errorActual ?? 0}
                             {" / "}
-                            {p.errorTarget ??
-                              0}
+                            {p.errorTarget ?? 0}
                           </TableCell>
 
-
-                          {/* ATTENDANCE */}
                           <TableCell className="whitespace-nowrap">
                             {Number(
-                              p.attendance ??
-                                0
+                              p.attendance ?? 0
                             ).toFixed(1)}
                             /10
                           </TableCell>
 
-
-                          {/* BEHAVIOR */}
                           <TableCell className="whitespace-nowrap">
                             {Number(
-                              p.behavior ??
-                                0
+                              p.behavior ?? 0
                             ).toFixed(1)}
                             /5
                           </TableCell>
 
-
-                          {/* REMARKS */}
-                          <TableCell className="min-w-[220px] max-w-[320px]">
-                            {p.managerRemarks ||
-                              "—"}
+                          <TableCell className="whitespace-nowrap">
+                            <RatingBadge rating={p.performanceRating} score={p.ratingScore} />
                           </TableCell>
 
+                          <TableCell className="min-w-[220px] max-w-[320px]">
+                            {p.managerRemarks || "—"}
+                          </TableCell>
                         </TableRow>
                       );
                     }
                   )}
-
                 </TableBody>
-
               </Table>
-
             </div>
           )}
-
         </CardContent>
       </Card>
-
     </div>
+  );
+}
+
+export function RatingBadge({
+  rating,
+  score,
+}: {
+  rating?: string | null;
+  score?: number | null;
+}) {
+  if (!rating && (score === undefined || score === null)) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const r = String(rating || "").trim();
+  const lower = r.toLowerCase();
+
+  let colorClasses = "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200";
+
+  if (lower.includes("outstanding") || (score !== undefined && score !== null && score >= 4.5)) {
+    colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800";
+  } else if (lower.includes("exceeds") || (score !== undefined && score !== null && score >= 4.0)) {
+    colorClasses = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800";
+  } else if (lower.includes("meets") || (score !== undefined && score !== null && score >= 3.0)) {
+    colorClasses = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800";
+  } else if (lower.includes("needs") || (score !== undefined && score !== null && score >= 2.0)) {
+    colorClasses = "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800";
+  } else if (lower.includes("unsatisfactory") || (score !== undefined && score !== null && score > 0 && score < 2.0)) {
+    colorClasses = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800";
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold ${colorClasses}`}
+    >
+      {score !== undefined && score !== null && score > 0 && (
+        <span className="font-mono text-[11px] font-bold">
+          {Number(score).toFixed(2)}
+        </span>
+      )}
+      <span>{r || (score ? "" : "—")}</span>
+    </span>
   );
 }
