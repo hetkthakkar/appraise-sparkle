@@ -324,7 +324,6 @@ export function EmployeeDetailModal({
   const [history, setHistory] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
 
-  // Range and Year filters for Team section
   const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
   const [selectedTeamStartMonth, setSelectedTeamStartMonth] = useState<string | null>(null);
   const [selectedTeamEndMonth, setSelectedTeamEndMonth] = useState<string | null>(null);
@@ -353,26 +352,69 @@ export function EmployeeDetailModal({
     enabled: !!user && !!activeEmployeeId,
   });
 
+  // Always enable employee list & performance query for authenticated users to build hierarchy accurately
   const employeesQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
-    enabled: !!user && !!activeEmployeeId && (user.role === "super_admin" || user.role === "admin"),
+    enabled: !!user && !!activeEmployeeId,
   });
 
   const performanceQ = useQuery({
     queryKey: ["performance", "employee-detail", user?.email],
     queryFn: () => listPerformance(user!.email),
-    enabled: !!user && !!activeEmployeeId && (user.role === "super_admin" || user.role === "admin"),
+    enabled: !!user && !!activeEmployeeId,
   });
 
   const profile = detailQ.data?.profile;
   const tier = getRoleTier(profile?.designation);
-  const allEmployees = employeesQ.data ?? [];
+
+  // Merge all sources of employees: global list + detail API downline / direct reports
+  const allEmployees = useMemo(() => {
+    const map = new Map<string, SheetEmployee>();
+
+    (employeesQ.data ?? []).forEach((e) => {
+      const id = String(e.employeeId).trim();
+      if (id) map.set(id, e);
+    });
+
+    const extraDownline = (detailQ.data as any)?.downline as SheetEmployee[] | undefined;
+    const extraDirect = (detailQ.data as any)?.directReports as SheetEmployee[] | undefined;
+
+    (extraDownline ?? []).forEach((e) => {
+      const id = String(e.employeeId).trim();
+      if (id && !map.has(id)) map.set(id, e);
+    });
+
+    (extraDirect ?? []).forEach((e) => {
+      const id = String(e.employeeId).trim();
+      if (id && !map.has(id)) map.set(id, e);
+    });
+
+    if (profile) {
+      const id = String(profile.employeeId).trim();
+      if (id && !map.has(id)) map.set(id, profile);
+    }
+
+    return Array.from(map.values());
+  }, [employeesQ.data, detailQ.data, profile]);
 
   const directReports = useMemo(() => {
     if (!profile) return [];
-    return getDirectReports(profile, allEmployees);
-  }, [profile, allEmployees]);
+    
+    // First calculate using employee master matching
+    const calculated = getDirectReports(profile, allEmployees);
+    if (calculated.length > 0) return calculated;
+
+    // Fallback: If detailQ returned directReports or downline matching teamLead
+    const backendDirect = (detailQ.data as any)?.directReports as SheetEmployee[] | undefined;
+    if (backendDirect && backendDirect.length > 0) return backendDirect;
+
+    return allEmployees.filter(
+      (e) =>
+        samePerson(e.teamLead, profile.name) &&
+        String(e.employeeId).trim() !== String(profile.employeeId).trim()
+    );
+  }, [profile, allEmployees, detailQ.data]);
 
   const teamEmployees = useMemo(() => {
     if (!profile) return [];
@@ -381,7 +423,15 @@ export function EmployeeDetailModal({
     return [];
   }, [profile, allEmployees, directReports, tier]);
 
-  const performanceRows = performanceQ.data ?? [];
+  // Combine performance rows from performanceQ and detailQ downline
+  const performanceRows = useMemo(() => {
+    const list = [...(performanceQ.data ?? [])];
+    const downlinePerf = (detailQ.data as any)?.downlinePerformance as SheetPerformance[] | undefined;
+    if (downlinePerf) {
+      list.push(...downlinePerf);
+    }
+    return list;
+  }, [performanceQ.data, detailQ.data]);
 
   const defaultMonthKey = useMemo(() => {
     if (!teamEmployees.length) return getCurrentMonthKey();
@@ -415,7 +465,6 @@ export function EmployeeDetailModal({
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [performanceRows]);
 
-  // Aggregate subordinate / member performance across the selected month range
   const directTeamPerformance = useMemo(() => {
     const startKey = `${effectiveTeamYear}-${effectiveStartMonthNum.padStart(2, "0")}`;
     const endKey = `${effectiveTeamYear}-${effectiveEndMonthNum.padStart(2, "0")}`;
@@ -474,7 +523,6 @@ export function EmployeeDetailModal({
         }
       }
 
-      // Single employee rows across the range
       const memberRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
         return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
@@ -517,7 +565,6 @@ export function EmployeeDetailModal({
       };
     });
 
-    // If TL / ATL, prepend their cumulative performance as row #1
     if (tier === 2 && profile) {
       const leaderRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
@@ -772,7 +819,7 @@ export function EmployeeDetailModal({
                 onTeamStartMonthChange={setSelectedTeamStartMonth}
                 onTeamEndMonthChange={setSelectedTeamEndMonth}
                 onToggleRangeMode={setIsRangeMode}
-                performanceLoading={performanceQ.isLoading}
+                performanceLoading={performanceQ.isLoading || detailQ.isLoading}
                 onSelectMember={handleSelectDrilldown}
               />
             )}
@@ -962,7 +1009,6 @@ function ProfileSection({
             <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
           </div>
 
-          {/* ── 9th Empty Slot: Add Manager Remark button ── */}
           {canRemark && onAddRemark ? (
             <div className="flex flex-col justify-center">
               <button
@@ -1140,7 +1186,6 @@ function TeamSection({
             </CardDescription>
           </div>
 
-          {/* ── Month Range / Single Month and Year Selector ── */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -1405,7 +1450,7 @@ function TeamSection({
                     </TableRow>
                   )}
 
-                  {/* Filtered & Sorted Team Members */}
+                  {/* Subordinate Team Members */}
                   {filteredAndSortedMembers.map(({ employee, performance }) => (
                     <TableRow
                       key={employee.employeeId}
