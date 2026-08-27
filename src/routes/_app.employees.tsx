@@ -34,13 +34,7 @@ import {
 } from "@/components/ui/table";
 
 import { useAuth } from "@/lib/mock-auth";
-import {
-  listEmployees,
-  listDepartments,
-  listDesignations,
-  listTeamLeads,
-  listLocations,
-} from "@/lib/sheetsApi";
+import { listEmployees } from "@/lib/sheetsApi";
 
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { exportEmployees } from "@/lib/excel";
@@ -73,40 +67,32 @@ function EmployeesPage() {
       (user.role === "super_admin" || user.role === "admin"),
   });
 
-  // Use the same lists used by the employee onboarding form.
-  const departmentsQ = useQuery({
-    queryKey: ["departments"],
-    queryFn: listDepartments,
-    enabled:
-      !!user &&
-      (user.role === "super_admin" || user.role === "admin"),
-  });
+  const scope = useMemo(() => data ?? [], [data]);
 
-  const designationsQ = useQuery({
-    queryKey: ["designations"],
-    queryFn: listDesignations,
-    enabled:
-      !!user &&
-      (user.role === "super_admin" || user.role === "admin"),
-  });
+  // Dynamically derive filter options ONLY from the visible employee list on this page
+  const departmentOptions = useMemo(() => {
+    return Array.from(
+      new Set(scope.map((e) => String(e.department ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
-  const teamLeadsQ = useQuery({
-    queryKey: ["teamLeads"],
-    queryFn: listTeamLeads,
-    enabled:
-      !!user &&
-      (user.role === "super_admin" || user.role === "admin"),
-  });
+  const designationOptions = useMemo(() => {
+    return Array.from(
+      new Set(scope.map((e) => String(e.designation ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
-  const locationsQ = useQuery({
-    queryKey: ["locations"],
-    queryFn: listLocations,
-    enabled:
-      !!user &&
-      (user.role === "super_admin" || user.role === "admin"),
-  });
+  const teamLeadOptions = useMemo(() => {
+    return Array.from(
+      new Set(scope.map((e) => String(e.teamLead ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
-  const scope = data ?? [];
+  const locationOptions = useMemo(() => {
+    return Array.from(
+      new Set(scope.map((e) => String(e.location ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
   const filtered = useMemo(() => {
     const search = q.trim().toLowerCase();
@@ -131,19 +117,19 @@ function EmployeesPage() {
 
       const matchesDepartment =
         departmentFilter === "all" ||
-        String(e.department ?? "") === departmentFilter;
+        String(e.department ?? "").trim() === departmentFilter;
 
       const matchesDesignation =
         designationFilter === "all" ||
-        String(e.designation ?? "") === designationFilter;
+        String(e.designation ?? "").trim() === designationFilter;
 
       const matchesTeamLead =
         teamLeadFilter === "all" ||
-        String(e.teamLead ?? "") === teamLeadFilter;
+        String(e.teamLead ?? "").trim() === teamLeadFilter;
 
       const matchesLocation =
         locationFilter === "all" ||
-        String(e.location ?? "") === locationFilter;
+        String(e.location ?? "").trim() === locationFilter;
 
       return (
         matchesSearch &&
@@ -171,7 +157,6 @@ function EmployeesPage() {
     return <Navigate to="/" />;
   }
 
-
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <Card>
@@ -198,41 +183,46 @@ function EmployeesPage() {
                 onChange={(e) => setQ(e.target.value)}
                 className="max-w-xs"
               />
-              <Button variant="outline" onClick={() => exportEmployees(filtered)} disabled={!filtered.length}>
-                <Download />
+
+              <Button
+                variant="outline"
+                onClick={() => exportEmployees(filtered)}
+                disabled={!filtered.length}
+              >
+                <Download className="mr-1 size-4" />
                 Export Data
               </Button>
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Filters — Populated dynamically only with values present in current team */}
           <div className="grid grid-cols-1 gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-4">
             <FilterSelect
               placeholder="Department"
               value={departmentFilter}
               onChange={setDepartmentFilter}
-              options={departmentsQ.data ?? []}
+              options={departmentOptions}
             />
 
             <FilterSelect
               placeholder="Designation"
               value={designationFilter}
               onChange={setDesignationFilter}
-              options={designationsQ.data ?? []}
+              options={designationOptions}
             />
 
             <FilterSelect
               placeholder="Team Lead"
               value={teamLeadFilter}
               onChange={setTeamLeadFilter}
-              options={teamLeadsQ.data ?? []}
+              options={teamLeadOptions}
             />
 
             <FilterSelect
               placeholder="Location"
               value={locationFilter}
               onChange={setLocationFilter}
-              options={locationsQ.data ?? []}
+              options={locationOptions}
             />
           </div>
 
@@ -298,7 +288,7 @@ function EmployeesPage() {
                       onClick={() =>
                         setSelected(e.employeeId)
                       }
-                      className="cursor-pointer"
+                      className="cursor-pointer hover:bg-muted/40"
                     >
                       <TableCell className="font-mono text-xs">
                         {e.employeeId}
@@ -372,14 +362,6 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: string[];
 }) {
-  const uniqueOptions = Array.from(
-    new Set(
-      options
-        .map((option) => String(option).trim())
-        .filter(Boolean)
-    )
-  );
-
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger>
@@ -391,7 +373,7 @@ function FilterSelect({
           All {placeholder}
         </SelectItem>
 
-        {uniqueOptions.map((option) => (
+        {options.map((option) => (
           <SelectItem
             key={option}
             value={option}
