@@ -17,6 +17,7 @@ import {
   addLocation,
   listKPIWeightages,
   updateKPIWeightages,
+  monthToLabel,
   type KPIWeightage,
 } from "@/lib/sheetsApi";
 import {
@@ -32,6 +33,43 @@ import { CheckCircle2, AlertCircle, Save } from "lucide-react";
 export const Route = createFileRoute("/_app/admin/lists")({
   component: ManageLists,
 });
+
+function formatMonthDisplay(val: string): string {
+  if (!val) return "";
+  const s = String(val).trim();
+  if (s.toUpperCase() === "DEFAULT") return "DEFAULT (Global Fallback)";
+
+  // If date string like "Wed Jul 01 2026..."
+  const parsedDate = new Date(s);
+  if (!Number.isNaN(parsedDate.getTime()) && s.length > 7) {
+    const y = parsedDate.getFullYear();
+    const m = String(parsedDate.getMonth() + 1).padStart(2, "0");
+    const ym = `${y}-${m}`;
+    return `${monthToLabel(ym)} (${ym})`;
+  }
+
+  // If already "YYYY-MM"
+  if (/^\d{4}-\d{2}$/.test(s)) {
+    return `${monthToLabel(s)} (${s})`;
+  }
+
+  return s;
+}
+
+function normalizeToMonthKey(val: string): string {
+  if (!val) return "";
+  const s = String(val).trim();
+  if (s.toUpperCase() === "DEFAULT") return "DEFAULT";
+
+  const parsedDate = new Date(s);
+  if (!Number.isNaN(parsedDate.getTime()) && s.length > 7) {
+    const y = parsedDate.getFullYear();
+    const m = String(parsedDate.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+
+  return s;
+}
 
 function ManageLists() {
   const { user } = useAuth();
@@ -94,6 +132,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
   const [behavior, setBehavior] = useState("10");
 
   const effectiveMonth = selectedMonth === "custom" ? customMonth.trim() : selectedMonth;
+  const cleanEffectiveMonth = normalizeToMonthKey(effectiveMonth);
 
   const numProd = Number(production) || 0;
   const numTickets = Number(tickets) || 0;
@@ -105,8 +144,9 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
 
   const handleSelectMonth = (m: string) => {
     setSelectedMonth(m);
+    const clean = normalizeToMonthKey(m);
     const existing = (q.data ?? []).find(
-      (item) => item.month.toUpperCase() === m.toUpperCase()
+      (item) => normalizeToMonthKey(item.month).toUpperCase() === clean.toUpperCase()
     );
     if (existing) {
       setProduction(String(existing.production));
@@ -128,14 +168,14 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
 
   const m = useMutation({
     mutationFn: () => {
-      if (!effectiveMonth) {
+      if (!cleanEffectiveMonth) {
         throw new Error("Month is required.");
       }
       if (!isValidTotal) {
         throw new Error(`Total weightage must be exactly 100%. Current total is ${total}%.`);
       }
       return updateKPIWeightages(userEmail, {
-        month: effectiveMonth,
+        month: cleanEffectiveMonth,
         production: numProd,
         tickets: numTickets,
         errors: numErrors,
@@ -150,9 +190,9 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
         qc.refetchQueries({ queryKey: ["myDashboard"] }),
         qc.refetchQueries({ queryKey: ["employeeDetail"] }),
       ]);
-      toast.success(`KPI Weightage for ${effectiveMonth} updated and ratings recalculated.`);
+      toast.success(`KPI Weightage for ${cleanEffectiveMonth} saved and ratings recalculated.`);
       if (selectedMonth === "custom") {
-        setSelectedMonth(customMonth.trim());
+        setSelectedMonth(cleanEffectiveMonth);
         setCustomMonth("");
       }
     },
@@ -189,6 +229,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
       <CardContent className="space-y-6">
         <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            {/* Month Selection */}
             <div className="space-y-1 sm:col-span-2 lg:col-span-1">
               <label className="text-xs font-semibold text-muted-foreground">Month / Config</label>
               <select
@@ -198,10 +239,10 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
               >
                 <option value="DEFAULT">DEFAULT (Fallback)</option>
                 {(q.data ?? [])
-                  .filter((item) => item.month.toUpperCase() !== "DEFAULT")
+                  .filter((item) => normalizeToMonthKey(item.month).toUpperCase() !== "DEFAULT")
                   .map((item) => (
                     <option key={item.month} value={item.month}>
-                      {item.month}
+                      {formatMonthDisplay(item.month)}
                     </option>
                   ))}
                 <option value="custom">+ New Month (YYYY-MM)...</option>
@@ -283,16 +324,16 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <div className="text-xs text-muted-foreground">
-              Target: <span className="font-medium text-foreground">{effectiveMonth || "—"}</span> &nbsp;|&nbsp; Total: <span className={isValidTotal ? "font-bold text-emerald-600" : "font-bold text-destructive"}>{total}%</span>
+              Target: <span className="font-medium text-foreground">{formatMonthDisplay(cleanEffectiveMonth) || "—"}</span> &nbsp;|&nbsp; Total: <span className={isValidTotal ? "font-bold text-emerald-600" : "font-bold text-destructive"}>{total}%</span>
             </div>
             <Button
               size="sm"
-              disabled={m.isPending || !isValidTotal || !effectiveMonth}
+              disabled={m.isPending || !isValidTotal || !cleanEffectiveMonth}
               onClick={() => m.mutate()}
               className="gap-1.5"
             >
               <Save className="size-3.5" />
-              {m.isPending ? "Saving & Recalculating..." : `Save Weightages for ${effectiveMonth}`}
+              {m.isPending ? "Saving & Recalculating..." : `Save Weightages for ${cleanEffectiveMonth}`}
             </Button>
           </div>
         </div>
@@ -325,10 +366,10 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
                   {(q.data ?? []).map((item) => (
                     <TableRow key={item.month} className="hover:bg-muted/40">
                       <TableCell className="font-bold text-xs">
-                        {item.month === "DEFAULT" ? (
-                          <Badge variant="outline" className="font-bold">DEFAULT</Badge>
+                        {normalizeToMonthKey(item.month).toUpperCase() === "DEFAULT" ? (
+                          <Badge variant="outline" className="font-bold">DEFAULT (Fallback)</Badge>
                         ) : (
-                          item.month
+                          formatMonthDisplay(item.month)
                         )}
                       </TableCell>
                       <TableCell className="text-xs">{item.production}%</TableCell>
