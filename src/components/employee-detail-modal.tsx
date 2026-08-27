@@ -1,18 +1,29 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
+
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+
 import {
   Select,
   SelectContent,
@@ -20,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import {
   Card,
   CardContent,
@@ -27,6 +39,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
 import {
   Table,
   TableBody,
@@ -35,6 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import {
   Users,
   TrendingUp,
@@ -46,14 +60,14 @@ import {
   ArrowLeft,
   ChevronRight,
   ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Search,
   MessageSquarePlus,
 } from "lucide-react";
+
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
 import { useAuth } from "@/lib/mock-auth";
+
 import {
   adminUpdateEmployee,
   getEmployeeDetail,
@@ -63,8 +77,8 @@ import {
   listLocations,
   listPerformance,
   listTeamLeads,
-  updateRemarks,
   monthToLabel,
+  updateRemarks,
   type SheetEmployee,
   type SheetPerformance,
 } from "@/lib/sheetsApi";
@@ -124,10 +138,7 @@ function getRoleTier(designation: unknown): number {
   if (
     value.includes("team leader") ||
     value.includes("team lead") ||
-    value.includes("assistant team leader") ||
     value.includes("assistant team lead") ||
-    value.includes("atl") ||
-    value.startsWith("atl ") ||
     value.includes("supervisior") ||
     value.includes("supervisor") ||
     value === "tl" ||
@@ -137,12 +148,6 @@ function getRoleTier(designation: unknown): number {
   }
 
   return 1;
-}
-
-function getRoleBadgeText(designation: unknown): string {
-  const value = normalizeText(designation);
-  if (value.includes("assistant") || value.includes("atl")) return "ATL";
-  return "TL";
 }
 
 function getSubordinateTypeLabel(tier: number): string {
@@ -183,16 +188,13 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatScore(value: unknown, maxDecimals = 2): string {
-  const n = Number(value);
+function formatScore(val: number | string | undefined | null, maxDecimals = 2): string {
+  const n = Number(val);
   if (!Number.isFinite(n)) return "0";
-  if (Number.isInteger(n)) return String(n);
-  return Number(n.toFixed(maxDecimals)).toString();
+  return parseFloat(n.toFixed(maxDecimals)).toString();
 }
 
-function productionPercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function productionPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
   const target = safeNumber(performance.productionTarget);
   const actual = safeNumber(performance.productionActual);
@@ -200,9 +202,7 @@ function productionPercent(
   return Math.max(0, Math.min(150, (actual / target) * 100));
 }
 
-function ticketPercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function ticketPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
   const target = safeNumber(performance.ticketTarget);
   const actual = safeNumber(performance.ticketActual);
@@ -210,9 +210,7 @@ function ticketPercent(
   return Math.max(0, Math.min(150, (actual / target) * 100));
 }
 
-function qualityPercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function qualityPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
   const target = safeNumber(performance.errorTarget);
   const actual = safeNumber(performance.errorActual);
@@ -223,29 +221,17 @@ function qualityPercent(
   return Math.max(0, Math.min(150, (target / actual) * 100));
 }
 
-function attendancePercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function attendancePercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
-  return Math.max(
-    0,
-    Math.min(100, (safeNumber(performance.attendance) / 10) * 100)
-  );
+  return Math.max(0, Math.min(100, (safeNumber(performance.attendance) / 10) * 100));
 }
 
-function behaviorPercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function behaviorPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
-  return Math.max(
-    0,
-    Math.min(100, (safeNumber(performance.behavior) / 5) * 100)
-  );
+  return Math.max(0, Math.min(100, (safeNumber(performance.behavior) / 5) * 100));
 }
 
-function overallPercent(
-  performance: SheetPerformance | null | undefined
-): number {
+function overallPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
   const values = [
     productionPercent(performance),
@@ -304,12 +290,9 @@ function getDescendants(
   function walk(parent: SheetEmployee) {
     employees.forEach((employee) => {
       const id = String(employee.employeeId ?? "").trim();
-      if (!id || visited.has(id)) {
-        return;
-      }
-      if (!samePerson(employee.teamLead, parent.name)) {
-        return;
-      }
+      if (!id || visited.has(id)) return;
+      if (!samePerson(employee.teamLead, parent.name)) return;
+
       visited.add(id);
       result.push(employee);
       walk(employee);
@@ -331,21 +314,14 @@ function getDirectReports(
       samePerson(employee.teamLead, manager.name) &&
       String(employee.employeeId).trim() !== String(manager.employeeId).trim();
 
-    if (!isDirect) {
-      return false;
-    }
+    if (!isDirect) return false;
 
     const subTier = getRoleTier(employee.designation);
 
-    if (managerTier === 4) {
-      return true;
-    }
-    if (managerTier === 3) {
-      return subTier === 2;
-    }
-    if (managerTier === 2) {
-      return subTier === 1;
-    }
+    if (managerTier === 4) return true;
+    if (managerTier === 3) return subTier === 2;
+    if (managerTier === 2) return subTier === 1;
+
     return false;
   });
 }
@@ -356,26 +332,19 @@ export function EmployeeDetailModal({
 }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
+
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(employeeId);
   const [history, setHistory] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
+
   const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
   const [selectedTeamMonthNum, setSelectedTeamMonthNum] = useState<string | null>(null);
 
-  // Remarks Dialog State
   const [remarkDialog, setRemarkDialog] = useState<{
     open: boolean;
-    employeeId: string;
     month: string;
-    remarks: string;
-    employeeName?: string;
-  }>({
-    open: false,
-    employeeId: "",
-    month: "",
-    remarks: "",
-    employeeName: "",
-  });
+    value: string;
+  } | null>(null);
 
   useEffect(() => {
     setActiveEmployeeId(employeeId);
@@ -383,6 +352,7 @@ export function EmployeeDetailModal({
     setEditing(false);
     setSelectedTeamYear(null);
     setSelectedTeamMonthNum(null);
+    setRemarkDialog(null);
   }, [employeeId]);
 
   const detailQ = useQuery({
@@ -394,46 +364,13 @@ export function EmployeeDetailModal({
   const employeesQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
-    enabled:
-      !!user &&
-      !!activeEmployeeId &&
-      (user.role === "super_admin" || user.role === "admin"),
+    enabled: !!user && !!activeEmployeeId && (user.role === "super_admin" || user.role === "admin"),
   });
 
   const performanceQ = useQuery({
     queryKey: ["performance", "employee-detail", user?.email],
     queryFn: () => listPerformance(user!.email),
-    enabled:
-      !!user &&
-      !!activeEmployeeId &&
-      (user.role === "super_admin" || user.role === "admin"),
-  });
-
-  const remarkMutation = useMutation({
-    mutationFn: ({
-      empId,
-      monthKey,
-      remarks,
-    }: {
-      empId: string;
-      monthKey: string;
-      remarks: string;
-    }) => updateRemarks(user!.email, empId, monthKey, remarks),
-    onSuccess: async () => {
-      await Promise.all([
-        qc.refetchQueries({ queryKey: ["employeeDetail", activeEmployeeId] }),
-        qc.refetchQueries({ queryKey: ["performance"] }),
-        qc.refetchQueries({ queryKey: ["myDashboard"] }),
-      ]);
-      toast.success("Manager remark saved successfully");
-      setRemarkDialog((prev) => ({ ...prev, open: false }));
-    },
-    onError: (error) => {
-      toast.error("Failed to save remark", {
-        description:
-          error instanceof Error ? error.message : String(error),
-      });
-    },
+    enabled: !!user && !!activeEmployeeId && (user.role === "super_admin" || user.role === "admin"),
   });
 
   const profile = detailQ.data?.profile;
@@ -447,24 +384,17 @@ export function EmployeeDetailModal({
 
   const teamEmployees = useMemo(() => {
     if (!profile) return [];
-    if (tier >= 3) {
-      return getDescendants(profile, allEmployees);
-    }
-    if (tier === 2) {
-      return directReports;
-    }
+    if (tier >= 3) return getDescendants(profile, allEmployees);
+    if (tier === 2) return directReports;
     return [];
   }, [profile, allEmployees, directReports, tier]);
 
   const performanceRows = performanceQ.data ?? [];
 
   const teamMonth = useMemo(() => {
-    const allMembers = profile ? [profile, ...teamEmployees] : teamEmployees;
-    if (!allMembers.length) {
-      return getCurrentMonthKey();
-    }
+    if (!teamEmployees.length) return getCurrentMonthKey();
 
-    const teamIds = new Set(allMembers.map((e) => String(e.employeeId)));
+    const teamIds = new Set(teamEmployees.map((e) => String(e.employeeId)));
     const teamRows = performanceRows.filter((row) =>
       teamIds.has(String(row.employeeId))
     );
@@ -474,12 +404,9 @@ export function EmployeeDetailModal({
       (row) => String(row.month).slice(0, 7) === current
     );
 
-    if (hasCurrent) {
-      return current;
-    }
-
+    if (hasCurrent) return current;
     return getLatestMonth(teamRows) ?? current;
-  }, [profile, teamEmployees, performanceRows]);
+  }, [teamEmployees, performanceRows]);
 
   const [defaultTeamYear, defaultTeamMonthNum] = teamMonth.split("-");
   const effectiveTeamYear = selectedTeamYear ?? defaultTeamYear;
@@ -490,66 +417,20 @@ export function EmployeeDetailModal({
     const years = new Set<string>();
     performanceRows.forEach((row) => {
       const year = String(row.month ?? "").slice(0, 4);
-      if (year) {
-        years.add(year);
-      }
+      if (year) years.add(year);
     });
     years.add(String(new Date().getFullYear()));
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [performanceRows]);
 
-  // ==========================================================
-  // DIRECT TEAM PERFORMANCE (TL / ATL AT TOP WITH PERSONAL METRICS)
-  // ==========================================================
-
   const directTeamPerformance = useMemo(() => {
-    if (!profile) return [];
-
-    const des = normalizeText(profile.designation);
-
-    const isTLorATL =
-      tier === 2 ||
-      des.includes("team leader") ||
-      des.includes("team lead") ||
-      des.includes("assistant team leader") ||
-      des.includes("assistant team lead") ||
-      des.includes("atl") ||
-      des.startsWith("atl ") ||
-      des === "tl" ||
-      des.startsWith("tl ");
-
-    let leaderItem: {
-      employee: SheetEmployee;
-      performance: SheetPerformance | null;
-      calculatedOverall?: number;
-      isLeader?: boolean;
-      leaderTag?: string;
-    } | null = null;
-
-    if (isTLorATL && tier < 3) {
-      const leaderPersonalPerformance = getPerformanceForMonth(
-        performanceRows,
-        profile.employeeId,
-        effectiveTeamMonth
-      );
-
-      leaderItem = {
-        employee: profile,
-        performance: leaderPersonalPerformance,
-        calculatedOverall: leaderPersonalPerformance
-          ? Math.round(overallPercent(leaderPersonalPerformance))
-          : 0,
-        isLeader: true,
-        leaderTag: getRoleBadgeText(profile.designation),
-      };
-    }
-
-    const reportsItems = directReports.map((employee) => {
+    const subordinatesList = directReports.map((employee) => {
       const subTier = getRoleTier(employee.designation);
 
-      if (tier >= 3 && subTier >= 2) {
+      if (subTier >= 2) {
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
+
         const subRows = performanceRows.filter(
           (r) =>
             subIds.has(String(r.employeeId)) &&
@@ -601,14 +482,12 @@ export function EmployeeDetailModal({
               ? errorActual <= 0
                 ? 100
                 : 0
-              : Math.max(
-                  0,
-                  Math.round(100 - (errorActual / errorTarget) * 100)
-                );
-          const attendancePercent = Math.round((attendance / 10) * 100);
-          const behaviorPercent = Math.round((behavior / 5) * 100);
+              : Math.max(0, Math.round(100 - (errorActual / errorTarget) * 100));
+
+          const attendanceP = Math.round((attendance / 10) * 100);
+          const behaviorP = Math.round((behavior / 5) * 100);
           const overall = Math.round(
-            (production + tickets + quality + attendancePercent + behaviorPercent) / 5
+            (production + tickets + quality + attendanceP + behaviorP) / 5
           );
 
           return {
@@ -647,67 +526,79 @@ export function EmployeeDetailModal({
       };
     });
 
-    return leaderItem ? [leaderItem, ...reportsItems] : reportsItems;
+    if (tier === 2 && profile) {
+      const leaderPerf = getPerformanceForMonth(
+        performanceRows,
+        profile.employeeId,
+        effectiveTeamMonth
+      );
+
+      const leaderItem = {
+        employee: profile,
+        performance: leaderPerf,
+        calculatedOverall: leaderPerf
+          ? Math.round(overallPercent(leaderPerf))
+          : 0,
+        isLeader: true,
+      };
+
+      return [leaderItem, ...subordinatesList];
+    }
+
+    return subordinatesList;
   }, [
-    profile,
-    tier,
     directReports,
     allEmployees,
     performanceRows,
     effectiveTeamMonth,
+    tier,
+    profile,
   ]);
 
   const teamSummary = useMemo(() => {
-    if (directTeamPerformance.length === 0) {
-      return null;
-    }
+    if (directTeamPerformance.length === 0) return null;
 
-    const rows = directTeamPerformance
+    const actualSubordinates = directTeamPerformance.filter((item) => !item.isLeader);
+    const rowsToCalculate = (actualSubordinates.length > 0 ? actualSubordinates : directTeamPerformance)
       .map((item) => item.performance)
       .filter((row): row is SheetPerformance => !!row);
 
-    if (rows.length === 0) {
-      return null;
-    }
+    if (rowsToCalculate.length === 0) return null;
 
-    const productionActual = rows.reduce(
+    const productionActual = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.productionActual),
       0
     );
-    const productionTarget = rows.reduce(
+    const productionTarget = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.productionTarget),
       0
     );
-
-    const ticketActual = rows.reduce(
+    const ticketActual = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.ticketActual),
       0
     );
-    const ticketTarget = rows.reduce(
+    const ticketTarget = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.ticketTarget),
       0
     );
-
-    const errorActual = rows.reduce(
+    const errorActual = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.errorActual),
       0
     );
-    const errorTarget = rows.reduce(
+    const errorTarget = rowsToCalculate.reduce(
       (sum, row) => sum + safeNumber(row.errorTarget),
       0
     );
-
     const attendance =
-      rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
-      rows.length;
-
+      rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
+      rowsToCalculate.length;
     const behavior =
-      rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
-      rows.length;
+      rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
+      rowsToCalculate.length;
 
     return {
       people: directReports.length,
-      employeesWithPerformance: rows.length,
+      employeesWithPerformance: rowsToCalculate.length,
       productionActual,
       productionTarget,
       ticketActual,
@@ -728,9 +619,7 @@ export function EmployeeDetailModal({
 
     previousMonths.forEach((row) => {
       const month = String(row?.month ?? "").slice(0, 7);
-      if (month) {
-        monthMap.set(month, row);
-      }
+      if (month) monthMap.set(month, row);
     });
 
     if (currentPerformance?.month) {
@@ -747,9 +636,7 @@ export function EmployeeDetailModal({
     const years = new Set<string>();
     personalPerformance.forEach((row) => {
       const year = String(row.month ?? "").slice(0, 4);
-      if (/^\d{4}$/.test(year)) {
-        years.add(year);
-      }
+      if (/^\d{4}$/.test(year)) years.add(year);
     });
     return Array.from(years).sort((a, b) => Number(a) - Number(b));
   }, [personalPerformance]);
@@ -771,6 +658,28 @@ export function EmployeeDetailModal({
 
   const canEdit =
     !!user && (user.role === "super_admin" || user.role === "admin");
+
+  const remarkMutation = useMutation({
+    mutationFn: ({ month, remarks }: { month: string; remarks: string }) =>
+      updateRemarks(user!.email, activeEmployeeId!, month, remarks),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({
+          queryKey: ["employeeDetail", activeEmployeeId, user?.email],
+        }),
+        qc.refetchQueries({
+          queryKey: ["performance", "employee-detail", user?.email],
+        }),
+      ]);
+      toast.success("Manager remark saved");
+      setRemarkDialog(null);
+    },
+    onError: (error) => {
+      toast.error("Failed to save remark", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
 
   return (
     <Dialog open={!!employeeId} onOpenChange={onOpenChange}>
@@ -834,7 +743,17 @@ export function EmployeeDetailModal({
 
         {detailQ.data && profile && (
           <div className="space-y-6 px-6 py-6">
-            <ProfileSection profile={profile} />
+            <ProfileSection
+              profile={profile}
+              canRemark={canEdit}
+              onAddRemark={() =>
+                setRemarkDialog({
+                  open: true,
+                  month: getCurrentMonthKey(),
+                  value: currentPerformance?.managerRemarks ?? "",
+                })
+              }
+            />
 
             {editing && (
               <EditForm
@@ -865,91 +784,119 @@ export function EmployeeDetailModal({
             <EmployeePerformanceTable
               performanceList={personalPerformance}
               availableYears={availablePerformanceYears}
-              canEditRemarks={canEdit}
-              onOpenRemarkModal={(item) =>
+              canRemark={canEdit}
+              onEditRemark={(month, currentVal) =>
                 setRemarkDialog({
                   open: true,
-                  employeeId: item.employeeId,
-                  month: item.month,
-                  remarks: item.currentRemark,
-                  employeeName: profile.name,
+                  month,
+                  value: currentVal,
                 })
               }
             />
           </div>
         )}
 
-        {/* MANAGER REMARKS DIALOG */}
-        <Dialog
-          open={remarkDialog.open}
-          onOpenChange={(open) =>
-            setRemarkDialog((prev) => ({ ...prev, open }))
-          }
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <MessageSquarePlus className="size-4 text-primary" />
-                Manager Remark ({monthToLabel(remarkDialog.month)})
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Add or update manager feedback for{" "}
-                <span className="font-semibold text-foreground">
-                  {remarkDialog.employeeName}
-                </span>
-                .
-              </DialogDescription>
-            </DialogHeader>
+        {/* ── MANAGER REMARK DIALOG ── */}
+        {remarkDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl">
+              <h3 className="text-sm font-bold">Add / Edit Manager Remark</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Remark for {monthToLabel(remarkDialog.month)} ({profile?.name})
+              </p>
 
-            <div className="py-2">
-              <Textarea
-                placeholder="Type your feedback/remarks here..."
-                value={remarkDialog.remarks}
-                onChange={(e) =>
-                  setRemarkDialog((prev) => ({
-                    ...prev,
-                    remarks: e.target.value,
-                  }))
-                }
-                rows={4}
-                className="text-xs"
-              />
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Month</label>
+                  <Select
+                    value={remarkDialog.month.slice(5, 7)}
+                    onValueChange={(m) =>
+                      setRemarkDialog((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              month: `${remarkDialog.month.slice(0, 4)}-${m}`,
+                              value:
+                                personalPerformance.find(
+                                  (p) =>
+                                    String(p.month).slice(0, 7) ===
+                                    `${remarkDialog.month.slice(0, 4)}-${m}`
+                                )?.managerRemarks ?? "",
+                            }
+                          : prev
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTH_OPTIONS.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          className="text-xs"
+                        >
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Remarks</label>
+                  <Textarea
+                    className="min-h-[100px] text-xs"
+                    placeholder="Write manager evaluation or feedback here…"
+                    value={remarkDialog.value}
+                    onChange={(e) =>
+                      setRemarkDialog((prev) =>
+                        prev ? { ...prev, value: e.target.value } : prev
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRemarkDialog(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={remarkMutation.isPending}
+                  onClick={() =>
+                    remarkMutation.mutate({
+                      month: remarkDialog.month,
+                      remarks: remarkDialog.value,
+                    })
+                  }
+                >
+                  {remarkMutation.isPending ? "Saving…" : "Save Remark"}
+                </Button>
+              </div>
             </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setRemarkDialog((prev) => ({ ...prev, open: false }))
-                }
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={remarkMutation.isPending}
-                onClick={() =>
-                  remarkMutation.mutate({
-                    empId: remarkDialog.employeeId,
-                    monthKey: remarkDialog.month,
-                    remarks: remarkDialog.remarks,
-                  })
-                }
-              >
-                {remarkMutation.isPending ? "Saving..." : "Save Remark"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function ProfileSection({ profile }: { profile: SheetEmployee }) {
+function ProfileSection({
+  profile,
+  canRemark,
+  onAddRemark,
+}: {
+  profile: SheetEmployee;
+  canRemark?: boolean;
+  onAddRemark?: () => void;
+}) {
   return (
     <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-6 pb-3 pt-5">
@@ -981,27 +928,21 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               EMAIL
             </p>
-            <p className="mt-1 break-all text-sm font-bold">
-              {profile.email || "—"}
-            </p>
+            <p className="mt-1 break-all text-sm font-bold">{profile.email || "—"}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               DEPARTMENT
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.department || "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.department || "—"}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               DESIGNATION
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {profile.designation || "—"}
-            </p>
+            <p className="mt-1 text-sm font-bold">{profile.designation || "—"}</p>
           </div>
 
           <div>
@@ -1022,10 +963,24 @@ function ProfileSection({ profile }: { profile: SheetEmployee }) {
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               JOINING DATE
             </p>
-            <p className="mt-1 text-sm font-bold">
-              {formatJoiningDate(profile.joiningDate)}
-            </p>
+            <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
           </div>
+
+          {/* ── 9th Grid Space: Manager Remark Button ── */}
+          {canRemark && onAddRemark ? (
+            <div className="flex flex-col justify-center">
+              <button
+                type="button"
+                onClick={onAddRemark}
+                className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-3 text-xs font-semibold text-primary transition hover:border-primary hover:bg-primary/10"
+              >
+                <MessageSquarePlus className="size-4 shrink-0" />
+                Add Manager Remark
+              </button>
+            </div>
+          ) : (
+            <div />
+          )}
         </div>
       </CardContent>
     </Card>
@@ -1045,6 +1000,9 @@ interface TeamSummary {
   behavior: number;
   overall: number;
 }
+
+type TeamSortField = "name" | "designation" | "production" | "tickets" | "errors" | "attendance" | "behavior";
+type SortOrder = "asc" | "desc";
 
 function TeamSection({
   profile,
@@ -1070,7 +1028,6 @@ function TeamSection({
     performance: SheetPerformance | null;
     calculatedOverall?: number;
     isLeader?: boolean;
-    leaderTag?: string;
   }[];
   teamMonth: string;
   teamYear: string;
@@ -1083,13 +1040,18 @@ function TeamSection({
 }) {
   const isHigherLead = tier >= 3;
 
-  const [searchFilter, setSearchFilter] = useState("");
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<TeamSortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: TeamSortField) => {
     if (sortField === field) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      if (sortOrder === "asc") {
+        setSortOrder("desc");
+      } else {
+        setSortField(null);
+        setSortOrder("asc");
+      }
     } else {
       setSortField(field);
       setSortOrder("asc");
@@ -1097,14 +1059,14 @@ function TeamSection({
   };
 
   const leaderRow = directTeamPerformance.find((item) => item.isLeader);
-  const memberRows = directTeamPerformance.filter((item) => !item.isLeader);
+  const regularMembers = directTeamPerformance.filter((item) => !item.isLeader);
 
   const filteredAndSortedMembers = useMemo(() => {
-    let list = [...memberRows];
+    let result = [...regularMembers];
 
-    if (searchFilter.trim()) {
-      const q = searchFilter.toLowerCase().trim();
-      list = list.filter(
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
         (item) =>
           item.employee.name?.toLowerCase().includes(q) ||
           item.employee.designation?.toLowerCase().includes(q)
@@ -1112,72 +1074,47 @@ function TeamSection({
     }
 
     if (sortField) {
-      list.sort((a, b) => {
-        let valA: any = 0;
-        let valB: any = 0;
+      result.sort((a, b) => {
+        let valA = 0;
+        let valB = 0;
 
-        if (sortField === "name") {
-          valA = a.employee.name || "";
-          valB = b.employee.name || "";
-          return sortOrder === "asc"
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        }
-
-        if (sortField === "designation") {
-          valA = a.employee.designation || "";
-          valB = b.employee.designation || "";
-          return sortOrder === "asc"
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        }
-
-        if (sortField === "production") {
-          valA = safeNumber(a.performance?.productionActual);
-          valB = safeNumber(b.performance?.productionActual);
-        } else if (sortField === "tickets") {
-          valA = safeNumber(a.performance?.ticketActual);
-          valB = safeNumber(b.performance?.ticketActual);
-        } else if (sortField === "errors") {
-          valA = safeNumber(a.performance?.errorActual);
-          valB = safeNumber(b.performance?.errorActual);
-        } else if (sortField === "attendance") {
-          valA = safeNumber(a.performance?.attendance);
-          valB = safeNumber(b.performance?.attendance);
-        } else if (sortField === "behavior") {
-          valA = safeNumber(a.performance?.behavior);
-          valB = safeNumber(b.performance?.behavior);
+        switch (sortField) {
+          case "name":
+            return sortOrder === "asc"
+              ? (a.employee.name ?? "").localeCompare(b.employee.name ?? "")
+              : (b.employee.name ?? "").localeCompare(a.employee.name ?? "");
+          case "designation":
+            return sortOrder === "asc"
+              ? (a.employee.designation ?? "").localeCompare(b.employee.designation ?? "")
+              : (b.employee.designation ?? "").localeCompare(a.employee.designation ?? "");
+          case "production":
+            valA = safeNumber(a.performance?.productionActual);
+            valB = safeNumber(b.performance?.productionActual);
+            break;
+          case "tickets":
+            valA = safeNumber(a.performance?.ticketActual);
+            valB = safeNumber(b.performance?.ticketActual);
+            break;
+          case "errors":
+            valA = safeNumber(a.performance?.errorActual);
+            valB = safeNumber(b.performance?.errorActual);
+            break;
+          case "attendance":
+            valA = safeNumber(a.performance?.attendance);
+            valB = safeNumber(b.performance?.attendance);
+            break;
+          case "behavior":
+            valA = safeNumber(a.performance?.behavior);
+            valB = safeNumber(b.performance?.behavior);
+            break;
         }
 
         return sortOrder === "asc" ? valA - valB : valB - valA;
       });
     }
 
-    return list;
-  }, [memberRows, searchFilter, sortField, sortOrder]);
-
-  const showLeader =
-    leaderRow &&
-    (!searchFilter.trim() ||
-      leaderRow.employee.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      leaderRow.employee.designation
-        ?.toLowerCase()
-        .includes(searchFilter.toLowerCase()));
-
-  const displayRows = showLeader
-    ? [leaderRow, ...filteredAndSortedMembers]
-    : filteredAndSortedMembers;
-
-  const renderSortIcon = (field: string) => {
-    if (sortField === field) {
-      return sortOrder === "asc" ? (
-        <ArrowUp className="size-3.5 text-primary" />
-      ) : (
-        <ArrowDown className="size-3.5 text-primary" />
-      );
-    }
-    return <ArrowUpDown className="size-3.5 opacity-40 group-hover:opacity-100" />;
-  };
+    return result;
+  }, [regularMembers, searchQuery, sortField, sortOrder]);
 
   return (
     <Card className="border border-border/70 shadow-sm">
@@ -1284,7 +1221,6 @@ function TeamSection({
           </div>
         )}
 
-        {/* TEAM LEADERS / TEAM MEMBERS TABLE */}
         <div>
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1305,19 +1241,18 @@ function TeamSection({
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
               <Input
+                type="text"
                 placeholder="Filter by name / designation..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
 
-          {displayRows.length === 0 ? (
+          {directTeamPerformance.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center">
-              <p className="text-xs text-muted-foreground">
-                No matching team members found.
-              </p>
+              <p className="text-xs text-muted-foreground">No direct subordinates found.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/70">
@@ -1325,176 +1260,162 @@ function TeamSection({
                 <TableHeader>
                   <TableRow className="border-b border-border/60 hover:bg-transparent">
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("name")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Name</span>
-                        {renderSortIcon("name")}
+                      <div className="flex items-center gap-1">
+                        Name <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("designation")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Designation</span>
-                        {renderSortIcon("designation")}
+                      <div className="flex items-center gap-1">
+                        Designation <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("production")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Production</span>
-                        {renderSortIcon("production")}
+                      <div className="flex items-center gap-1">
+                        Production <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("tickets")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Tickets</span>
-                        {renderSortIcon("tickets")}
+                      <div className="flex items-center gap-1">
+                        Tickets <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("errors")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Errors</span>
-                        {renderSortIcon("errors")}
+                      <div className="flex items-center gap-1">
+                        Errors <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("attendance")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Attendance</span>
-                        {renderSortIcon("attendance")}
+                      <div className="flex items-center gap-1">
+                        Attendance <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     <TableHead
-                      className="group cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground"
                       onClick={() => handleSort("behavior")}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>Behavior</span>
-                        {renderSortIcon("behavior")}
+                      <div className="flex items-center gap-1">
+                        Behavior <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-
                     {isHigherLead && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                  {displayRows.map(
-                    ({ employee, performance, isLeader, leaderTag }) => (
-                      <TableRow
-                        key={employee.employeeId}
-                        className={cn(
-                          isLeader
-                            ? "bg-primary/[0.05] font-medium border-b border-border/60 hover:bg-primary/[0.08]"
-                            : isHigherLead
-                            ? "cursor-pointer border-b border-border/40 hover:bg-muted/50"
-                            : "border-b border-border/40 hover:bg-muted/30"
-                        )}
-                        onClick={() => {
-                          if (
-                            !isLeader &&
-                            isHigherLead &&
-                            onSelectMember &&
-                            employee.employeeId
-                          ) {
-                            onSelectMember(employee.employeeId);
-                          }
-                        }}
-                      >
-                        <TableCell className="py-3 text-xs font-semibold">
-                          <div className="flex items-center gap-2">
-                            <span>{employee.name}</span>
-                            {isLeader && (
-                              <Badge
-                                variant="outline"
-                                className="bg-primary/10 text-primary border-primary/30 text-[10px] px-1.5 py-0 h-4.5 font-bold uppercase tracking-wider"
-                              >
-                                {leaderTag || "TL"}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs text-muted-foreground">
-                          {employee.designation || "—"}
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs">
-                          {performance
-                            ? `${formatScore(
-                                performance.productionActual
-                              )} / ${formatScore(
-                                performance.productionTarget
-                              )}`
-                            : "—"}
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs">
-                          {performance
-                            ? `${formatScore(
-                                performance.ticketActual
-                              )} / ${formatScore(
-                                performance.ticketTarget
-                              )}`
-                            : "—"}
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs">
-                          {performance
-                            ? `${formatScore(
-                                performance.errorActual
-                              )} / ${formatScore(
-                                performance.errorTarget
-                              )}`
-                            : "—"}
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs">
-                          {performance
-                            ? `${safeNumber(
-                                performance.attendance
-                              ).toFixed(1)}/10`
-                            : "—"}
-                        </TableCell>
-
-                        <TableCell className="py-3 text-xs">
-                          {performance
-                            ? `${safeNumber(
-                                performance.behavior
-                              ).toFixed(1)}/5`
-                            : "—"}
-                        </TableCell>
-
-                        {isHigherLead && (
-                          <TableCell className="py-3">
-                            {!isLeader && (
-                              <ChevronRight className="size-4 text-muted-foreground" />
-                            )}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    )
+                  {/* Pinned TL Leader Row */}
+                  {leaderRow && (
+                    <TableRow className="border-b-2 border-primary/20 bg-primary/5 font-medium">
+                      <TableCell className="py-3 text-xs font-bold">
+                        <div className="flex items-center gap-1.5">
+                          <span>{leaderRow.employee.name}</span>
+                          <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-primary">
+                            {normalizeText(leaderRow.employee.designation).includes("assistant") ? "ATL" : "TL"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {leaderRow.employee.designation || "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {leaderRow.performance
+                          ? `${formatScore(leaderRow.performance.productionActual)} / ${formatScore(leaderRow.performance.productionTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {leaderRow.performance
+                          ? `${formatScore(leaderRow.performance.ticketActual)} / ${formatScore(leaderRow.performance.ticketTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {leaderRow.performance
+                          ? `${formatScore(leaderRow.performance.errorActual)} / ${formatScore(leaderRow.performance.errorTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {leaderRow.performance
+                          ? `${formatScore(leaderRow.performance.attendance, 1)}/10`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {leaderRow.performance
+                          ? `${formatScore(leaderRow.performance.behavior, 1)}/5`
+                          : "—"}
+                      </TableCell>
+                      {isHigherLead && <TableCell className="py-3" />}
+                    </TableRow>
                   )}
+
+                  {/* Filtered & Sorted Team Members */}
+                  {filteredAndSortedMembers.map(({ employee, performance }) => (
+                    <TableRow
+                      key={employee.employeeId}
+                      className={
+                        isHigherLead
+                          ? "cursor-pointer border-b border-border/40 hover:bg-muted/50"
+                          : "border-b border-border/40 hover:bg-muted/30"
+                      }
+                      onClick={() => {
+                        if (isHigherLead && onSelectMember && employee.employeeId) {
+                          onSelectMember(employee.employeeId);
+                        }
+                      }}
+                    >
+                      <TableCell className="py-3 text-xs font-semibold">
+                        {employee.name}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {employee.designation || "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {performance
+                          ? `${formatScore(performance.productionActual)} / ${formatScore(performance.productionTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {performance
+                          ? `${formatScore(performance.ticketActual)} / ${formatScore(performance.ticketTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {performance
+                          ? `${formatScore(performance.errorActual)} / ${formatScore(performance.errorTarget)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {performance
+                          ? `${formatScore(performance.attendance, 1)}/10`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        {performance
+                          ? `${formatScore(performance.behavior, 1)}/5`
+                          : "—"}
+                      </TableCell>
+                      {isHigherLead && (
+                        <TableCell className="py-3">
+                          <ChevronRight className="size-4 text-muted-foreground" />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -1520,34 +1441,20 @@ function TeamMetricCard({
   suffix: string;
   decimals?: boolean;
 }) {
-  const formatVal = (num: number) => {
-    if (!Number.isFinite(num)) return "0";
-    if (decimals) {
-      return num.toFixed(1);
-    }
-    if (Number.isInteger(num)) {
-      return String(num);
-    }
-    return Number(num.toFixed(2)).toString();
-  };
-
   return (
     <div className="rounded-xl border border-border/70 bg-card p-3.5 shadow-none">
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </div>
-
       <div className="mt-2 text-xl font-bold tracking-tight text-foreground">
-        {formatVal(value)}
-
+        {formatScore(value, decimals ? 1 : 2)}
         {secondaryValue !== undefined && (
           <span className="text-sm font-normal text-muted-foreground">
             {" / "}
-            {formatVal(secondaryValue)}
+            {formatScore(secondaryValue, decimals ? 1 : 2)}
           </span>
         )}
-
         {suffix}
       </div>
     </div>
@@ -1557,72 +1464,213 @@ function TeamMetricCard({
 function EmployeePerformanceTable({
   performanceList,
   availableYears,
-  canEditRemarks,
-  onOpenRemarkModal,
+  canRemark,
+  onEditRemark,
 }: {
   performanceList: SheetPerformance[];
   availableYears: string[];
-  canEditRemarks?: boolean;
-  onOpenRemarkModal: (item: {
-    employeeId: string;
-    month: string;
-    currentRemark: string;
-  }) => void;
+  canRemark?: boolean;
+  onEditRemark?: (month: string, currentVal: string) => void;
 }) {
   const [yearFilter, setYearFilter] = useState("all");
+  const [rangeFrom, setRangeFrom] = useState<string | null>(null);
+  const [rangeTo, setRangeTo] = useState<string | null>(null);
+  const [cumulativeMode, setCumulativeMode] = useState(false);
 
-  const history = useMemo(() => {
+  const currentMonthKey = getCurrentMonthKey();
+
+  const allMonths = useMemo(() => {
     const filtered =
       yearFilter === "all"
         ? performanceList
         : performanceList.filter(
             (item) => String(item.month ?? "").slice(0, 4) === yearFilter
           );
-
     return [...filtered].sort((a, b) =>
       String(a.month ?? "").localeCompare(String(b.month ?? ""))
     );
   }, [performanceList, yearFilter]);
 
-  const currentMonthKey = getCurrentMonthKey();
+  const availableMonths = useMemo(
+    () =>
+      allMonths.map((row) => ({
+        key: String(row.month ?? "").slice(0, 7),
+        label: monthToLabel(String(row.month ?? "").slice(0, 7)),
+      })),
+    [allMonths]
+  );
+
+  const history = useMemo(() => {
+    if (!cumulativeMode) return allMonths;
+    const from = rangeFrom ?? availableMonths[0]?.key ?? null;
+    const to = rangeTo ?? availableMonths[availableMonths.length - 1]?.key ?? null;
+    if (!from || !to) return allMonths;
+    return allMonths.filter((row) => {
+      const m = String(row.month ?? "").slice(0, 7);
+      return m >= from && m <= to;
+    });
+  }, [allMonths, cumulativeMode, rangeFrom, rangeTo, availableMonths]);
+
+  const cumulative = useMemo(() => {
+    if (!cumulativeMode || history.length === 0) return null;
+    const prodActual = history.reduce((s, r) => s + safeNumber(r.productionActual), 0);
+    const prodTarget = history.reduce((s, r) => s + safeNumber(r.productionTarget), 0);
+    const tickActual = history.reduce((s, r) => s + safeNumber(r.ticketActual), 0);
+    const tickTarget = history.reduce((s, r) => s + safeNumber(r.ticketTarget), 0);
+    const errActual = history.reduce((s, r) => s + safeNumber(r.errorActual), 0);
+    const errTarget = history.reduce((s, r) => s + safeNumber(r.errorTarget), 0);
+    const attendance =
+      history.reduce((s, r) => s + safeNumber(r.attendance), 0) / history.length;
+    const behavior =
+      history.reduce((s, r) => s + safeNumber(r.behavior), 0) / history.length;
+
+    return {
+      prodActual,
+      prodTarget,
+      tickActual,
+      tickTarget,
+      errActual,
+      errTarget,
+      attendance,
+      behavior,
+    };
+  }, [cumulativeMode, history]);
 
   return (
     <Card className="border border-border/70 shadow-sm">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-bold">
-              Personal Performance
-            </CardTitle>
+            <CardTitle className="text-sm font-bold">Personal Performance</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Monthly performance history and manager feedback.
+              Monthly performance history.
             </CardDescription>
           </div>
 
-          {availableYears.length > 0 && (
-            <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue placeholder="Year" />
+          <div className="flex flex-wrap items-center gap-2">
+            {availableYears.length > 0 && (
+              <Select value={yearFilter} onValueChange={setYearFilter}>
+                <SelectTrigger className="h-8 w-[110px] text-xs">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button
+              variant={cumulativeMode ? "default" : "outline"}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setCumulativeMode((v) => !v)}
+            >
+              {cumulativeMode ? "Cumulative ON" : "Cumulative Range"}
+            </Button>
+          </div>
+        </div>
+
+        {cumulativeMode && availableMonths.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2">
+            <span className="text-xs font-semibold text-primary">Range:</span>
+
+            <Select
+              value={rangeFrom ?? availableMonths[0]?.key ?? ""}
+              onValueChange={setRangeFrom}
+            >
+              <SelectTrigger className="h-7 w-[140px] text-xs">
+                <SelectValue placeholder="From Month" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}
+                {availableMonths.map((m) => (
+                  <SelectItem key={m.key} value={m.key} className="text-xs">
+                    {m.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-        </div>
+
+            <span className="text-xs text-muted-foreground">→</span>
+
+            <Select
+              value={rangeTo ?? availableMonths[availableMonths.length - 1]?.key ?? ""}
+              onValueChange={setRangeTo}
+            >
+              <SelectTrigger className="h-7 w-[140px] text-xs">
+                <SelectValue placeholder="To Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMonths.map((m) => (
+                  <SelectItem key={m.key} value={m.key} className="text-xs">
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent>
+        {cumulativeMode && cumulative && (
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:grid-cols-6">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Production
+              </p>
+              <p className="mt-0.5 text-sm font-bold">
+                {formatScore(cumulative.prodActual)} / {formatScore(cumulative.prodTarget)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Tickets
+              </p>
+              <p className="mt-0.5 text-sm font-bold">
+                {formatScore(cumulative.tickActual)} / {formatScore(cumulative.tickTarget)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Errors
+              </p>
+              <p className="mt-0.5 text-sm font-bold">
+                {formatScore(cumulative.errActual)} / {formatScore(cumulative.errTarget)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Attendance
+              </p>
+              <p className="mt-0.5 text-sm font-bold">
+                {formatScore(cumulative.attendance, 1)}/10
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Behavior
+              </p>
+              <p className="mt-0.5 text-sm font-bold">
+                {formatScore(cumulative.behavior, 1)}/5
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Months Included
+              </p>
+              <p className="mt-0.5 text-sm font-bold">{history.length}</p>
+            </div>
+          </div>
+        )}
+
         {history.length === 0 ? (
           <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No performance data available.
-            </p>
+            <p className="text-sm text-muted-foreground">No performance data available.</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/70">
@@ -1657,7 +1705,6 @@ function EmployeePerformanceTable({
                 {history.map((performance) => {
                   const month = String(performance.month ?? "").slice(0, 7);
                   const isCurrent = month === currentMonthKey;
-                  const remarksText = performance.managerRemarks?.trim();
 
                   return (
                     <TableRow
@@ -1691,41 +1738,29 @@ function EmployeePerformanceTable({
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.attendance).toFixed(1)}/10
+                        {formatScore(performance.attendance, 1)}/10
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap py-3 text-xs">
-                        {safeNumber(performance.behavior).toFixed(1)}/5
+                        {formatScore(performance.behavior, 1)}/5
                       </TableCell>
 
-                      <TableCell className="min-w-[220px] max-w-[340px] py-2 text-xs">
+                      <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs">
                         <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={cn(
-                              "truncate",
-                              remarksText
-                                ? "text-foreground font-medium"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {remarksText || "—"}
+                          <span className="truncate text-muted-foreground">
+                            {performance.managerRemarks?.trim() || "—"}
                           </span>
-                          {canEditRemarks && (
+                          {canRemark && onEditRemark && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-[11px] text-primary hover:bg-primary/10 shrink-0"
+                              className="h-6 px-1.5 text-[10px] text-primary"
                               onClick={() =>
-                                onOpenRemarkModal({
-                                  employeeId: performance.employeeId,
-                                  month,
-                                  currentRemark:
-                                    performance.managerRemarks || "",
-                                })
+                                onEditRemark(month, performance.managerRemarks ?? "")
                               }
                             >
                               <Pencil className="mr-1 size-3" />
-                              {remarksText ? "Edit" : "Add Remark"}
+                              Edit
                             </Button>
                           )}
                         </div>
@@ -1754,25 +1789,10 @@ function EditForm({
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const deptQ = useQuery({
-    queryKey: ["departments"],
-    queryFn: listDepartments,
-  });
-
-  const desigQ = useQuery({
-    queryKey: ["designations"],
-    queryFn: listDesignations,
-  });
-
-  const locQ = useQuery({
-    queryKey: ["locations"],
-    queryFn: listLocations,
-  });
-
-  const leadQ = useQuery({
-    queryKey: ["teamLeads"],
-    queryFn: listTeamLeads,
-  });
+  const deptQ = useQuery({ queryKey: ["departments"], queryFn: listDepartments });
+  const desigQ = useQuery({ queryKey: ["designations"], queryFn: listDesignations });
+  const locQ = useQuery({ queryKey: ["locations"], queryFn: listLocations });
+  const leadQ = useQuery({ queryKey: ["teamLeads"], queryFn: listTeamLeads });
 
   const [updatedEmployeeId, setUpdatedEmployeeId] = useState(
     initial.employeeId ?? employeeId
@@ -1790,10 +1810,7 @@ function EditForm({
     mutationFn: () =>
       adminUpdateEmployee(user!.email, employeeId, {
         ...(user?.role === "super_admin"
-          ? {
-              employeeId: updatedEmployeeId,
-              email,
-            }
+          ? { employeeId: updatedEmployeeId, email }
           : {}),
         department,
         designation,
@@ -1803,26 +1820,17 @@ function EditForm({
       }),
     onSuccess: async () => {
       await Promise.all([
-        qc.refetchQueries({
-          queryKey: ["employeeDetail", employeeId],
-        }),
-        qc.refetchQueries({
-          queryKey: ["employees"],
-        }),
-        qc.refetchQueries({
-          queryKey: ["performance"],
-        }),
-        qc.refetchQueries({
-          queryKey: ["teamLeads"],
-        }),
+        qc.refetchQueries({ queryKey: ["employeeDetail", employeeId] }),
+        qc.refetchQueries({ queryKey: ["employees"] }),
+        qc.refetchQueries({ queryKey: ["performance"] }),
+        qc.refetchQueries({ queryKey: ["teamLeads"] }),
       ]);
       toast.success("Employee updated");
       onDone();
     },
     onError: (error) => {
       toast.error("Update failed", {
-        description:
-          error instanceof Error ? error.message : String(error),
+        description: error instanceof Error ? error.message : String(error),
       });
     },
   });
@@ -1882,21 +1890,18 @@ function EditForm({
             onChange={setDepartment}
             options={deptQ.data ?? []}
           />
-
           <Picker
             label="Designation"
             value={designation}
             onChange={setDesignation}
             options={desigQ.data ?? []}
           />
-
           <Picker
             label="Team Lead"
             value={teamLead}
             onChange={setTeamLead}
             options={leadQ.data ?? []}
           />
-
           <Picker
             label="Location"
             value={location}
@@ -1953,9 +1958,9 @@ function Picker({
           <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
-          {uniqueOptions.map((option) => (
-            <SelectItem key={option} value={option} className="text-xs">
-              {option}
+          {uniqueOptions.map((opt) => (
+            <SelectItem key={opt} value={opt} className="text-xs">
+              {opt}
             </SelectItem>
           ))}
         </SelectContent>
