@@ -15,7 +15,19 @@ import {
   addDesignation,
   listLocations,
   addLocation,
+  listKPIWeightages,
+  updateKPIWeightages,
+  type KPIWeightage,
 } from "@/lib/sheetsApi";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { CheckCircle2, AlertCircle, Save } from "lucide-react";
 
 export const Route = createFileRoute("/_app/admin/lists")({
   component: ManageLists,
@@ -31,9 +43,11 @@ function ManageLists() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Manage Lists</h2>
         <p className="text-sm text-muted-foreground">
-          Maintain the lookup values used across the app.
+          Maintain lookup values and KPI weightage configurations.
         </p>
       </div>
+
+      <KPIWeightageSection userEmail={user.email} />
 
       <ListSection
         title="Departments"
@@ -60,6 +74,295 @@ function ManageLists() {
         placeholder="e.g. Mumbai"
       />
     </div>
+  );
+}
+
+function KPIWeightageSection({ userEmail }: { userEmail: string }) {
+  const qc = useQueryClient();
+
+  const q = useQuery({
+    queryKey: ["kpiWeightages", userEmail],
+    queryFn: () => listKPIWeightages(userEmail),
+  });
+
+  const [selectedMonth, setSelectedMonth] = useState("DEFAULT");
+  const [customMonth, setCustomMonth] = useState("");
+  const [production, setProduction] = useState("50");
+  const [tickets, setTickets] = useState("15");
+  const [errors, setErrors] = useState("15");
+  const [attendance, setAttendance] = useState("10");
+  const [behavior, setBehavior] = useState("10");
+
+  const effectiveMonth = selectedMonth === "custom" ? customMonth.trim() : selectedMonth;
+
+  const numProd = Number(production) || 0;
+  const numTickets = Number(tickets) || 0;
+  const numErrors = Number(errors) || 0;
+  const numAtt = Number(attendance) || 0;
+  const numBeh = Number(behavior) || 0;
+  const total = numProd + numTickets + numErrors + numAtt + numBeh;
+  const isValidTotal = total === 100;
+
+  const handleSelectMonth = (m: string) => {
+    setSelectedMonth(m);
+    const existing = (q.data ?? []).find(
+      (item) => item.month.toUpperCase() === m.toUpperCase()
+    );
+    if (existing) {
+      setProduction(String(existing.production));
+      setTickets(String(existing.tickets));
+      setErrors(String(existing.errors));
+      setAttendance(String(existing.attendance));
+      setBehavior(String(existing.behavior));
+    }
+  };
+
+  const handleEditRow = (item: KPIWeightage) => {
+    setSelectedMonth(item.month);
+    setProduction(String(item.production));
+    setTickets(String(item.tickets));
+    setErrors(String(item.errors));
+    setAttendance(String(item.attendance));
+    setBehavior(String(item.behavior));
+  };
+
+  const m = useMutation({
+    mutationFn: () => {
+      if (!effectiveMonth) {
+        throw new Error("Month is required.");
+      }
+      if (!isValidTotal) {
+        throw new Error(`Total weightage must be exactly 100%. Current total is ${total}%.`);
+      }
+      return updateKPIWeightages(userEmail, {
+        month: effectiveMonth,
+        production: numProd,
+        tickets: numTickets,
+        errors: numErrors,
+        attendance: numAtt,
+        behavior: numBeh,
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["kpiWeightages"] }),
+        qc.refetchQueries({ queryKey: ["performance"] }),
+        qc.refetchQueries({ queryKey: ["myDashboard"] }),
+        qc.refetchQueries({ queryKey: ["employeeDetail"] }),
+      ]);
+      toast.success(`KPI Weightage for ${effectiveMonth} updated and ratings recalculated.`);
+      if (selectedMonth === "custom") {
+        setSelectedMonth(customMonth.trim());
+        setCustomMonth("");
+      }
+    },
+    onError: (e) =>
+      toast.error("Failed to save KPI weightages", {
+        description: e instanceof Error ? e.message : String(e),
+      }),
+  });
+
+  return (
+    <Card className="border border-primary/20 bg-card">
+      <CardHeader>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-lg font-bold">KPI Weightage</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Configure weightages for monthly performance scoring. Total must equal 100%.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {isValidTotal ? (
+              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                <CheckCircle2 className="mr-1 size-3.5" /> Total: 100%
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="font-semibold">
+                <AlertCircle className="mr-1 size-3.5" /> Total: {total}% (Must be 100%)
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+              <label className="text-xs font-semibold text-muted-foreground">Month / Config</label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={selectedMonth}
+                onChange={(e) => handleSelectMonth(e.target.value)}
+              >
+                <option value="DEFAULT">DEFAULT (Fallback)</option>
+                {(q.data ?? [])
+                  .filter((item) => item.month.toUpperCase() !== "DEFAULT")
+                  .map((item) => (
+                    <option key={item.month} value={item.month}>
+                      {item.month}
+                    </option>
+                  ))}
+                <option value="custom">+ New Month (YYYY-MM)...</option>
+              </select>
+            </div>
+
+            {selectedMonth === "custom" && (
+              <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                <label className="text-xs font-semibold text-muted-foreground">Custom Month</label>
+                <Input
+                  placeholder="e.g. 2026-09"
+                  value={customMonth}
+                  onChange={(e) => setCustomMonth(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Production (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={production}
+                onChange={(e) => setProduction(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Tickets (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tickets}
+                onChange={(e) => setTickets(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Errors (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={errors}
+                onChange={(e) => setErrors(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Attendance (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={attendance}
+                onChange={(e) => setAttendance(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Behavior (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={behavior}
+                onChange={(e) => setBehavior(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="text-xs text-muted-foreground">
+              Target: <span className="font-medium text-foreground">{effectiveMonth || "—"}</span> &nbsp;|&nbsp; Total: <span className={isValidTotal ? "font-bold text-emerald-600" : "font-bold text-destructive"}>{total}%</span>
+            </div>
+            <Button
+              size="sm"
+              disabled={m.isPending || !isValidTotal || !effectiveMonth}
+              onClick={() => m.mutate()}
+              className="gap-1.5"
+            >
+              <Save className="size-3.5" />
+              {m.isPending ? "Saving & Recalculating..." : `Save Weightages for ${effectiveMonth}`}
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Configured Monthly Weightages
+          </h4>
+          {q.isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-xs font-semibold">Month</TableHead>
+                    <TableHead className="text-xs font-semibold">Production</TableHead>
+                    <TableHead className="text-xs font-semibold">Customer Tickets</TableHead>
+                    <TableHead className="text-xs font-semibold">Errors / Rejection</TableHead>
+                    <TableHead className="text-xs font-semibold">Attendance</TableHead>
+                    <TableHead className="text-xs font-semibold">Behavior</TableHead>
+                    <TableHead className="text-xs font-semibold">Total</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(q.data ?? []).map((item) => (
+                    <TableRow key={item.month} className="hover:bg-muted/40">
+                      <TableCell className="font-bold text-xs">
+                        {item.month === "DEFAULT" ? (
+                          <Badge variant="outline" className="font-bold">DEFAULT</Badge>
+                        ) : (
+                          item.month
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">{item.production}%</TableCell>
+                      <TableCell className="text-xs">{item.tickets}%</TableCell>
+                      <TableCell className="text-xs">{item.errors}%</TableCell>
+                      <TableCell className="text-xs">{item.attendance}%</TableCell>
+                      <TableCell className="text-xs">{item.behavior}%</TableCell>
+                      <TableCell className="text-xs font-semibold text-emerald-600">{item.total}%</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs font-medium text-primary"
+                          onClick={() => handleEditRow(item)}
+                        >
+                          Edit
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(q.data ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-4">
+                        No weightages found. Default 50/15/15/10/10 will be used.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
