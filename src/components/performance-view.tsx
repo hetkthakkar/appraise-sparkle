@@ -307,7 +307,7 @@ export function PerformanceView({
                     </TableHead>
 
                     <TableHead>
-                      Errors / Rejections
+                      Errors
                     </TableHead>
 
                     <TableHead>
