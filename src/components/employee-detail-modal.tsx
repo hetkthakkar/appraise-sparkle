@@ -85,6 +85,8 @@ import {
   type TeamHierarchyNode,
 } from "@/lib/sheetsApi";
 
+import { RatingBadge } from "@/components/performance-view";
+
 interface Props {
   employeeId: string | null;
   onOpenChange: (open: boolean) => void;
@@ -483,15 +485,7 @@ export function EmployeeDetailModal({
           const attendance = subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / subRows.length;
           const behavior = subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / subRows.length;
 
-          const production = productionTarget > 0 ? Math.round((productionActual / productionTarget) * 100) : 0;
-          const tickets = ticketTarget > 0 ? Math.round((ticketActual / ticketTarget) * 100) : 0;
-          const quality = errorTarget <= 0
-            ? errorActual <= 0 ? 100 : 0
-            : Math.max(0, Math.round(100 - (errorActual / errorTarget) * 100));
-
-          const attendanceP = Math.round((attendance / 10) * 100);
-          const behaviorP = Math.round((behavior / 5) * 100);
-          const overall = Math.round((production + tickets + quality + attendanceP + behaviorP) / 5);
+          const latestWithRating = subRows.find((r) => r.performanceRating);
 
           return {
             employee,
@@ -506,8 +500,9 @@ export function EmployeeDetailModal({
               errorActual,
               attendance,
               behavior,
+              performanceRating: latestWithRating?.performanceRating,
+              ratingScore: latestWithRating?.ratingScore,
             } as SheetPerformance,
-            calculatedOverall: overall,
             isLeader: false,
           };
         }
@@ -528,6 +523,8 @@ export function EmployeeDetailModal({
         const attendance = memberRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / memberRows.length;
         const behavior = memberRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / memberRows.length;
 
+        const latestWithRating = memberRows.find((r) => r.performanceRating);
+
         return {
           employee,
           performance: {
@@ -541,8 +538,9 @@ export function EmployeeDetailModal({
             errorActual,
             attendance,
             behavior,
+            performanceRating: latestWithRating?.performanceRating,
+            ratingScore: latestWithRating?.ratingScore,
           } as SheetPerformance,
-          calculatedOverall: 0,
           isLeader: false,
         };
       }
@@ -550,7 +548,6 @@ export function EmployeeDetailModal({
       return {
         employee,
         performance: null,
-        calculatedOverall: 0,
         isLeader: false,
       };
     });
@@ -572,6 +569,8 @@ export function EmployeeDetailModal({
         const attendance = leaderRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / leaderRows.length;
         const behavior = leaderRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / leaderRows.length;
 
+        const latestWithRating = leaderRows.find((r) => r.performanceRating);
+
         leaderPerf = {
           month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
           employeeId: profile.employeeId,
@@ -583,13 +582,14 @@ export function EmployeeDetailModal({
           errorActual,
           attendance,
           behavior,
+          performanceRating: latestWithRating?.performanceRating,
+          ratingScore: latestWithRating?.ratingScore,
         } as SheetPerformance;
       }
 
       const leaderItem = {
         employee: profile,
         performance: leaderPerf,
-        calculatedOverall: leaderPerf ? Math.round(overallPercent(leaderPerf)) : 0,
         isLeader: true,
       };
 
@@ -1061,7 +1061,6 @@ function TeamSection({
   directTeamPerformance: {
     employee: SheetEmployee;
     performance: SheetPerformance | null;
-    calculatedOverall?: number;
     isLeader?: boolean;
   }[];
   teamYear: string;
@@ -1392,6 +1391,9 @@ function TeamSection({
                         Behavior <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Performance Rating
+                    </TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -1435,6 +1437,12 @@ function TeamSection({
                         {leaderRow.performance
                           ? `${formatScore(leaderRow.performance.behavior, 1)}/5`
                           : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        <RatingBadge
+                          rating={leaderRow.performance?.performanceRating}
+                          score={leaderRow.performance?.ratingScore}
+                        />
                       </TableCell>
                       <TableCell className="py-3" />
                     </TableRow>
@@ -1488,6 +1496,12 @@ function TeamSection({
                         {performance
                           ? `${formatScore(performance.behavior, 1)}/5`
                           : "—"}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs">
+                        <RatingBadge
+                          rating={performance?.performanceRating}
+                          score={performance?.ratingScore}
+                        />
                       </TableCell>
                       <TableCell className="py-3 text-right">
                         <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5" />
@@ -1623,6 +1637,9 @@ function EmployeePerformanceTable({
                     Behavior
                   </TableHead>
                   <TableHead className="text-xs font-semibold text-muted-foreground">
+                    Performance Rating
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
                     Manager Remarks
                   </TableHead>
                 </TableRow>
@@ -1670,6 +1687,13 @@ function EmployeePerformanceTable({
 
                       <TableCell className="whitespace-nowrap py-3 text-xs">
                         {formatScore(performance.behavior, 1)}/5
+                      </TableCell>
+
+                      <TableCell className="whitespace-nowrap py-3 text-xs">
+                        <RatingBadge
+                          rating={performance.performanceRating}
+                          score={performance.ratingScore}
+                        />
                       </TableCell>
 
                       <TableCell className="min-w-[220px] max-w-[320px] py-3 text-xs">
