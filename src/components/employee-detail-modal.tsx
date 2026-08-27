@@ -62,6 +62,7 @@ import {
   ArrowUpDown,
   Search,
   MessageSquarePlus,
+  CalendarRange,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -261,20 +262,6 @@ function getLatestMonth(rows: SheetPerformance[]): string | null {
   return months[0] ?? null;
 }
 
-function getPerformanceForMonth(
-  rows: SheetPerformance[],
-  employeeId: string,
-  month: string
-): SheetPerformance | null {
-  return (
-    rows.find(
-      (row) =>
-        String(row.employeeId).trim() === String(employeeId).trim() &&
-        String(row.month).slice(0, 7) === month
-    ) ?? null
-  );
-}
-
 function getDescendants(
   manager: SheetEmployee,
   employees: SheetEmployee[]
@@ -337,8 +324,11 @@ export function EmployeeDetailModal({
   const [history, setHistory] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
 
+  // Range and Year filters for Team section
   const [selectedTeamYear, setSelectedTeamYear] = useState<string | null>(null);
-  const [selectedTeamMonthNum, setSelectedTeamMonthNum] = useState<string | null>(null);
+  const [selectedTeamStartMonth, setSelectedTeamStartMonth] = useState<string | null>(null);
+  const [selectedTeamEndMonth, setSelectedTeamEndMonth] = useState<string | null>(null);
+  const [isRangeMode, setIsRangeMode] = useState<boolean>(false);
 
   const [remarkDialog, setRemarkDialog] = useState<{
     open: boolean;
@@ -351,7 +341,9 @@ export function EmployeeDetailModal({
     setHistory([]);
     setEditing(false);
     setSelectedTeamYear(null);
-    setSelectedTeamMonthNum(null);
+    setSelectedTeamStartMonth(null);
+    setSelectedTeamEndMonth(null);
+    setIsRangeMode(false);
     setRemarkDialog(null);
   }, [employeeId]);
 
@@ -391,7 +383,7 @@ export function EmployeeDetailModal({
 
   const performanceRows = performanceQ.data ?? [];
 
-  const teamMonth = useMemo(() => {
+  const defaultMonthKey = useMemo(() => {
     if (!teamEmployees.length) return getCurrentMonthKey();
 
     const teamIds = new Set(teamEmployees.map((e) => String(e.employeeId)));
@@ -408,10 +400,10 @@ export function EmployeeDetailModal({
     return getLatestMonth(teamRows) ?? current;
   }, [teamEmployees, performanceRows]);
 
-  const [defaultTeamYear, defaultTeamMonthNum] = teamMonth.split("-");
-  const effectiveTeamYear = selectedTeamYear ?? defaultTeamYear;
-  const effectiveTeamMonthNum = selectedTeamMonthNum ?? defaultTeamMonthNum;
-  const effectiveTeamMonth = `${effectiveTeamYear}-${effectiveTeamMonthNum}`;
+  const [defaultYear, defaultMonthNum] = defaultMonthKey.split("-");
+  const effectiveTeamYear = selectedTeamYear ?? defaultYear;
+  const effectiveStartMonthNum = selectedTeamStartMonth ?? defaultMonthNum;
+  const effectiveEndMonthNum = isRangeMode ? (selectedTeamEndMonth ?? effectiveStartMonthNum) : effectiveStartMonthNum;
 
   const availableTeamYears = useMemo(() => {
     const years = new Set<string>();
@@ -423,7 +415,13 @@ export function EmployeeDetailModal({
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [performanceRows]);
 
+  // Aggregate subordinate / member performance across the selected month range
   const directTeamPerformance = useMemo(() => {
+    const startKey = `${effectiveTeamYear}-${effectiveStartMonthNum.padStart(2, "0")}`;
+    const endKey = `${effectiveTeamYear}-${effectiveEndMonthNum.padStart(2, "0")}`;
+    const minMonth = startKey <= endKey ? startKey : endKey;
+    const maxMonth = startKey <= endKey ? endKey : startKey;
+
     const subordinatesList = directReports.map((employee) => {
       const subTier = getRoleTier(employee.designation);
 
@@ -431,69 +429,35 @@ export function EmployeeDetailModal({
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
 
-        const subRows = performanceRows.filter(
-          (r) =>
-            subIds.has(String(r.employeeId)) &&
-            String(r.month).slice(0, 7) === effectiveTeamMonth
-        );
+        const subRows = performanceRows.filter((r) => {
+          const m = String(r.month).slice(0, 7);
+          return subIds.has(String(r.employeeId)) && m >= minMonth && m <= maxMonth;
+        });
 
         if (subRows.length > 0) {
-          const productionTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.productionTarget),
-            0
-          );
-          const productionActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.productionActual),
-            0
-          );
-          const ticketTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.ticketTarget),
-            0
-          );
-          const ticketActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.ticketActual),
-            0
-          );
-          const errorTarget = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.errorTarget),
-            0
-          );
-          const errorActual = subRows.reduce(
-            (sum, row) => sum + safeNumber(row.errorActual),
-            0
-          );
-          const attendance =
-            subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
-            subRows.length;
-          const behavior =
-            subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
-            subRows.length;
+          const productionTarget = subRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+          const productionActual = subRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+          const ticketTarget = subRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+          const ticketActual = subRows.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+          const errorTarget = subRows.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+          const errorActual = subRows.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+          const attendance = subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / subRows.length;
+          const behavior = subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / subRows.length;
 
-          const production =
-            productionTarget > 0
-              ? Math.round((productionActual / productionTarget) * 100)
-              : 0;
-          const tickets =
-            ticketTarget > 0
-              ? Math.round((ticketActual / ticketTarget) * 100)
-              : 0;
-          const quality =
-            errorTarget <= 0
-              ? errorActual <= 0
-                ? 100
-                : 0
-              : Math.max(0, Math.round(100 - (errorActual / errorTarget) * 100));
+          const production = productionTarget > 0 ? Math.round((productionActual / productionTarget) * 100) : 0;
+          const tickets = ticketTarget > 0 ? Math.round((ticketActual / ticketTarget) * 100) : 0;
+          const quality = errorTarget <= 0
+            ? errorActual <= 0 ? 100 : 0
+            : Math.max(0, Math.round(100 - (errorActual / errorTarget) * 100));
 
           const attendanceP = Math.round((attendance / 10) * 100);
           const behaviorP = Math.round((behavior / 5) * 100);
-          const overall = Math.round(
-            (production + tickets + quality + attendanceP + behaviorP) / 5
-          );
+          const overall = Math.round((production + tickets + quality + attendanceP + behaviorP) / 5);
 
           return {
             employee,
             performance: {
-              month: effectiveTeamMonth,
+              month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
               employeeId: employee.employeeId,
               productionTarget,
               productionActual,
@@ -510,35 +474,85 @@ export function EmployeeDetailModal({
         }
       }
 
-      const performance = getPerformanceForMonth(
-        performanceRows,
-        employee.employeeId,
-        effectiveTeamMonth
-      );
+      // Single employee rows across the range
+      const memberRows = performanceRows.filter((r) => {
+        const m = String(r.month).slice(0, 7);
+        return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
+      });
+
+      if (memberRows.length > 0) {
+        const productionTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+        const productionActual = memberRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+        const ticketTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+        const ticketActual = memberRows.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+        const errorTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+        const errorActual = memberRows.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+        const attendance = memberRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / memberRows.length;
+        const behavior = memberRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / memberRows.length;
+
+        return {
+          employee,
+          performance: {
+            month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
+            employeeId: employee.employeeId,
+            productionTarget,
+            productionActual,
+            ticketTarget,
+            ticketActual,
+            errorTarget,
+            errorActual,
+            attendance,
+            behavior,
+          } as SheetPerformance,
+          calculatedOverall: 0,
+          isLeader: false,
+        };
+      }
 
       return {
         employee,
-        performance,
-        calculatedOverall: performance
-          ? Math.round(overallPercent(performance))
-          : 0,
+        performance: null,
+        calculatedOverall: 0,
         isLeader: false,
       };
     });
 
+    // If TL / ATL, prepend their cumulative performance as row #1
     if (tier === 2 && profile) {
-      const leaderPerf = getPerformanceForMonth(
-        performanceRows,
-        profile.employeeId,
-        effectiveTeamMonth
-      );
+      const leaderRows = performanceRows.filter((r) => {
+        const m = String(r.month).slice(0, 7);
+        return String(r.employeeId).trim() === String(profile.employeeId).trim() && m >= minMonth && m <= maxMonth;
+      });
+
+      let leaderPerf: SheetPerformance | null = null;
+      if (leaderRows.length > 0) {
+        const productionTarget = leaderRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+        const productionActual = leaderRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+        const ticketTarget = leaderRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+        const ticketActual = leaderRows.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+        const errorTarget = leaderRows.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+        const errorActual = leaderRows.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+        const attendance = leaderRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / leaderRows.length;
+        const behavior = leaderRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / leaderRows.length;
+
+        leaderPerf = {
+          month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
+          employeeId: profile.employeeId,
+          productionTarget,
+          productionActual,
+          ticketTarget,
+          ticketActual,
+          errorTarget,
+          errorActual,
+          attendance,
+          behavior,
+        } as SheetPerformance;
+      }
 
       const leaderItem = {
         employee: profile,
         performance: leaderPerf,
-        calculatedOverall: leaderPerf
-          ? Math.round(overallPercent(leaderPerf))
-          : 0,
+        calculatedOverall: leaderPerf ? Math.round(overallPercent(leaderPerf)) : 0,
         isLeader: true,
       };
 
@@ -550,7 +564,9 @@ export function EmployeeDetailModal({
     directReports,
     allEmployees,
     performanceRows,
-    effectiveTeamMonth,
+    effectiveTeamYear,
+    effectiveStartMonthNum,
+    effectiveEndMonthNum,
     tier,
     profile,
   ]);
@@ -565,36 +581,14 @@ export function EmployeeDetailModal({
 
     if (rowsToCalculate.length === 0) return null;
 
-    const productionActual = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.productionActual),
-      0
-    );
-    const productionTarget = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.productionTarget),
-      0
-    );
-    const ticketActual = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.ticketActual),
-      0
-    );
-    const ticketTarget = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.ticketTarget),
-      0
-    );
-    const errorActual = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.errorActual),
-      0
-    );
-    const errorTarget = rowsToCalculate.reduce(
-      (sum, row) => sum + safeNumber(row.errorTarget),
-      0
-    );
-    const attendance =
-      rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
-      rowsToCalculate.length;
-    const behavior =
-      rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
-      rowsToCalculate.length;
+    const productionActual = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+    const productionTarget = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+    const ticketActual = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+    const ticketTarget = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+    const errorActual = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+    const errorTarget = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+    const attendance = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / rowsToCalculate.length;
+    const behavior = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rowsToCalculate.length;
 
     return {
       people: directReports.length,
@@ -656,8 +650,7 @@ export function EmployeeDetailModal({
     }
   };
 
-  const canEdit =
-    !!user && (user.role === "super_admin" || user.role === "admin");
+  const canEdit = !!user && (user.role === "super_admin" || user.role === "admin");
 
   const remarkMutation = useMutation({
     mutationFn: ({ month, remarks }: { month: string; remarks: string }) =>
@@ -770,12 +763,15 @@ export function EmployeeDetailModal({
                 directReports={directReports}
                 teamSummary={teamSummary}
                 directTeamPerformance={directTeamPerformance}
-                teamMonth={effectiveTeamMonth}
                 teamYear={effectiveTeamYear}
-                teamMonthNum={effectiveTeamMonthNum}
+                teamStartMonth={effectiveStartMonthNum}
+                teamEndMonth={effectiveEndMonthNum}
+                isRangeMode={isRangeMode}
                 availableTeamYears={availableTeamYears}
                 onTeamYearChange={setSelectedTeamYear}
-                onTeamMonthChange={setSelectedTeamMonthNum}
+                onTeamStartMonthChange={setSelectedTeamStartMonth}
+                onTeamEndMonthChange={setSelectedTeamEndMonth}
+                onToggleRangeMode={setIsRangeMode}
                 performanceLoading={performanceQ.isLoading}
                 onSelectMember={handleSelectDrilldown}
               />
@@ -966,7 +962,7 @@ function ProfileSection({
             <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
           </div>
 
-          {/* ── 9th Grid Space: Manager Remark Button ── */}
+          {/* ── 9th Empty Slot: Add Manager Remark button ── */}
           {canRemark && onAddRemark ? (
             <div className="flex flex-col justify-center">
               <button
@@ -1010,12 +1006,15 @@ function TeamSection({
   directReports,
   teamSummary,
   directTeamPerformance,
-  teamMonth,
   teamYear,
-  teamMonthNum,
+  teamStartMonth,
+  teamEndMonth,
+  isRangeMode,
   availableTeamYears,
   onTeamYearChange,
-  onTeamMonthChange,
+  onTeamStartMonthChange,
+  onTeamEndMonthChange,
+  onToggleRangeMode,
   performanceLoading,
   onSelectMember,
 }: {
@@ -1029,12 +1028,15 @@ function TeamSection({
     calculatedOverall?: number;
     isLeader?: boolean;
   }[];
-  teamMonth: string;
   teamYear: string;
-  teamMonthNum: string;
+  teamStartMonth: string;
+  teamEndMonth: string;
+  isRangeMode: boolean;
   availableTeamYears: string[];
   onTeamYearChange: (year: string) => void;
-  onTeamMonthChange: (month: string) => void;
+  onTeamStartMonthChange: (month: string) => void;
+  onTeamEndMonthChange: (month: string) => void;
+  onToggleRangeMode: (active: boolean | ((prev: boolean) => boolean)) => void;
   performanceLoading: boolean;
   onSelectMember?: (id: string) => void;
 }) {
@@ -1116,6 +1118,15 @@ function TeamSection({
     return result;
   }, [regularMembers, searchQuery, sortField, sortOrder]);
 
+  const rangeLabel = useMemo(() => {
+    const startName = MONTH_OPTIONS.find((m) => m.value === teamStartMonth)?.label ?? teamStartMonth;
+    if (!isRangeMode || teamStartMonth === teamEndMonth) {
+      return `${startName} ${teamYear}`;
+    }
+    const endName = MONTH_OPTIONS.find((m) => m.value === teamEndMonth)?.label ?? teamEndMonth;
+    return `${startName} - ${endName} ${teamYear}`;
+  }, [teamStartMonth, teamEndMonth, teamYear, isRangeMode]);
+
   return (
     <Card className="border border-border/70 shadow-sm">
       <CardHeader className="pb-4">
@@ -1129,10 +1140,23 @@ function TeamSection({
             </CardDescription>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Select value={teamMonthNum} onValueChange={onTeamMonthChange}>
-              <SelectTrigger className="h-8 w-[130px] bg-background text-xs">
-                <SelectValue placeholder="Month" />
+          {/* ── Month Range / Single Month and Year Selector ── */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={isRangeMode ? "default" : "outline"}
+              size="sm"
+              className="h-8 px-2.5 text-xs font-semibold"
+              onClick={() => onToggleRangeMode((prev: boolean) => !prev)}
+              title="Toggle cumulative range selection"
+            >
+              <CalendarRange className="mr-1.5 size-3.5" />
+              {isRangeMode ? "Range Mode ON" : "Range"}
+            </Button>
+
+            <Select value={teamStartMonth} onValueChange={onTeamStartMonthChange}>
+              <SelectTrigger className="h-8 w-[115px] bg-background text-xs">
+                <SelectValue placeholder="From Month" />
               </SelectTrigger>
               <SelectContent>
                 {MONTH_OPTIONS.map((m) => (
@@ -1143,8 +1167,26 @@ function TeamSection({
               </SelectContent>
             </Select>
 
+            {isRangeMode && (
+              <>
+                <span className="text-xs font-bold text-muted-foreground">to</span>
+                <Select value={teamEndMonth} onValueChange={onTeamEndMonthChange}>
+                  <SelectTrigger className="h-8 w-[115px] bg-background text-xs">
+                    <SelectValue placeholder="To Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTH_OPTIONS.map((m) => (
+                      <SelectItem key={m.value} value={m.value} className="text-xs">
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
             <Select value={teamYear} onValueChange={onTeamYearChange}>
-              <SelectTrigger className="h-8 w-[90px] bg-background text-xs">
+              <SelectTrigger className="h-8 w-[85px] bg-background text-xs">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -1216,7 +1258,7 @@ function TeamSection({
           <div className="rounded-xl border border-dashed p-6 text-center">
             <p className="text-sm font-medium">No team performance data available.</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              No monthly performance records were found for {monthToLabel(teamMonth)}.
+              No monthly performance records were found for {rangeLabel}.
             </p>
           </div>
         )}
@@ -1233,8 +1275,8 @@ function TeamSection({
               </p>
               <p className="text-[11px] text-muted-foreground">
                 {tier >= 3
-                  ? "Click any team leader to drill down into their team performance."
-                  : "Leader and employees directly reporting to this Team Leader are shown here."}
+                  ? `Showing performance for ${rangeLabel}. Click any team leader to drill down.`
+                  : `Showing performance for ${rangeLabel}. Leader and direct reports are shown here.`}
               </p>
             </div>
 
@@ -1473,13 +1515,9 @@ function EmployeePerformanceTable({
   onEditRemark?: (month: string, currentVal: string) => void;
 }) {
   const [yearFilter, setYearFilter] = useState("all");
-  const [rangeFrom, setRangeFrom] = useState<string | null>(null);
-  const [rangeTo, setRangeTo] = useState<string | null>(null);
-  const [cumulativeMode, setCumulativeMode] = useState(false);
-
   const currentMonthKey = getCurrentMonthKey();
 
-  const allMonths = useMemo(() => {
+  const history = useMemo(() => {
     const filtered =
       yearFilter === "all"
         ? performanceList
@@ -1490,51 +1528,6 @@ function EmployeePerformanceTable({
       String(a.month ?? "").localeCompare(String(b.month ?? ""))
     );
   }, [performanceList, yearFilter]);
-
-  const availableMonths = useMemo(
-    () =>
-      allMonths.map((row) => ({
-        key: String(row.month ?? "").slice(0, 7),
-        label: monthToLabel(String(row.month ?? "").slice(0, 7)),
-      })),
-    [allMonths]
-  );
-
-  const history = useMemo(() => {
-    if (!cumulativeMode) return allMonths;
-    const from = rangeFrom ?? availableMonths[0]?.key ?? null;
-    const to = rangeTo ?? availableMonths[availableMonths.length - 1]?.key ?? null;
-    if (!from || !to) return allMonths;
-    return allMonths.filter((row) => {
-      const m = String(row.month ?? "").slice(0, 7);
-      return m >= from && m <= to;
-    });
-  }, [allMonths, cumulativeMode, rangeFrom, rangeTo, availableMonths]);
-
-  const cumulative = useMemo(() => {
-    if (!cumulativeMode || history.length === 0) return null;
-    const prodActual = history.reduce((s, r) => s + safeNumber(r.productionActual), 0);
-    const prodTarget = history.reduce((s, r) => s + safeNumber(r.productionTarget), 0);
-    const tickActual = history.reduce((s, r) => s + safeNumber(r.ticketActual), 0);
-    const tickTarget = history.reduce((s, r) => s + safeNumber(r.ticketTarget), 0);
-    const errActual = history.reduce((s, r) => s + safeNumber(r.errorActual), 0);
-    const errTarget = history.reduce((s, r) => s + safeNumber(r.errorTarget), 0);
-    const attendance =
-      history.reduce((s, r) => s + safeNumber(r.attendance), 0) / history.length;
-    const behavior =
-      history.reduce((s, r) => s + safeNumber(r.behavior), 0) / history.length;
-
-    return {
-      prodActual,
-      prodTarget,
-      tickActual,
-      tickTarget,
-      errActual,
-      errTarget,
-      attendance,
-      behavior,
-    };
-  }, [cumulativeMode, history]);
 
   return (
     <Card className="border border-border/70 shadow-sm">
@@ -1547,127 +1540,25 @@ function EmployeePerformanceTable({
             </CardDescription>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {availableYears.length > 0 && (
-              <Select value={yearFilter} onValueChange={setYearFilter}>
-                <SelectTrigger className="h-8 w-[110px] text-xs">
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  {availableYears.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Button
-              variant={cumulativeMode ? "default" : "outline"}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => setCumulativeMode((v) => !v)}
-            >
-              {cumulativeMode ? "Cumulative ON" : "Cumulative Range"}
-            </Button>
-          </div>
+          {availableYears.length > 0 && (
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger className="h-8 w-[110px] text-xs">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
-
-        {cumulativeMode && availableMonths.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2">
-            <span className="text-xs font-semibold text-primary">Range:</span>
-
-            <Select
-              value={rangeFrom ?? availableMonths[0]?.key ?? ""}
-              onValueChange={setRangeFrom}
-            >
-              <SelectTrigger className="h-7 w-[140px] text-xs">
-                <SelectValue placeholder="From Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMonths.map((m) => (
-                  <SelectItem key={m.key} value={m.key} className="text-xs">
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <span className="text-xs text-muted-foreground">→</span>
-
-            <Select
-              value={rangeTo ?? availableMonths[availableMonths.length - 1]?.key ?? ""}
-              onValueChange={setRangeTo}
-            >
-              <SelectTrigger className="h-7 w-[140px] text-xs">
-                <SelectValue placeholder="To Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMonths.map((m) => (
-                  <SelectItem key={m.key} value={m.key} className="text-xs">
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </CardHeader>
 
       <CardContent>
-        {cumulativeMode && cumulative && (
-          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:grid-cols-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Production
-              </p>
-              <p className="mt-0.5 text-sm font-bold">
-                {formatScore(cumulative.prodActual)} / {formatScore(cumulative.prodTarget)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Tickets
-              </p>
-              <p className="mt-0.5 text-sm font-bold">
-                {formatScore(cumulative.tickActual)} / {formatScore(cumulative.tickTarget)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Errors
-              </p>
-              <p className="mt-0.5 text-sm font-bold">
-                {formatScore(cumulative.errActual)} / {formatScore(cumulative.errTarget)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Attendance
-              </p>
-              <p className="mt-0.5 text-sm font-bold">
-                {formatScore(cumulative.attendance, 1)}/10
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Behavior
-              </p>
-              <p className="mt-0.5 text-sm font-bold">
-                {formatScore(cumulative.behavior, 1)}/5
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Months Included
-              </p>
-              <p className="mt-0.5 text-sm font-bold">{history.length}</p>
-            </div>
-          </div>
-        )}
-
         {history.length === 0 ? (
           <div className="rounded-xl border border-dashed p-6 text-center">
             <p className="text-sm text-muted-foreground">No performance data available.</p>
