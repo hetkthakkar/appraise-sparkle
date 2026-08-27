@@ -298,7 +298,7 @@ function getDirectReports(
 
     if (managerTier === 4) return true;
     if (managerTier === 3) return subTier === 2;
-    if (managerTier === 2) return true; // Show all direct subordinates (Operators, Executives, etc.)
+    if (managerTier === 2) return true;
 
     return false;
   });
@@ -358,7 +358,6 @@ export function EmployeeDetailModal({
   const profile = detailQ.data?.profile;
   const tier = getRoleTier(profile?.designation);
 
-  // Extract children from hierarchy returned by backend for active employee
   const hierarchyChildren = useMemo(() => {
     const hierarchyNode = detailQ.data?.team?.hierarchy;
     if (!hierarchyNode || !hierarchyNode.children) return [];
@@ -369,7 +368,6 @@ export function EmployeeDetailModal({
     return extractEmployeesFromHierarchy(detailQ.data?.team?.hierarchy);
   }, [detailQ.data]);
 
-  // Combine all employees: employeesQ list + hierarchy nodes
   const allEmployees = useMemo(() => {
     const map = new Map<string, SheetEmployee>();
 
@@ -399,16 +397,13 @@ export function EmployeeDetailModal({
   const directReports = useMemo(() => {
     if (!profile) return [];
 
-    // If backend hierarchy has direct children, use them directly
     if (hierarchyChildren.length > 0) {
       if (tier === 3) {
-        // Head TL -> only sub TLs
         return hierarchyChildren.filter((c) => getRoleTier(c.designation) === 2);
       }
       return hierarchyChildren;
     }
 
-    // Otherwise calculate from all known employees matching team lead name
     const calculated = getDirectReports(profile, allEmployees);
     if (calculated.length > 0) return calculated;
 
@@ -470,7 +465,6 @@ export function EmployeeDetailModal({
       const subTier = getRoleTier(employee.designation);
 
       if (subTier >= 2 && tier >= 3) {
-        // Under Head TL / Manager, aggregate downline of each TL
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
 
@@ -519,7 +513,6 @@ export function EmployeeDetailModal({
         }
       }
 
-      // Member performance rows
       const memberRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
         return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
@@ -562,7 +555,6 @@ export function EmployeeDetailModal({
       };
     });
 
-    // If TL / ATL, prepend their cumulative performance as row #1
     if (tier === 2 && profile) {
       const leaderRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
@@ -1318,8 +1310,8 @@ function TeamSection({
               </p>
               <p className="text-[11px] text-muted-foreground">
                 {tier >= 3
-                  ? `Showing performance for ${rangeLabel}. Click any team leader to drill down.`
-                  : `Showing performance for ${rangeLabel}. Leader and direct reports are shown here.`}
+                  ? `Showing performance for ${rangeLabel}. Click any team leader to drill down into their team.`
+                  : `Showing performance for ${rangeLabel}. Click any member to view details.`}
               </p>
             </div>
 
@@ -1400,7 +1392,7 @@ function TeamSection({
                         Behavior <ArrowUpDown className="size-3" />
                       </div>
                     </TableHead>
-                    {isHigherLead && <TableHead className="w-10" />}
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
 
@@ -1444,27 +1436,30 @@ function TeamSection({
                           ? `${formatScore(leaderRow.performance.behavior, 1)}/5`
                           : "—"}
                       </TableCell>
-                      {isHigherLead && <TableCell className="py-3" />}
+                      <TableCell className="py-3" />
                     </TableRow>
                   )}
 
-                  {/* Subordinate Team Members */}
+                  {/* Subordinate Team Members — ALL CLICKABLE TO DRILL DOWN */}
                   {filteredAndSortedMembers.map(({ employee, performance }) => (
                     <TableRow
                       key={employee.employeeId}
-                      className={
-                        isHigherLead
-                          ? "cursor-pointer border-b border-border/40 hover:bg-muted/50"
-                          : "border-b border-border/40 hover:bg-muted/30"
-                      }
+                      className="cursor-pointer border-b border-border/40 hover:bg-muted/50"
                       onClick={() => {
-                        if (isHigherLead && onSelectMember && employee.employeeId) {
+                        if (onSelectMember && employee.employeeId) {
                           onSelectMember(employee.employeeId);
                         }
                       }}
                     >
-                      <TableCell className="py-3 text-xs font-semibold">
-                        {employee.name}
+                      <TableCell className="py-3 text-xs font-semibold text-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <span>{employee.name}</span>
+                          {getRoleTier(employee.designation) === 2 && (
+                            <span className="rounded bg-secondary px-1 py-0.5 text-[8px] font-bold uppercase text-secondary-foreground">
+                              {normalizeText(employee.designation).includes("assistant") ? "ATL" : "TL"}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="py-3 text-xs text-muted-foreground">
                         {employee.designation || "—"}
@@ -1494,11 +1489,9 @@ function TeamSection({
                           ? `${formatScore(performance.behavior, 1)}/5`
                           : "—"}
                       </TableCell>
-                      {isHigherLead && (
-                        <TableCell className="py-3">
-                          <ChevronRight className="size-4 text-muted-foreground" />
-                        </TableCell>
-                      )}
+                      <TableCell className="py-3 text-right">
+                        <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5" />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
