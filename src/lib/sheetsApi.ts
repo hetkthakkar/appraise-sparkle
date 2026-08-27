@@ -174,6 +174,22 @@ export interface MyDashboard {
 }
 
 // =====================================================
+// HELPERS
+// =====================================================
+
+export function normalizeRole(role: string | null | undefined): Role {
+  const normalized = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "");
+
+  if (normalized === "superadmin") return "super_admin";
+  if (normalized === "admin") return "admin";
+  if (normalized === "user") return "user";
+  return "no_access";
+}
+
+// =====================================================
 // API CALL WRAPPERS
 // =====================================================
 
@@ -186,10 +202,17 @@ export function listUsers(callerEmail: string) {
 }
 
 export function updateUserRole(callerEmail: string, email: string, newRole: Role) {
+  const backendRoleMap: Record<Role, string> = {
+    super_admin: "Super Admin",
+    admin: "Admin",
+    user: "User",
+    no_access: "No Access",
+  };
+
   return callSheetsApi<{ ok: true }>("updateUserRole", {
     callerEmail,
     email,
-    newRole,
+    newRole: backendRoleMap[newRole] || "No Access",
   });
 }
 
