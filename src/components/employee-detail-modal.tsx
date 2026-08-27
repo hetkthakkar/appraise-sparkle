@@ -82,6 +82,7 @@ import {
   updateRemarks,
   type SheetEmployee,
   type SheetPerformance,
+  type TeamHierarchyNode,
 } from "@/lib/sheetsApi";
 
 interface Props {
@@ -195,53 +196,24 @@ function formatScore(val: number | string | undefined | null, maxDecimals = 2): 
   return parseFloat(n.toFixed(maxDecimals)).toString();
 }
 
-function productionPercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  const target = safeNumber(performance.productionTarget);
-  const actual = safeNumber(performance.productionActual);
-  if (target <= 0) return 0;
-  return Math.max(0, Math.min(150, (actual / target) * 100));
-}
-
-function ticketPercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  const target = safeNumber(performance.ticketTarget);
-  const actual = safeNumber(performance.ticketActual);
-  if (target <= 0) return 0;
-  return Math.max(0, Math.min(150, (actual / target) * 100));
-}
-
-function qualityPercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  const target = safeNumber(performance.errorTarget);
-  const actual = safeNumber(performance.errorActual);
-  if (target <= 0) {
-    return actual <= 0 ? 100 : 0;
-  }
-  if (actual <= 0) return 100;
-  return Math.max(0, Math.min(150, (target / actual) * 100));
-}
-
-function attendancePercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  return Math.max(0, Math.min(100, (safeNumber(performance.attendance) / 10) * 100));
-}
-
-function behaviorPercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  return Math.max(0, Math.min(100, (safeNumber(performance.behavior) / 5) * 100));
-}
-
 function overallPercent(performance: SheetPerformance | null | undefined): number {
   if (!performance) return 0;
-  const values = [
-    productionPercent(performance),
-    ticketPercent(performance),
-    qualityPercent(performance),
-    attendancePercent(performance),
-    behaviorPercent(performance),
-  ];
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  const pTarget = safeNumber(performance.productionTarget);
+  const pActual = safeNumber(performance.productionActual);
+  const pScore = pTarget > 0 ? Math.min(150, (pActual / pTarget) * 100) : 0;
+
+  const tTarget = safeNumber(performance.ticketTarget);
+  const tActual = safeNumber(performance.ticketActual);
+  const tScore = tTarget > 0 ? Math.min(150, (tActual / tTarget) * 100) : 0;
+
+  const eTarget = safeNumber(performance.errorTarget);
+  const eActual = safeNumber(performance.errorActual);
+  const eScore = eTarget <= 0 ? (eActual <= 0 ? 100 : 0) : Math.max(0, (1 - eActual / eTarget) * 100);
+
+  const attScore = (safeNumber(performance.attendance) / 10) * 100;
+  const behScore = (safeNumber(performance.behavior) / 5) * 100;
+
+  return (pScore + tScore + eScore + attScore + behScore) / 5;
 }
 
 function getCurrentMonthKey(): string {
@@ -260,6 +232,25 @@ function getLatestMonth(rows: SheetPerformance[]): string | null {
   );
   months.sort((a, b) => b.localeCompare(a));
   return months[0] ?? null;
+}
+
+function extractEmployeesFromHierarchy(node: TeamHierarchyNode | null | undefined): SheetEmployee[] {
+  if (!node) return [];
+  const list: SheetEmployee[] = [];
+
+  function traverse(n: TeamHierarchyNode) {
+    if (n.children && n.children.length > 0) {
+      n.children.forEach((child) => {
+        if (child.employee && child.employee.employeeId) {
+          list.push(child.employee);
+        }
+        traverse(child);
+      });
+    }
+  }
+
+  traverse(node);
+  return list;
 }
 
 function getDescendants(
@@ -307,7 +298,7 @@ function getDirectReports(
 
     if (managerTier === 4) return true;
     if (managerTier === 3) return subTier === 2;
-    if (managerTier === 2) return subTier === 1;
+    if (managerTier === 2) return true; // Show all direct subordinates (Operators, Executives, etc.)
 
     return false;
   });
@@ -352,7 +343,6 @@ export function EmployeeDetailModal({
     enabled: !!user && !!activeEmployeeId,
   });
 
-  // Always enable employee list & performance query for authenticated users to build hierarchy accurately
   const employeesQ = useQuery({
     queryKey: ["employees", user?.email],
     queryFn: () => listEmployees(user!.email),
@@ -368,7 +358,18 @@ export function EmployeeDetailModal({
   const profile = detailQ.data?.profile;
   const tier = getRoleTier(profile?.designation);
 
-  // Merge all sources of employees: global list + detail API downline / direct reports
+  // Extract children from hierarchy returned by backend for active employee
+  const hierarchyChildren = useMemo(() => {
+    const hierarchyNode = detailQ.data?.team?.hierarchy;
+    if (!hierarchyNode || !hierarchyNode.children) return [];
+    return hierarchyNode.children.map((c) => c.employee).filter(Boolean);
+  }, [detailQ.data]);
+
+  const hierarchyDescendants = useMemo(() => {
+    return extractEmployeesFromHierarchy(detailQ.data?.team?.hierarchy);
+  }, [detailQ.data]);
+
+  // Combine all employees: employeesQ list + hierarchy nodes
   const allEmployees = useMemo(() => {
     const map = new Map<string, SheetEmployee>();
 
@@ -377,15 +378,12 @@ export function EmployeeDetailModal({
       if (id) map.set(id, e);
     });
 
-    const extraDownline = (detailQ.data as any)?.downline as SheetEmployee[] | undefined;
-    const extraDirect = (detailQ.data as any)?.directReports as SheetEmployee[] | undefined;
-
-    (extraDownline ?? []).forEach((e) => {
+    hierarchyDescendants.forEach((e) => {
       const id = String(e.employeeId).trim();
       if (id && !map.has(id)) map.set(id, e);
     });
 
-    (extraDirect ?? []).forEach((e) => {
+    hierarchyChildren.forEach((e) => {
       const id = String(e.employeeId).trim();
       if (id && !map.has(id)) map.set(id, e);
     });
@@ -396,25 +394,30 @@ export function EmployeeDetailModal({
     }
 
     return Array.from(map.values());
-  }, [employeesQ.data, detailQ.data, profile]);
+  }, [employeesQ.data, hierarchyDescendants, hierarchyChildren, profile]);
 
   const directReports = useMemo(() => {
     if (!profile) return [];
-    
-    // First calculate using employee master matching
+
+    // If backend hierarchy has direct children, use them directly
+    if (hierarchyChildren.length > 0) {
+      if (tier === 3) {
+        // Head TL -> only sub TLs
+        return hierarchyChildren.filter((c) => getRoleTier(c.designation) === 2);
+      }
+      return hierarchyChildren;
+    }
+
+    // Otherwise calculate from all known employees matching team lead name
     const calculated = getDirectReports(profile, allEmployees);
     if (calculated.length > 0) return calculated;
-
-    // Fallback: If detailQ returned directReports or downline matching teamLead
-    const backendDirect = (detailQ.data as any)?.directReports as SheetEmployee[] | undefined;
-    if (backendDirect && backendDirect.length > 0) return backendDirect;
 
     return allEmployees.filter(
       (e) =>
         samePerson(e.teamLead, profile.name) &&
         String(e.employeeId).trim() !== String(profile.employeeId).trim()
     );
-  }, [profile, allEmployees, detailQ.data]);
+  }, [profile, hierarchyChildren, allEmployees, tier]);
 
   const teamEmployees = useMemo(() => {
     if (!profile) return [];
@@ -423,15 +426,7 @@ export function EmployeeDetailModal({
     return [];
   }, [profile, allEmployees, directReports, tier]);
 
-  // Combine performance rows from performanceQ and detailQ downline
-  const performanceRows = useMemo(() => {
-    const list = [...(performanceQ.data ?? [])];
-    const downlinePerf = (detailQ.data as any)?.downlinePerformance as SheetPerformance[] | undefined;
-    if (downlinePerf) {
-      list.push(...downlinePerf);
-    }
-    return list;
-  }, [performanceQ.data, detailQ.data]);
+  const performanceRows = performanceQ.data ?? [];
 
   const defaultMonthKey = useMemo(() => {
     if (!teamEmployees.length) return getCurrentMonthKey();
@@ -474,7 +469,8 @@ export function EmployeeDetailModal({
     const subordinatesList = directReports.map((employee) => {
       const subTier = getRoleTier(employee.designation);
 
-      if (subTier >= 2) {
+      if (subTier >= 2 && tier >= 3) {
+        // Under Head TL / Manager, aggregate downline of each TL
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
 
@@ -523,6 +519,7 @@ export function EmployeeDetailModal({
         }
       }
 
+      // Member performance rows
       const memberRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
         return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
@@ -565,6 +562,7 @@ export function EmployeeDetailModal({
       };
     });
 
+    // If TL / ATL, prepend their cumulative performance as row #1
     if (tier === 2 && profile) {
       const leaderRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
