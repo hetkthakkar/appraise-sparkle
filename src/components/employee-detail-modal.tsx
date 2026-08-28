@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 import {
   Select,
@@ -101,6 +102,8 @@ interface EmployeeProfile {
   teamLead?: string;
   location?: string;
   joiningDate?: string;
+  status?: string;
+  relievingDate?: string;
 }
 
 const MONTH_OPTIONS = [
@@ -297,12 +300,38 @@ function getDirectReports(
 
     const subTier = getRoleTier(employee.designation);
 
-    if (managerTier >= 4) return true; // CEO & Managers see all direct reports
-    if (managerTier === 3) return subTier === 2; // Head TL sees TLs
-    if (managerTier === 2) return true; // TL sees operators
+    if (managerTier >= 4) return true;
+    if (managerTier === 3) return subTier === 2;
+    if (managerTier === 2) return true;
 
     return true;
   });
+}
+
+// Check if an employee is active or has valid performance in the target month
+function isEmployeeActiveInMonth(
+  employee: SheetEmployee,
+  targetMonthKey: string,
+  hasPerformanceInMonth: boolean
+): boolean {
+  // If they have an actual performance record in this month, ALWAYS show them
+  if (hasPerformanceInMonth) return true;
+
+  const status = normalizeText(employee.status);
+  const relievingDate = String(employee.relievingDate || "").trim();
+
+  // If relieving date exists e.g. "2026-07-31" or "2026-07"
+  if (relievingDate) {
+    const exitMonth = relievingDate.slice(0, 7);
+    if (exitMonth && targetMonthKey > exitMonth) {
+      return false; // Hide after exit month
+    }
+  } else if (status === "inactive" || status === "resigned" || status === "left") {
+    // If marked inactive without relieving date, hide for future/current months if no perf record
+    return false;
+  }
+
+  return true;
 }
 
 export function EmployeeDetailModal({
@@ -462,7 +491,13 @@ export function EmployeeDetailModal({
     const minMonth = startKey <= endKey ? startKey : endKey;
     const maxMonth = startKey <= endKey ? endKey : startKey;
 
-    const subordinatesList = directReports.map((employee) => {
+    const subordinatesList: {
+      employee: SheetEmployee;
+      performance: SheetPerformance | null;
+      isLeader?: boolean;
+    }[] = [];
+
+    directReports.forEach((employee) => {
       const subTier = getRoleTier(employee.designation);
 
       if (subTier >= 2 && tier >= 3) {
@@ -474,7 +509,13 @@ export function EmployeeDetailModal({
           return subIds.has(String(r.employeeId)) && m >= minMonth && m <= maxMonth;
         });
 
-        if (subRows.length > 0) {
+        // Check if subordinate TL or any downline is active in target range
+        const hasPerf = subRows.length > 0;
+        if (!isEmployeeActiveInMonth(employee, maxMonth, hasPerf) && !hasPerf) {
+          return; // Skip inactive after exit date
+        }
+
+        if (hasPerf) {
           const productionTarget = subRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
           const productionActual = subRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
           const ticketTarget = subRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
@@ -486,7 +527,7 @@ export function EmployeeDetailModal({
 
           const latestWithRating = subRows.find((r) => r.performanceRating);
 
-          return {
+          subordinatesList.push({
             employee,
             performance: {
               month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
@@ -503,16 +544,23 @@ export function EmployeeDetailModal({
               ratingScore: latestWithRating?.ratingScore,
             } as SheetPerformance,
             isLeader: false,
-          };
+          });
+          return;
         }
       }
 
+      // Member performance
       const memberRows = performanceRows.filter((r) => {
         const m = String(r.month).slice(0, 7);
         return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
       });
 
-      if (memberRows.length > 0) {
+      const hasMemberPerf = memberRows.length > 0;
+      if (!isEmployeeActiveInMonth(employee, maxMonth, hasMemberPerf) && !hasMemberPerf) {
+        return; // Left in or before target month, do not show
+      }
+
+      if (hasMemberPerf) {
         const productionTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
         const productionActual = memberRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
         const ticketTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
@@ -524,7 +572,7 @@ export function EmployeeDetailModal({
 
         const latestWithRating = memberRows.find((r) => r.performanceRating);
 
-        return {
+        subordinatesList.push({
           employee,
           performance: {
             month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
@@ -541,14 +589,15 @@ export function EmployeeDetailModal({
             ratingScore: latestWithRating?.ratingScore,
           } as SheetPerformance,
           isLeader: false,
-        };
+        });
+        return;
       }
 
-      return {
+      subordinatesList.push({
         employee,
         performance: null,
         isLeader: false,
-      };
+      });
     });
 
     if (tier === 2 && profile) {
@@ -627,7 +676,7 @@ export function EmployeeDetailModal({
     const behavior = rowsToCalculate.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rowsToCalculate.length;
 
     return {
-      people: directReports.length,
+      people: actualSubordinates.length,
       employeesWithPerformance: rowsToCalculate.length,
       productionActual,
       productionTarget,
@@ -639,7 +688,7 @@ export function EmployeeDetailModal({
       behavior,
       overall: 0,
     };
-  }, [directTeamPerformance, directReports]);
+  }, [directTeamPerformance]);
 
   const currentPerformance = detailQ.data?.currentMonth ?? null;
   const previousMonths = detailQ.data?.previousMonths ?? [];
@@ -792,7 +841,6 @@ export function EmployeeDetailModal({
               />
             )}
 
-            {/* Render Team Section for CEO (Tier 5), Managers (Tier 4), Head TLs (Tier 3), and TLs (Tier 2) */}
             {tier >= 2 && (
               <TeamSection
                 profile={profile}
@@ -930,15 +978,30 @@ function ProfileSection({
   canRemark?: boolean;
   onAddRemark?: () => void;
 }) {
+  const isInactive = normalizeText(profile.status) === "inactive" || normalizeText(profile.status) === "resigned";
+
   return (
     <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-6 pb-3 pt-5">
-        <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-          Profile
-        </CardTitle>
-        <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
-          Details from the employee master.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+              Profile
+            </CardTitle>
+            <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
+              Details from the employee master.
+            </CardDescription>
+          </div>
+          {isInactive ? (
+            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300">
+              Inactive / Relieved
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+              Active
+            </Badge>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="px-6 pb-6 pt-2">
@@ -999,8 +1062,15 @@ function ProfileSection({
             <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
           </div>
 
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              RELIEVING / EXIT DATE
+            </p>
+            <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.relievingDate)}</p>
+          </div>
+
           {canRemark && onAddRemark ? (
-            <div className="flex flex-col justify-center">
+            <div className="flex flex-col justify-center sm:col-span-3">
               <button
                 type="button"
                 onClick={onAddRemark}
@@ -1010,9 +1080,7 @@ function ProfileSection({
                 Add Manager Remark
               </button>
             </div>
-          ) : (
-            <div />
-          )}
+          ) : null}
         </div>
       </CardContent>
     </Card>
@@ -1168,12 +1236,12 @@ function TeamSection({
             <CardTitle className="text-sm font-bold">Team</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               {tier >= 5
-                ? `Direct reports under ${profile.name} (CEO) are shown here.`
+                ? `Direct reports under ${profile.name} (CEO) active in ${rangeLabel}.`
                 : tier === 4
-                ? `Direct leads and team reporting to ${profile.name} are shown here.`
+                ? `Direct leads and team reporting to ${profile.name} active in ${rangeLabel}.`
                 : tier === 3
-                ? `Team leaders reporting to ${profile.name} are shown here.`
-                : `Leader and employees reporting to ${profile.name}.`}
+                ? `Team leaders reporting to ${profile.name} active in ${rangeLabel}.`
+                : `Team reporting to ${profile.name} active in ${rangeLabel}.`}
             </CardDescription>
           </div>
 
@@ -1249,7 +1317,7 @@ function TeamSection({
             <TeamMetricCard
               icon={<Users className="size-3.5" />}
               label={getSubordinateTypeLabel(tier)}
-              value={directReports.length}
+              value={regularMembers.length}
               suffix=""
             />
             <TeamMetricCard
@@ -1304,7 +1372,7 @@ function TeamSection({
             <div>
               <p className="text-xs font-bold">
                 {tier >= 5
-                  ? "Direct Reports Under CEO (Hardik Patel)"
+                  ? "Direct Reports Under CEO"
                   : tier === 4
                   ? "Head TLs & Team Leaders Under This Manager"
                   : tier === 3
@@ -1312,7 +1380,7 @@ function TeamSection({
                   : "Team Members"}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Showing performance for {rangeLabel}. Click any person to drill down into their team.
+                Showing active members and records for {rangeLabel}. Click any person to drill down.
               </p>
             </div>
 
@@ -1330,7 +1398,7 @@ function TeamSection({
 
           {directTeamPerformance.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center">
-              <p className="text-xs text-muted-foreground">No direct subordinates found.</p>
+              <p className="text-xs text-muted-foreground">No subordinates active for this period.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/70">
@@ -1401,7 +1469,7 @@ function TeamSection({
                 </TableHeader>
 
                 <TableBody>
-                  {/* Pinned Leader Row if TL */}
+                  {/* Pinned Leader Row */}
                   {leaderRow && (
                     <TableRow className="border-b-2 border-primary/20 bg-primary/5 font-medium">
                       <TableCell className="py-3 text-xs font-bold">
@@ -1450,7 +1518,7 @@ function TeamSection({
                     </TableRow>
                   )}
 
-                  {/* Subordinate Members — ALL CLICKABLE TO DRILL DOWN */}
+                  {/* Subordinate Members */}
                   {filteredAndSortedMembers.map(({ employee, performance }) => {
                     const subTier = getRoleTier(employee.designation);
 
@@ -1772,6 +1840,10 @@ function EditForm({
   const [joiningDate, setJoiningDate] = useState(
     initial.joiningDate ? String(initial.joiningDate).slice(0, 10) : ""
   );
+  const [status, setStatus] = useState(initial.status || "Active");
+  const [relievingDate, setRelievingDate] = useState(
+    initial.relievingDate ? String(initial.relievingDate).slice(0, 10) : ""
+  );
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -1784,6 +1856,8 @@ function EditForm({
         teamLead,
         location,
         joiningDate,
+        status,
+        relievingDate,
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -1885,6 +1959,31 @@ function EditForm({
               type="date"
               value={joiningDate}
               onChange={(e) => setJoiningDate(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Status</label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active" className="text-xs">Active</SelectItem>
+                <SelectItem value="Inactive" className="text-xs">Inactive / Relieved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium" htmlFor="edit-relieving">
+              Relieving / Exit Date
+            </label>
+            <Input
+              id="edit-relieving"
+              type="date"
+              value={relievingDate}
+              onChange={(e) => setRelievingDate(e.target.value)}
             />
           </div>
 
