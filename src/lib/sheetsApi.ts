@@ -98,8 +98,6 @@ export interface SheetEmployee {
   teamLead: string;
   location?: string;
   joiningDate?: string;
-  status?: string;
-  relievingDate?: string;
 }
 
 export interface SheetPerformance {
@@ -314,6 +312,25 @@ export function addLocation(callerEmail: string, name: string) {
   });
 }
 
+export function deleteDepartment(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("deleteDepartment", { callerEmail, name });
+}
+
+export function deleteDesignation(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("deleteDesignation", { callerEmail, name });
+}
+
+export function deleteLocation(callerEmail: string, name: string) {
+  return callSheetsApi<{ ok: true }>("deleteLocation", { callerEmail, name });
+}
+
+export function deleteKPIWeightage(callerEmail: string, month: string) {
+  return callSheetsApi<{ success: true; month: string; updatedRatings?: number }>(
+    "deleteKPIWeightage",
+    { callerEmail, month }
+  );
+}
+
 export function listTeamLeads() {
   return callSheetsApi<string[]>("listTeamLeads", {});
 }
@@ -337,8 +354,6 @@ export function updateEmployeeDetails(
     teamLead: string;
     location: string;
     joiningDate: string;
-    status?: string;
-    relievingDate?: string;
   }
 ) {
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
@@ -358,8 +373,6 @@ export function adminUpdateEmployee(
     teamLead?: string;
     location?: string;
     joiningDate?: string;
-    status?: string;
-    relievingDate?: string;
   }
 ) {
   return callSheetsApi<{ ok: true }>("adminUpdateEmployee", {
