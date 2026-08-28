@@ -11,7 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmployeeDetailModal, getRoleTier } from "@/components/employee-detail-modal";
 import { RatingBadge } from "@/components/performance-view";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance, getMyDashboard, type SheetEmployee, type SheetPerformance } from "@/lib/sheetsApi";
+import {
+  listEmployees,
+  listPerformance,
+  getMyDashboard,
+  type SheetEmployee,
+  type SheetPerformance,
+} from "@/lib/sheetsApi";
 import { exportPerformance } from "@/lib/excel";
 
 export const Route = createFileRoute("/_app/admin/")({
@@ -125,7 +131,7 @@ function AdminDashboard() {
   const allEmployees = empQ.data ?? [];
   const performanceRows = perfQ.data ?? [];
 
-  // Direct reports under logged-in user
+  // Direct Team Leaders reporting directly to this Head TL / Manager
   const directReports = useMemo(() => {
     if (!me) return allEmployees;
 
@@ -137,22 +143,22 @@ function AdminDashboard() {
 
     if (direct.length > 0) {
       if (myTier === 3) {
-        // Head TL: show direct Team Leads
+        // Head TL: show direct Team Leads (Tier 2)
         const directTLs = direct.filter((e) => getRoleTier(e.designation) === 2);
         return directTLs.length > 0 ? directTLs : direct;
       }
       return direct;
     }
 
-    return allEmployees;
+    return allEmployees.filter((e) => getRoleTier(e.designation) === 2);
   }, [allEmployees, me, myTier]);
 
-  // Aggregate performance for each direct report row (especially if they are a TL or Head TL)
+  // Aggregate all team operators' performance under each Team Leader
   const displayRows = useMemo(() => {
     return directReports.map((employee) => {
       const subTier = getRoleTier(employee.designation);
 
-      // If viewing as Head TL / Manager, aggregate all downline under this TL
+      // If Head TL / Manager, aggregate full operator downline under this TL
       if (subTier >= 2 && myTier >= 3) {
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(
@@ -222,7 +228,7 @@ function AdminDashboard() {
         }
       }
 
-      // Standard single-member performance
+      // Fallback if not aggregated
       const perf = performanceRows.find(
         (p) =>
           String(p.employeeId).trim() === String(employee.employeeId).trim() &&
@@ -248,18 +254,20 @@ function AdminDashboard() {
     );
   }
 
+  const meProfile = meQ.data?.profile;
+
   const needsOnboarding =
-    !me ||
-    !me.department?.trim() ||
-    !me.designation?.trim() ||
-    !me.location?.trim() ||
-    !String(me.joiningDate ?? "").trim();
+    !meProfile ||
+    !meProfile.department?.trim() ||
+    !meProfile.designation?.trim() ||
+    !meProfile.location?.trim() ||
+    !String(meProfile.joiningDate ?? "").trim();
 
   if (needsOnboarding) {
     return (
       <AdminOnboarding
         me={
-          me ?? {
+          meProfile ?? {
             employeeId: "",
             name: user.name,
             email: user.email,
