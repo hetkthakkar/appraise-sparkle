@@ -1,6 +1,5 @@
-import { PerformanceView, RatingBadge } from "@/components/performance-view";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, FileUp, CalendarCheck2, Download } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
@@ -9,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { AdminOnboarding } from "@/components/admin-onboarding";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EmployeeDetailModal } from "@/components/employee-detail-modal";
+import { EmployeeDetailModal, getRoleTier } from "@/components/employee-detail-modal";
+import { RatingBadge } from "@/components/performance-view";
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees, listPerformance, getMyDashboard } from "@/lib/sheetsApi";
+import { listEmployees, listPerformance, getMyDashboard, type SheetEmployee, type SheetPerformance } from "@/lib/sheetsApi";
 import { exportPerformance } from "@/lib/excel";
 
 export const Route = createFileRoute("/_app/admin/")({
@@ -21,6 +21,79 @@ export const Route = createFileRoute("/_app/admin/")({
 function currentMonth() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function normalizeText(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[._\-]/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function samePerson(a: unknown, b: unknown): boolean {
+  const strA = normalizeText(a);
+  const strB = normalizeText(b);
+
+  if (!strA || !strB) return false;
+  if (strA === strB) return true;
+
+  if (strA.includes(strB) || strB.includes(strA)) {
+    return true;
+  }
+
+  const wordsA = strA.split(" ").filter((w) => w.length > 1);
+  const wordsB = strB.split(" ").filter((w) => w.length > 1);
+
+  if (wordsA.length >= 2 && wordsB.length >= 2) {
+    if (
+      wordsA[0] === wordsB[0] &&
+      wordsA[wordsA.length - 1] === wordsB[wordsB.length - 1]
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function safeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatScore(val: number | string | undefined | null, maxDecimals = 2): string {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return "0";
+  return parseFloat(n.toFixed(maxDecimals)).toString();
+}
+
+function getDescendants(
+  manager: SheetEmployee,
+  employees: SheetEmployee[]
+): SheetEmployee[] {
+  const result: SheetEmployee[] = [];
+  const visited = new Set<string>();
+  const managerId = String(manager.employeeId ?? "").trim();
+
+  if (managerId) {
+    visited.add(managerId);
+  }
+
+  function walk(parent: SheetEmployee) {
+    employees.forEach((employee) => {
+      const id = String(employee.employeeId ?? "").trim();
+      if (!id || visited.has(id)) return;
+      if (!samePerson(employee.teamLead, parent.name)) return;
+
+      visited.add(id);
+      result.push(employee);
+      walk(employee);
+    });
+  }
+
+  walk(manager);
+  return result;
 }
 
 function AdminDashboard() {
@@ -46,6 +119,123 @@ function AdminDashboard() {
     enabled: !!user && ["admin", "super_admin"].includes(user.role),
   });
 
+  const me = meQ.data?.profile;
+  const myTier = getRoleTier(me?.designation);
+
+  const allEmployees = empQ.data ?? [];
+  const performanceRows = perfQ.data ?? [];
+
+  // Direct reports under logged-in user
+  const directReports = useMemo(() => {
+    if (!me) return allEmployees;
+
+    const direct = allEmployees.filter(
+      (e) =>
+        samePerson(e.teamLead, me.name) &&
+        String(e.employeeId).trim() !== String(me.employeeId).trim()
+    );
+
+    if (direct.length > 0) {
+      if (myTier === 3) {
+        // Head TL: show direct Team Leads
+        const directTLs = direct.filter((e) => getRoleTier(e.designation) === 2);
+        return directTLs.length > 0 ? directTLs : direct;
+      }
+      return direct;
+    }
+
+    return allEmployees;
+  }, [allEmployees, me, myTier]);
+
+  // Aggregate performance for each direct report row (especially if they are a TL or Head TL)
+  const displayRows = useMemo(() => {
+    return directReports.map((employee) => {
+      const subTier = getRoleTier(employee.designation);
+
+      // If viewing as Head TL / Manager, aggregate all downline under this TL
+      if (subTier >= 2 && myTier >= 3) {
+        const subDownline = getDescendants(employee, allEmployees);
+        const subIds = new Set(
+          (subDownline.length > 0 ? subDownline : [employee]).map((e) =>
+            String(e.employeeId).trim()
+          )
+        );
+
+        const subPerfRows = performanceRows.filter(
+          (r) =>
+            subIds.has(String(r.employeeId).trim()) &&
+            String(r.month).slice(0, 7) === month
+        );
+
+        if (subPerfRows.length > 0) {
+          const productionTarget = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.productionTarget),
+            0
+          );
+          const productionActual = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.productionActual),
+            0
+          );
+          const ticketTarget = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.ticketTarget),
+            0
+          );
+          const ticketActual = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.ticketActual),
+            0
+          );
+          const errorTarget = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.errorTarget),
+            0
+          );
+          const errorActual = subPerfRows.reduce(
+            (sum, row) => sum + safeNumber(row.errorActual),
+            0
+          );
+          const attendance =
+            subPerfRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) /
+            subPerfRows.length;
+          const behavior =
+            subPerfRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) /
+            subPerfRows.length;
+
+          const latestWithRating = subPerfRows.find((r) => r.performanceRating);
+
+          return {
+            employee,
+            performance: {
+              month,
+              employeeId: employee.employeeId,
+              name: employee.name,
+              productionTarget,
+              productionActual,
+              ticketTarget,
+              ticketActual,
+              errorTarget,
+              errorActual,
+              attendance,
+              behavior,
+              performanceRating: latestWithRating?.performanceRating,
+              ratingScore: latestWithRating?.ratingScore,
+            } as SheetPerformance,
+          };
+        }
+      }
+
+      // Standard single-member performance
+      const perf = performanceRows.find(
+        (p) =>
+          String(p.employeeId).trim() === String(employee.employeeId).trim() &&
+          String(p.month).slice(0, 7) === month
+      );
+
+      return {
+        employee,
+        performance: perf ?? null,
+      };
+    });
+  }, [directReports, allEmployees, performanceRows, myTier, month]);
+
   if (!user || !["admin", "super_admin"].includes(user.role)) {
     return <Navigate to="/" />;
   }
@@ -57,8 +247,6 @@ function AdminDashboard() {
       </div>
     );
   }
-
-  const me = meQ.data?.profile;
 
   const needsOnboarding =
     !me ||
@@ -86,37 +274,31 @@ function AdminDashboard() {
     );
   }
 
-  const employees = empQ.data ?? [];
-  const team = me
-    ? employees.filter((e) => e.teamLead?.trim().toLowerCase() === me.name?.trim().toLowerCase())
-    : employees;
-
-  const teamPerf = (perfQ.data ?? []).filter((p) =>
-    team.some((t) => String(t.employeeId).trim() === String(p.employeeId).trim())
-  );
-
+  const hasPerformanceData = displayRows.some((r) => !!r.performance);
   const uploadStatus =
     perfQ.isLoading
       ? "…"
-      : team.length === 0
-        ? "No team"
-        : teamPerf.length >= team.length
-          ? "Complete"
-          : teamPerf.length > 0
-            ? "Partial"
-            : "Pending";
+      : directReports.length === 0
+      ? "No team"
+      : hasPerformanceData
+      ? "Complete"
+      : "Pending";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Team Overview</h2>
         <p className="text-sm text-muted-foreground">
-          {me?.department ?? "—"} • {team.length} reports
+          {me?.department ?? "—"} • {directReports.length} {myTier >= 3 ? "Team Leads" : "reports"}
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Team Size" value={team.length} icon={Users} />
+        <StatCard
+          label={myTier >= 3 ? "Team Leads" : "Team Size"}
+          value={directReports.length}
+          icon={Users}
+        />
         <StatCard label="Current Month" value={month} icon={CalendarCheck2} />
         <StatCard label="Upload Status" value={uploadStatus} icon={FileUp} />
       </div>
@@ -125,10 +307,25 @@ function AdminDashboard() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Current month performance</CardTitle>
-            <CardDescription>Snapshot of your team's {month} numbers.</CardDescription>
+            <CardDescription>
+              {myTier >= 3
+                ? `Team aggregated totals under each Team Leader for ${month}.`
+                : `Snapshot of your team's ${month} numbers.`}
+            </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => exportPerformance(teamPerf)} disabled={!teamPerf.length}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                exportPerformance(
+                  displayRows
+                    .map((r) => r.performance)
+                    .filter((p): p is SheetPerformance => !!p)
+                )
+              }
+              disabled={!hasPerformanceData}
+            >
               <Download className="mr-2 h-4 w-4" />
               Export Data
             </Button>
@@ -158,26 +355,59 @@ function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamPerf.map((p) => (
+                {displayRows.map(({ employee, performance: p }) => (
                   <TableRow
-                    key={p.employeeId}
-                    onClick={() => setSelected(p.employeeId)}
+                    key={employee.employeeId}
+                    onClick={() => setSelected(employee.employeeId)}
                     className="cursor-pointer hover:bg-muted/50"
                   >
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.productionActual} / {p.productionTarget}</TableCell>
-                    <TableCell>{p.ticketActual} / {p.ticketTarget}</TableCell>
-                    <TableCell>{p.errorActual} / {p.errorTarget}</TableCell>
-                    <TableCell>{Number(p.attendance).toFixed(1)}</TableCell>
-                    <TableCell>{Number(p.behavior).toFixed(1)}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{employee.name}</span>
+                        {getRoleTier(employee.designation) === 2 && (
+                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-bold uppercase text-secondary-foreground">
+                            {normalizeText(employee.designation).includes("assistant")
+                              ? "ATL"
+                              : "TL"}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
-                      <RatingBadge rating={p.performanceRating} score={p.ratingScore} />
+                      {p
+                        ? `${formatScore(p.productionActual)} / ${formatScore(p.productionTarget)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p
+                        ? `${formatScore(p.ticketActual)} / ${formatScore(p.ticketTarget)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p
+                        ? `${formatScore(p.errorActual)} / ${formatScore(p.errorTarget)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p ? `${formatScore(p.attendance, 1)}/10` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p ? `${formatScore(p.behavior, 1)}/5` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <RatingBadge
+                        rating={p?.performanceRating}
+                        score={p?.ratingScore}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
-                {teamPerf.length === 0 && (
+                {displayRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                    <TableCell
+                      colSpan={7}
+                      className="py-6 text-center text-muted-foreground"
+                    >
                       No data yet for this month.
                     </TableCell>
                   </TableRow>
@@ -187,6 +417,7 @@ function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+
       <EmployeeDetailModal
         employeeId={selected}
         onOpenChange={(open) => !open && setSelected(null)}
