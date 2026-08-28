@@ -100,7 +100,6 @@ function safeNum(val: unknown): number {
 export function parsePerformanceExcel(fileData: ArrayBuffer): Record<string, unknown>[] {
   const wb = XLSX.read(fileData, { type: "array", cellDates: true });
   
-  // Find the best sheet with data
   let bestSheetName = wb.SheetNames[0];
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name];
@@ -118,7 +117,7 @@ export function parsePerformanceExcel(fileData: ArrayBuffer): Record<string, unk
     throw new Error("The Excel file appears to be empty.");
   }
 
-  // Find header row (search first 10 rows for "employee" or "production" or "target")
+  // Search first 10 rows for headers
   let headerRowIndex = 0;
   for (let r = 0; r < Math.min(rawRows.length, 10); r++) {
     const rowStr = rawRows[r].map(normalizeHeader).join(" ");
@@ -137,7 +136,6 @@ export function parsePerformanceExcel(fileData: ArrayBuffer): Record<string, unk
   const headers = rawRows[headerRowIndex].map(normalizeHeader);
   const dataRows = rawRows.slice(headerRowIndex + 1);
 
-  // Column matching logic
   const colIndex = {
     month: headers.findIndex((h) => h.includes("month") || h.includes("period") || h.includes("date")),
     empId: headers.findIndex((h) => h.includes("emp id") || h.includes("employee id") || h.includes("empid") || h.includes("code")),
@@ -164,7 +162,6 @@ export function parsePerformanceExcel(fileData: ArrayBuffer): Record<string, unk
     const empId = colIndex.empId !== -1 ? String(row[colIndex.empId] ?? "").trim() : "";
     const name = colIndex.name !== -1 ? String(row[colIndex.name] ?? "").trim() : "";
 
-    // Skip empty row
     if (!empId && !name) continue;
 
     const rawMonth = colIndex.month !== -1 ? row[colIndex.month] : "";
@@ -192,6 +189,78 @@ export function parsePerformanceExcel(fileData: ArrayBuffer): Record<string, unk
   }
 
   return results;
+}
+
+export function parseEmployeeExcel(fileData: ArrayBuffer): Record<string, unknown>[] {
+  const wb = XLSX.read(fileData, { type: "array", cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rawRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+
+  if (rawRows.length === 0) {
+    throw new Error("The Excel file appears to be empty.");
+  }
+
+  let headerRowIndex = 0;
+  for (let r = 0; r < Math.min(rawRows.length, 10); r++) {
+    const rowStr = rawRows[r].map(normalizeHeader).join(" ");
+    if (rowStr.includes("employee") || rowStr.includes("emp id") || rowStr.includes("name") || rowStr.includes("designation")) {
+      headerRowIndex = r;
+      break;
+    }
+  }
+
+  const headers = rawRows[headerRowIndex].map(normalizeHeader);
+  const dataRows = rawRows.slice(headerRowIndex + 1);
+
+  const colIndex = {
+    empId: headers.findIndex((h) => h.includes("emp id") || h.includes("employee id") || h.includes("empid") || h.includes("code")),
+    name: headers.findIndex((h) => (h.includes("name") || h.includes("employee")) && !h.includes("id")),
+    email: headers.findIndex((h) => h.includes("email") || h.includes("mail")),
+    department: headers.findIndex((h) => h.includes("dept") || h.includes("department")),
+    designation: headers.findIndex((h) => h.includes("desig") || h.includes("role") || h.includes("position")),
+    teamLead: headers.findIndex((h) => h.includes("lead") || h.includes("manager") || h.includes("tl") || h.includes("report")),
+    location: headers.findIndex((h) => h.includes("location") || h.includes("branch") || h.includes("city")),
+    joiningDate: headers.findIndex((h) => h.includes("join") || h.includes("doj")),
+  };
+
+  const results: Record<string, unknown>[] = [];
+
+  for (const row of dataRows) {
+    const empId = colIndex.empId !== -1 ? String(row[colIndex.empId] ?? "").trim() : "";
+    const name = colIndex.name !== -1 ? String(row[colIndex.name] ?? "").trim() : "";
+    if (!empId && !name) continue;
+
+    results.push({
+      "Employee ID": empId,
+      "Name": name,
+      "Email": colIndex.email !== -1 ? String(row[colIndex.email] ?? "").trim() : "",
+      "Department": colIndex.department !== -1 ? String(row[colIndex.department] ?? "").trim() : "",
+      "Designation": colIndex.designation !== -1 ? String(row[colIndex.designation] ?? "").trim() : "",
+      "Team Lead": colIndex.teamLead !== -1 ? String(row[colIndex.teamLead] ?? "").trim() : "",
+      "Location": colIndex.location !== -1 ? String(row[colIndex.location] ?? "").trim() : "",
+      "Joining Date": colIndex.joiningDate !== -1 ? String(row[colIndex.joiningDate] ?? "").trim() : "",
+    });
+  }
+
+  return results;
+}
+
+export function exportEmployees(rows: SheetEmployee[]) {
+  const exportData = rows.map((e) => ({
+    "Employee ID": e.employeeId,
+    "Name": e.name,
+    "Email": e.email,
+    "Department": e.department,
+    "Designation": e.designation,
+    "Team Lead": e.teamLead,
+    "Location": e.location || "",
+    "Joining Date": e.joiningDate || "",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Employees");
+  XLSX.writeFile(wb, `employees_export_${Date.now()}.xlsx`);
 }
 
 export function exportPerformance(rows: SheetPerformance[]) {
