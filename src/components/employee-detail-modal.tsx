@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 
 import {
   Select,
@@ -102,8 +101,6 @@ interface EmployeeProfile {
   teamLead?: string;
   location?: string;
   joiningDate?: string;
-  status?: string;
-  relievingDate?: string;
 }
 
 const MONTH_OPTIONS = [
@@ -220,6 +217,99 @@ function formatScore(val: number | string | undefined | null, maxDecimals = 2): 
   return parseFloat(n.toFixed(maxDecimals)).toString();
 }
 
+export function parseMonthYear(val: unknown): { year: string; month: string; key: string } | null {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (!s) return null;
+
+  // 1. Standard YYYY-MM or YYYY/MM
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})/);
+  if (m) {
+    const y = m[1];
+    const mon = String(m[2]).padStart(2, "0");
+    return { year: y, month: mon, key: `${y}-${mon}` };
+  }
+
+  // 2. MM-YYYY or MM/YYYY
+  m = s.match(/^(\d{1,2})[-\/](\d{4})/);
+  if (m) {
+    const y = m[2];
+    const mon = String(m[1]).padStart(2, "0");
+    return { year: y, month: mon, key: `${y}-${mon}` };
+  }
+
+  const monthNames = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+  const shortNames = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  ];
+
+  // 3. YY-Mon (e.g. 26-Jul, 26-Sep)
+  m = s.match(/^(\d{2})[-\/\s]+([a-zA-Z]+)$/);
+  if (m) {
+    const y = `20${m[1]}`;
+    const monStr = m[2].toLowerCase();
+    let idx = monthNames.indexOf(monStr);
+    if (idx === -1) idx = shortNames.indexOf(monStr);
+    if (idx !== -1) {
+      const mon = String(idx + 1).padStart(2, "0");
+      return { year: y, month: mon, key: `${y}-${mon}` };
+    }
+  }
+
+  // 4. Mon-YY (e.g. Jul-26, Sep-26)
+  m = s.match(/^([a-zA-Z]+)[-\/\s]+(\d{2})$/);
+  if (m) {
+    const y = `20${m[2]}`;
+    const monStr = m[1].toLowerCase();
+    let idx = monthNames.indexOf(monStr);
+    if (idx === -1) idx = shortNames.indexOf(monStr);
+    if (idx !== -1) {
+      const mon = String(idx + 1).padStart(2, "0");
+      return { year: y, month: mon, key: `${y}-${mon}` };
+    }
+  }
+
+  // 5. Mon-YYYY (e.g. Jul-2026, July 2026)
+  m = s.match(/^([a-zA-Z]+)[-\/\s]+(\d{4})$/);
+  if (m) {
+    const y = m[2];
+    const monStr = m[1].toLowerCase();
+    let idx = monthNames.indexOf(monStr);
+    if (idx === -1) idx = shortNames.indexOf(monStr);
+    if (idx !== -1) {
+      const mon = String(idx + 1).padStart(2, "0");
+      return { year: y, month: mon, key: `${y}-${mon}` };
+    }
+  }
+
+  // 6. YYYY-Mon (e.g. 2026-Jul)
+  m = s.match(/^(\d{4})[-\/\s]+([a-zA-Z]+)$/);
+  if (m) {
+    const y = m[1];
+    const monStr = m[2].toLowerCase();
+    let idx = monthNames.indexOf(monStr);
+    if (idx === -1) idx = shortNames.indexOf(monStr);
+    if (idx !== -1) {
+      const mon = String(idx + 1).padStart(2, "0");
+      return { year: y, month: mon, key: `${y}-${mon}` };
+    }
+  }
+
+  // 7. YY-MM (e.g. 26-07)
+  m = s.match(/^(\d{2})[-\/](\d{1,2})$/);
+  if (m) {
+    const y = `20${m[1]}`;
+    const mon = String(m[2]).padStart(2, "0");
+    return { year: y, month: mon, key: `${y}-${mon}` };
+  }
+
+  return null;
+}
+
 function getCurrentMonthKey(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -230,8 +320,8 @@ function getLatestMonth(rows: SheetPerformance[]): string | null {
   const months = Array.from(
     new Set(
       rows
-        .map((row) => String(row.month ?? "").slice(0, 7))
-        .filter(Boolean)
+        .map((row) => parseMonthYear(row.month)?.key)
+        .filter((k): k is string => !!k)
     )
   );
   months.sort((a, b) => b.localeCompare(a));
@@ -306,32 +396,6 @@ function getDirectReports(
 
     return true;
   });
-}
-
-// Check if an employee is active or has valid performance in the target month
-function isEmployeeActiveInMonth(
-  employee: SheetEmployee,
-  targetMonthKey: string,
-  hasPerformanceInMonth: boolean
-): boolean {
-  // If they have an actual performance record in this month, ALWAYS show them
-  if (hasPerformanceInMonth) return true;
-
-  const status = normalizeText(employee.status);
-  const relievingDate = String(employee.relievingDate || "").trim();
-
-  // If relieving date exists e.g. "2026-07-31" or "2026-07"
-  if (relievingDate) {
-    const exitMonth = relievingDate.slice(0, 7);
-    if (exitMonth && targetMonthKey > exitMonth) {
-      return false; // Hide after exit month
-    }
-  } else if (status === "inactive" || status === "resigned" || status === "left") {
-    // If marked inactive without relieving date, hide for future/current months if no perf record
-    return false;
-  }
-
-  return true;
 }
 
 export function EmployeeDetailModal({
@@ -437,11 +501,18 @@ export function EmployeeDetailModal({
     const calculated = getDirectReports(profile, allEmployees);
     if (calculated.length > 0) return calculated;
 
-    return allEmployees.filter(
+    const direct = allEmployees.filter(
       (e) =>
         samePerson(e.teamLead, profile.name) &&
         String(e.employeeId).trim() !== String(profile.employeeId).trim()
     );
+
+    if (tier === 3) {
+      const directTLs = direct.filter((e) => getRoleTier(e.designation) === 2);
+      return directTLs.length > 0 ? directTLs : direct;
+    }
+
+    return direct;
   }, [profile, hierarchyChildren, allEmployees, tier]);
 
   const teamEmployees = useMemo(() => {
@@ -463,7 +534,7 @@ export function EmployeeDetailModal({
 
     const current = getCurrentMonthKey();
     const hasCurrent = teamRows.some(
-      (row) => String(row.month).slice(0, 7) === current
+      (row) => parseMonthYear(row.month)?.key === current
     );
 
     if (hasCurrent) return current;
@@ -478,8 +549,10 @@ export function EmployeeDetailModal({
   const availableTeamYears = useMemo(() => {
     const years = new Set<string>();
     performanceRows.forEach((row) => {
-      const year = String(row.month ?? "").slice(0, 4);
-      if (year) years.add(year);
+      const parsed = parseMonthYear(row.month);
+      if (parsed?.year && /^\d{4}$/.test(parsed.year)) {
+        years.add(parsed.year);
+      }
     });
     years.add(String(new Date().getFullYear()));
     return Array.from(years).sort((a, b) => b.localeCompare(a));
@@ -505,17 +578,12 @@ export function EmployeeDetailModal({
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
 
         const subRows = performanceRows.filter((r) => {
-          const m = String(r.month).slice(0, 7);
-          return subIds.has(String(r.employeeId)) && m >= minMonth && m <= maxMonth;
+          const parsed = parseMonthYear(r.month);
+          if (!parsed) return false;
+          return subIds.has(String(r.employeeId)) && parsed.key >= minMonth && parsed.key <= maxMonth;
         });
 
-        // Check if subordinate TL or any downline is active in target range
-        const hasPerf = subRows.length > 0;
-        if (!isEmployeeActiveInMonth(employee, maxMonth, hasPerf) && !hasPerf) {
-          return; // Skip inactive after exit date
-        }
-
-        if (hasPerf) {
+        if (subRows.length > 0) {
           const productionTarget = subRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
           const productionActual = subRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
           const ticketTarget = subRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
@@ -549,18 +617,14 @@ export function EmployeeDetailModal({
         }
       }
 
-      // Member performance
+      // Individual direct report
       const memberRows = performanceRows.filter((r) => {
-        const m = String(r.month).slice(0, 7);
-        return String(r.employeeId).trim() === String(employee.employeeId).trim() && m >= minMonth && m <= maxMonth;
+        const parsed = parseMonthYear(r.month);
+        if (!parsed) return false;
+        return String(r.employeeId).trim() === String(employee.employeeId).trim() && parsed.key >= minMonth && parsed.key <= maxMonth;
       });
 
-      const hasMemberPerf = memberRows.length > 0;
-      if (!isEmployeeActiveInMonth(employee, maxMonth, hasMemberPerf) && !hasMemberPerf) {
-        return; // Left in or before target month, do not show
-      }
-
-      if (hasMemberPerf) {
+      if (memberRows.length > 0) {
         const productionTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
         const productionActual = memberRows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
         const ticketTarget = memberRows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
@@ -602,8 +666,9 @@ export function EmployeeDetailModal({
 
     if (tier === 2 && profile) {
       const leaderRows = performanceRows.filter((r) => {
-        const m = String(r.month).slice(0, 7);
-        return String(r.employeeId).trim() === String(profile.employeeId).trim() && m >= minMonth && m <= maxMonth;
+        const parsed = parseMonthYear(r.month);
+        if (!parsed) return false;
+        return String(r.employeeId).trim() === String(profile.employeeId).trim() && parsed.key >= minMonth && parsed.key <= maxMonth;
       });
 
       let leaderPerf: SheetPerformance | null = null;
@@ -697,13 +762,13 @@ export function EmployeeDetailModal({
     const monthMap = new Map<string, SheetPerformance>();
 
     previousMonths.forEach((row) => {
-      const month = String(row?.month ?? "").slice(0, 7);
-      if (month) monthMap.set(month, row);
+      const parsed = parseMonthYear(row?.month);
+      if (parsed?.key) monthMap.set(parsed.key, row);
     });
 
     if (currentPerformance?.month) {
-      const month = String(currentPerformance.month).slice(0, 7);
-      monthMap.set(month, currentPerformance);
+      const parsed = parseMonthYear(currentPerformance.month);
+      if (parsed?.key) monthMap.set(parsed.key, currentPerformance);
     }
 
     return Array.from(monthMap.values()).sort((a, b) =>
@@ -714,8 +779,10 @@ export function EmployeeDetailModal({
   const availablePerformanceYears = useMemo(() => {
     const years = new Set<string>();
     personalPerformance.forEach((row) => {
-      const year = String(row.month ?? "").slice(0, 4);
-      if (/^\d{4}$/.test(year)) years.add(year);
+      const parsed = parseMonthYear(row.month);
+      if (parsed?.year && /^\d{4}$/.test(parsed.year)) {
+        years.add(parsed.year);
+      }
     });
     return Array.from(years).sort((a, b) => Number(a) - Number(b));
   }, [personalPerformance]);
@@ -978,30 +1045,15 @@ function ProfileSection({
   canRemark?: boolean;
   onAddRemark?: () => void;
 }) {
-  const isInactive = normalizeText(profile.status) === "inactive" || normalizeText(profile.status) === "resigned";
-
   return (
     <Card className="border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-6 pb-3 pt-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-              Profile
-            </CardTitle>
-            <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
-              Details from the employee master.
-            </CardDescription>
-          </div>
-          {isInactive ? (
-            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300">
-              Inactive / Relieved
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
-              Active
-            </Badge>
-          )}
-        </div>
+        <CardTitle className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+          Profile
+        </CardTitle>
+        <CardDescription className="text-xs font-normal text-slate-500 dark:text-slate-400">
+          Details from the employee master.
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="px-6 pb-6 pt-2">
@@ -1060,13 +1112,6 @@ function ProfileSection({
               JOINING DATE
             </p>
             <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              RELIEVING / EXIT DATE
-            </p>
-            <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.relievingDate)}</p>
           </div>
 
           {canRemark && onAddRemark ? (
@@ -1380,7 +1425,7 @@ function TeamSection({
                   : "Team Members"}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Showing active members and records for {rangeLabel}. Click any person to drill down.
+                Showing members and records for {rangeLabel}. Click any person to drill down.
               </p>
             </div>
 
@@ -1398,7 +1443,7 @@ function TeamSection({
 
           {directTeamPerformance.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center">
-              <p className="text-xs text-muted-foreground">No subordinates active for this period.</p>
+              <p className="text-xs text-muted-foreground">No subordinates found.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/70">
@@ -1656,7 +1701,7 @@ function EmployeePerformanceTable({
       yearFilter === "all"
         ? performanceList
         : performanceList.filter(
-            (item) => String(item.month ?? "").slice(0, 4) === yearFilter
+            (item) => parseMonthYear(item.month)?.year === yearFilter
           );
     return [...filtered].sort((a, b) =>
       String(a.month ?? "").localeCompare(String(b.month ?? ""))
@@ -1731,17 +1776,18 @@ function EmployeePerformanceTable({
 
               <TableBody>
                 {history.map((performance) => {
-                  const month = String(performance.month ?? "").slice(0, 7);
-                  const isCurrent = month === currentMonthKey;
+                  const parsed = parseMonthYear(performance.month);
+                  const monthKey = parsed?.key ?? String(performance.month ?? "").slice(0, 7);
+                  const isCurrent = monthKey === currentMonthKey;
 
                   return (
                     <TableRow
-                      key={month}
+                      key={monthKey}
                       className={isCurrent ? "bg-muted/40" : undefined}
                     >
                       <TableCell className="whitespace-nowrap py-3 text-xs font-semibold">
                         <div className="flex items-center gap-2">
-                          <span>{monthToLabel(month)}</span>
+                          <span>{monthToLabel(monthKey)}</span>
                           {isCurrent && (
                             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                               Current
@@ -1791,7 +1837,7 @@ function EmployeePerformanceTable({
                               size="sm"
                               className="h-6 px-1.5 text-[10px] text-primary"
                               onClick={() =>
-                                onEditRemark(month, performance.managerRemarks ?? "")
+                                onEditRemark(monthKey, performance.managerRemarks ?? "")
                               }
                             >
                               <Pencil className="mr-1 size-3" />
@@ -1840,10 +1886,6 @@ function EditForm({
   const [joiningDate, setJoiningDate] = useState(
     initial.joiningDate ? String(initial.joiningDate).slice(0, 10) : ""
   );
-  const [status, setStatus] = useState(initial.status || "Active");
-  const [relievingDate, setRelievingDate] = useState(
-    initial.relievingDate ? String(initial.relievingDate).slice(0, 10) : ""
-  );
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -1856,8 +1898,6 @@ function EditForm({
         teamLead,
         location,
         joiningDate,
-        status,
-        relievingDate,
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -1959,31 +1999,6 @@ function EditForm({
               type="date"
               value={joiningDate}
               onChange={(e) => setJoiningDate(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Status</label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active" className="text-xs">Active</SelectItem>
-                <SelectItem value="Inactive" className="text-xs">Inactive / Relieved</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium" htmlFor="edit-relieving">
-              Relieving / Exit Date
-            </label>
-            <Input
-              id="edit-relieving"
-              type="date"
-              value={relievingDate}
-              onChange={(e) => setRelievingDate(e.target.value)}
             />
           </div>
 
