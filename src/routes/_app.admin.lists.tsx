@@ -15,6 +15,10 @@ import {
   addDesignation,
   listLocations,
   addLocation,
+  deleteDepartment,
+  deleteDesignation,
+  deleteLocation,
+  deleteKPIWeightage,
   listKPIWeightages,
   updateKPIWeightages,
   monthToLabel,
@@ -28,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { CheckCircle2, AlertCircle, Save, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/admin/lists")({
   component: ManageLists,
@@ -93,6 +97,7 @@ function ManageLists() {
         queryKey="departments"
         list={listDepartments}
         add={(name) => addDepartment(user.email, name)}
+        del={(name) => deleteDepartment(user.email, name)}
         placeholder="e.g. Operations"
       />
       <ListSection
@@ -101,6 +106,7 @@ function ManageLists() {
         queryKey="designations"
         list={listDesignations}
         add={(name) => addDesignation(user.email, name)}
+        del={(name) => deleteDesignation(user.email, name)}
         placeholder="e.g. Senior Analyst"
       />
       <ListSection
@@ -109,6 +115,7 @@ function ManageLists() {
         queryKey="locations"
         list={listLocations}
         add={(name) => addLocation(user.email, name)}
+        del={(name) => deleteLocation(user.email, name)}
         placeholder="e.g. Mumbai"
       />
     </div>
@@ -201,6 +208,29 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
         description: e instanceof Error ? e.message : String(e),
       }),
   });
+
+  const delM = useMutation({
+    mutationFn: (month: string) => deleteKPIWeightage(userEmail, month),
+    onSuccess: async (_, month) => {
+      await qc.refetchQueries({ queryKey: ["kpiWeightages"] });
+      await qc.refetchQueries({ queryKey: ["performance"] });
+      toast.success(`KPI Weightage for ${formatMonthDisplay(month)} deleted.`);
+      if (normalizeToMonthKey(selectedMonth).toUpperCase() === normalizeToMonthKey(month).toUpperCase()) {
+        handleSelectMonth("DEFAULT");
+      }
+    },
+    onError: (e) =>
+      toast.error("Failed to delete KPI weightage", {
+        description: e instanceof Error ? e.message : String(e),
+      }),
+  });
+
+  const handleDeleteRow = (item: KPIWeightage) => {
+    if (normalizeToMonthKey(item.month).toUpperCase() === "DEFAULT") return;
+    const label = formatMonthDisplay(item.month);
+    if (!window.confirm(`Delete KPI weightage configuration for ${label}? This cannot be undone.`)) return;
+    delM.mutate(item.month);
+  };
 
   return (
     <Card className="border border-primary/20 bg-card">
@@ -363,7 +393,9 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(q.data ?? []).map((item) => (
+                  {(q.data ?? []).map((item) => {
+                    const isDefault = normalizeToMonthKey(item.month).toUpperCase() === "DEFAULT";
+                    return (
                     <TableRow key={item.month} className="hover:bg-muted/40">
                       <TableCell className="font-bold text-xs">
                         {normalizeToMonthKey(item.month).toUpperCase() === "DEFAULT" ? (
@@ -379,17 +411,32 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
                       <TableCell className="text-xs">{item.behavior}%</TableCell>
                       <TableCell className="text-xs font-semibold text-emerald-600">{item.total}%</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs font-medium text-primary"
-                          onClick={() => handleEditRow(item)}
-                        >
-                          Edit
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-medium text-primary"
+                            onClick={() => handleEditRow(item)}
+                          >
+                            Edit
+                          </Button>
+                          {!isDefault && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs font-medium text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteRow(item)}
+                              disabled={delM.isPending}
+                            >
+                              <Trash2 className="mr-1 size-3.5" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {(q.data ?? []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-4">
@@ -413,6 +460,7 @@ function ListSection({
   queryKey,
   list,
   add,
+  del,
   placeholder,
 }: {
   title: string;
@@ -420,6 +468,7 @@ function ListSection({
   queryKey: string;
   list: () => Promise<string[]>;
   add: (name: string) => Promise<{ ok: true }>;
+  del: (name: string) => Promise<{ ok: true }>;
   placeholder: string;
 }) {
   const qc = useQueryClient();
@@ -439,6 +488,23 @@ function ListSection({
         description: e instanceof Error ? e.message : String(e),
       }),
   });
+
+  const delMutation = useMutation({
+    mutationFn: (name: string) => del(name),
+    onSuccess: async (_, name) => {
+      await qc.refetchQueries({ queryKey: [queryKey] });
+      toast.success(`${name} deleted`);
+    },
+    onError: (e) =>
+      toast.error("Could not delete", {
+        description: e instanceof Error ? e.message : String(e),
+      }),
+  });
+
+  const handleDelete = (name: string) => {
+    if (!window.confirm(`Delete "${name}" from ${title}? This cannot be undone.`)) return;
+    delMutation.mutate(name);
+  };
 
   const submit = () => {
     const trimmed = value.trim();
@@ -464,8 +530,18 @@ function ListSection({
             <span className="text-sm text-muted-foreground">No entries yet.</span>
           ) : (
             (q.data ?? []).map((item) => (
-              <Badge key={item} variant="secondary" className="text-sm">
-                {item}
+              <Badge key={item} variant="secondary" className="text-sm pr-1">
+                <span>{item}</span>
+                <button
+                  type="button"
+                  aria-label={`Delete ${item}`}
+                  title={`Delete ${item}`}
+                  onClick={() => handleDelete(item)}
+                  disabled={delMutation.isPending}
+                  className="ml-1 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                >
+                  <Trash2 className="size-3" />
+                </button>
               </Badge>
             ))
           )}
