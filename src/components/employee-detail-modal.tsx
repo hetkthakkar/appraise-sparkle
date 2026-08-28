@@ -77,9 +77,11 @@ import {
   listEmployees,
   listLocations,
   listPerformance,
+  listKPIWeightages,
   listTeamLeads,
   monthToLabel,
   updateRemarks,
+  type KPIWeightage,
   type SheetEmployee,
   type SheetPerformance,
   type TeamHierarchyNode,
@@ -328,6 +330,101 @@ function getLatestMonth(rows: SheetPerformance[]): string | null {
   return months[0] ?? null;
 }
 
+function getEffectiveWeightageForMonth(
+  monthKey: string,
+  weightages: KPIWeightage[],
+): KPIWeightage {
+  const normalized = String(monthKey || "").trim().toUpperCase();
+  const exact = weightages.find(
+    (w) => String(w.month || "").trim().toUpperCase() === normalized,
+  );
+  if (exact) return exact;
+
+  const fallback = weightages.find(
+    (w) => String(w.month || "").trim().toUpperCase() === "DEFAULT",
+  );
+
+  return fallback ?? {
+    month: "DEFAULT",
+    production: 50,
+    tickets: 15,
+    errors: 15,
+    attendance: 10,
+    behavior: 10,
+    total: 100,
+  };
+}
+
+function getAchievementScoreFrontend(ratio: number): number {
+  if (ratio >= 1) return 5;
+  if (ratio >= 0.9) return 4;
+  if (ratio >= 0.8) return 3;
+  if (ratio >= 0.7) return 2;
+  return 1;
+}
+
+function getRatingBandFrontend(score: number): string {
+  if (score >= 4.5) return "Exceeds Expectations";
+  if (score >= 4) return "Outstanding";
+  if (score >= 3) return "Meets Expectations";
+  if (score >= 2) return "Needs Improvement";
+  return "Unsatisfactory";
+}
+
+function calculatePerformanceRatingFromRows(
+  rows: SheetPerformance[],
+  weightages: KPIWeightage[],
+): { score: number; rating: string } {
+  if (!rows.length) return { score: 0, rating: "" };
+
+  const productionTarget = rows.reduce((sum, row) => sum + safeNumber(row.productionTarget), 0);
+  const productionActual = rows.reduce((sum, row) => sum + safeNumber(row.productionActual), 0);
+  const ticketTarget = rows.reduce((sum, row) => sum + safeNumber(row.ticketTarget), 0);
+  const ticketActual = rows.reduce((sum, row) => sum + safeNumber(row.ticketActual), 0);
+  const errorTarget = rows.reduce((sum, row) => sum + safeNumber(row.errorTarget), 0);
+  const errorActual = rows.reduce((sum, row) => sum + safeNumber(row.errorActual), 0);
+  const attendance = rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / rows.length;
+  const behavior = rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rows.length;
+
+  const productionRatio = productionTarget > 0 ? productionActual / productionTarget : productionActual > 0 ? 1 : 0;
+  const ticketRatio = ticketTarget > 0 ? ticketActual / ticketTarget : ticketActual > 0 ? 1 : 0;
+  const errorRatio = errorActual <= 0 ? 1 : errorTarget > 0 ? errorTarget / errorActual : 0;
+  const attendanceRatio = Math.max(0, Math.min(1, attendance / 10));
+  const behaviorRatio = Math.max(0, Math.min(1, behavior / 5));
+
+  const productionScore = getAchievementScoreFrontend(productionRatio);
+  const ticketScore = getAchievementScoreFrontend(ticketRatio);
+  const errorScore = getAchievementScoreFrontend(errorRatio);
+  const attendanceScore = getAchievementScoreFrontend(attendanceRatio);
+  const behaviorScore = getAchievementScoreFrontend(behaviorRatio);
+
+  // Range mode: aggregate the KPI values over the selected months first.
+  // If monthly weightages exist, average the configured weights for the
+  // months represented by this employee's selected-range records.
+  const months = Array.from(new Set(
+    rows.map((row) => parseMonthYear(row.month)?.key)
+      .filter((key): key is string => !!key),
+  ));
+  const weightageRows = (months.length > 0 ? months : [""]).map((month) =>
+    getEffectiveWeightageForMonth(month, weightages),
+  );
+
+  const averageWeight = (
+    key: "production" | "tickets" | "errors" | "attendance" | "behavior",
+  ) => weightageRows.reduce((sum, w) => sum + safeNumber(w[key]), 0) / weightageRows.length;
+
+  const weightedScore = (
+    productionScore * averageWeight("production") +
+    ticketScore * averageWeight("tickets") +
+    errorScore * averageWeight("errors") +
+    attendanceScore * averageWeight("attendance") +
+    behaviorScore * averageWeight("behavior")
+  ) / 100;
+
+  const score = Math.round(weightedScore * 100) / 100;
+  return { score, rating: getRatingBandFrontend(score) };
+}
+
 function extractEmployeesFromHierarchy(node: TeamHierarchyNode | null | undefined): SheetEmployee[] {
   if (!node) return [];
   const list: SheetEmployee[] = [];
@@ -449,6 +546,12 @@ export function EmployeeDetailModal({
     enabled: !!user && !!activeEmployeeId,
   });
 
+  const kpiWeightagesQ = useQuery({
+    queryKey: ["kpiWeightages", user?.email],
+    queryFn: () => listKPIWeightages(user!.email),
+    enabled: !!user && !!activeEmployeeId,
+  });
+
   const profile = detailQ.data?.profile;
   const tier = getRoleTier(profile?.designation);
 
@@ -523,6 +626,7 @@ export function EmployeeDetailModal({
   }, [profile, allEmployees, directReports, tier]);
 
   const performanceRows = performanceQ.data ?? [];
+  const kpiWeightages = kpiWeightagesQ.data ?? [];
 
   const defaultMonthKey = useMemo(() => {
     if (!teamEmployees.length) return getCurrentMonthKey();
@@ -593,7 +697,7 @@ export function EmployeeDetailModal({
           const attendance = subRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / subRows.length;
           const behavior = subRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / subRows.length;
 
-          const latestWithRating = subRows.find((r) => r.performanceRating);
+          const rangeRating = calculatePerformanceRatingFromRows(subRows, kpiWeightages);
 
           subordinatesList.push({
             employee,
@@ -608,8 +712,8 @@ export function EmployeeDetailModal({
               errorActual,
               attendance,
               behavior,
-              performanceRating: latestWithRating?.performanceRating,
-              ratingScore: latestWithRating?.ratingScore,
+              performanceRating: rangeRating.rating,
+              ratingScore: rangeRating.score,
             } as SheetPerformance,
             isLeader: false,
           });
@@ -634,7 +738,7 @@ export function EmployeeDetailModal({
         const attendance = memberRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / memberRows.length;
         const behavior = memberRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / memberRows.length;
 
-        const latestWithRating = memberRows.find((r) => r.performanceRating);
+        const rangeRating = calculatePerformanceRatingFromRows(memberRows, kpiWeightages);
 
         subordinatesList.push({
           employee,
@@ -649,8 +753,8 @@ export function EmployeeDetailModal({
             errorActual,
             attendance,
             behavior,
-            performanceRating: latestWithRating?.performanceRating,
-            ratingScore: latestWithRating?.ratingScore,
+            performanceRating: rangeRating.rating,
+            ratingScore: rangeRating.score,
           } as SheetPerformance,
           isLeader: false,
         });
@@ -682,7 +786,7 @@ export function EmployeeDetailModal({
         const attendance = leaderRows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / leaderRows.length;
         const behavior = leaderRows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / leaderRows.length;
 
-        const latestWithRating = leaderRows.find((r) => r.performanceRating);
+        const rangeRating = calculatePerformanceRatingFromRows(leaderRows, kpiWeightages);
 
         leaderPerf = {
           month: minMonth === maxMonth ? minMonth : `${minMonth} to ${maxMonth}`,
@@ -695,8 +799,8 @@ export function EmployeeDetailModal({
           errorActual,
           attendance,
           behavior,
-          performanceRating: latestWithRating?.performanceRating,
-          ratingScore: latestWithRating?.ratingScore,
+          performanceRating: rangeRating.rating,
+          ratingScore: rangeRating.score,
         } as SheetPerformance;
       }
 
@@ -714,6 +818,7 @@ export function EmployeeDetailModal({
     directReports,
     allEmployees,
     performanceRows,
+    kpiWeightages,
     effectiveTeamYear,
     effectiveStartMonthNum,
     effectiveEndMonthNum,
