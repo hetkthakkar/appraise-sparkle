@@ -122,18 +122,35 @@ function normalizeText(value: unknown): string {
   return String(value ?? "")
     .trim()
     .toLowerCase()
+    .replace(/[._\-]/g, " ")
     .replace(/\s+/g, " ");
 }
 
-function getRoleTier(designation: unknown): number {
+export function getRoleTier(designation: unknown): number {
   const value = normalizeText(designation);
 
-  if (value.includes("manager")) return 4;
+  if (
+    value.includes("ceo") ||
+    value.includes("chief executive") ||
+    value.includes("director") ||
+    value.includes("founder") ||
+    value.includes("president") ||
+    value.includes("md") ||
+    value.includes("managing director") ||
+    value.includes("owner")
+  ) {
+    return 5;
+  }
+
+  if (value.includes("manager") || value.includes("mgr")) {
+    return 4;
+  }
 
   if (
     value.includes("head team leader") ||
     value.includes("head team lead") ||
-    value === "head tl" ||
+    value.includes("head tl") ||
+    value.includes("htl") ||
     value.startsWith("head team")
   ) {
     return 3;
@@ -143,10 +160,11 @@ function getRoleTier(designation: unknown): number {
     value.includes("team leader") ||
     value.includes("team lead") ||
     value.includes("assistant team lead") ||
+    value.includes("asst team lead") ||
     value.includes("supervisior") ||
     value.includes("supervisor") ||
-    value === "tl" ||
-    value.startsWith("tl ")
+    value.includes("tl") ||
+    value.includes("atl")
   ) {
     return 2;
   }
@@ -155,6 +173,7 @@ function getRoleTier(designation: unknown): number {
 }
 
 function getSubordinateTypeLabel(tier: number): string {
+  if (tier >= 5) return "DIRECT MANAGERS";
   if (tier === 4) return "HEAD TLS / TEAM LEADERS";
   if (tier === 3) return "TEAM LEADERS";
   if (tier === 2) return "OPERATORS & EXECUTIVES";
@@ -196,26 +215,6 @@ function formatScore(val: number | string | undefined | null, maxDecimals = 2): 
   const n = Number(val);
   if (!Number.isFinite(n)) return "0";
   return parseFloat(n.toFixed(maxDecimals)).toString();
-}
-
-function overallPercent(performance: SheetPerformance | null | undefined): number {
-  if (!performance) return 0;
-  const pTarget = safeNumber(performance.productionTarget);
-  const pActual = safeNumber(performance.productionActual);
-  const pScore = pTarget > 0 ? Math.min(150, (pActual / pTarget) * 100) : 0;
-
-  const tTarget = safeNumber(performance.ticketTarget);
-  const tActual = safeNumber(performance.ticketActual);
-  const tScore = tTarget > 0 ? Math.min(150, (tActual / tTarget) * 100) : 0;
-
-  const eTarget = safeNumber(performance.errorTarget);
-  const eActual = safeNumber(performance.errorActual);
-  const eScore = eTarget <= 0 ? (eActual <= 0 ? 100 : 0) : Math.max(0, (1 - eActual / eTarget) * 100);
-
-  const attScore = (safeNumber(performance.attendance) / 10) * 100;
-  const behScore = (safeNumber(performance.behavior) / 5) * 100;
-
-  return (pScore + tScore + eScore + attScore + behScore) / 5;
 }
 
 function getCurrentMonthKey(): string {
@@ -298,11 +297,11 @@ function getDirectReports(
 
     const subTier = getRoleTier(employee.designation);
 
-    if (managerTier === 4) return true;
-    if (managerTier === 3) return subTier === 2;
-    if (managerTier === 2) return true;
+    if (managerTier >= 4) return true; // CEO & Managers see all direct reports
+    if (managerTier === 3) return subTier === 2; // Head TL sees TLs
+    if (managerTier === 2) return true; // TL sees operators
 
-    return false;
+    return true;
   });
 }
 
@@ -793,6 +792,7 @@ export function EmployeeDetailModal({
               />
             )}
 
+            {/* Render Team Section for CEO (Tier 5), Managers (Tier 4), Head TLs (Tier 3), and TLs (Tier 2) */}
             {tier >= 2 && (
               <TeamSection
                 profile={profile}
@@ -1075,8 +1075,6 @@ function TeamSection({
   performanceLoading: boolean;
   onSelectMember?: (id: string) => void;
 }) {
-  const isHigherLead = tier >= 3;
-
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<TeamSortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -1169,8 +1167,12 @@ function TeamSection({
           <div>
             <CardTitle className="text-sm font-bold">Team</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              {isHigherLead
-                ? `Direct leads reporting to ${profile.name} are shown here.`
+              {tier >= 5
+                ? `Direct reports under ${profile.name} (CEO) are shown here.`
+                : tier === 4
+                ? `Direct leads and team reporting to ${profile.name} are shown here.`
+                : tier === 3
+                ? `Team leaders reporting to ${profile.name} are shown here.`
                 : `Leader and employees reporting to ${profile.name}.`}
             </CardDescription>
           </div>
@@ -1301,16 +1303,16 @@ function TeamSection({
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold">
-                {tier === 4
+                {tier >= 5
+                  ? "Direct Reports Under CEO (Hardik Patel)"
+                  : tier === 4
                   ? "Head TLs & Team Leaders Under This Manager"
                   : tier === 3
                   ? "Team Leaders Under This Head TL"
                   : "Team Members"}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                {tier >= 3
-                  ? `Showing performance for ${rangeLabel}. Click any team leader to drill down into their team.`
-                  : `Showing performance for ${rangeLabel}. Click any member to view details.`}
+                Showing performance for {rangeLabel}. Click any person to drill down into their team.
               </p>
             </div>
 
@@ -1399,7 +1401,7 @@ function TeamSection({
                 </TableHeader>
 
                 <TableBody>
-                  {/* Pinned TL Leader Row */}
+                  {/* Pinned Leader Row if TL */}
                   {leaderRow && (
                     <TableRow className="border-b-2 border-primary/20 bg-primary/5 font-medium">
                       <TableCell className="py-3 text-xs font-bold">
@@ -1448,66 +1450,80 @@ function TeamSection({
                     </TableRow>
                   )}
 
-                  {/* Subordinate Team Members — ALL CLICKABLE TO DRILL DOWN */}
-                  {filteredAndSortedMembers.map(({ employee, performance }) => (
-                    <TableRow
-                      key={employee.employeeId}
-                      className="cursor-pointer border-b border-border/40 hover:bg-muted/50"
-                      onClick={() => {
-                        if (onSelectMember && employee.employeeId) {
-                          onSelectMember(employee.employeeId);
-                        }
-                      }}
-                    >
-                      <TableCell className="py-3 text-xs font-semibold text-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <span>{employee.name}</span>
-                          {getRoleTier(employee.designation) === 2 && (
-                            <span className="rounded bg-secondary px-1 py-0.5 text-[8px] font-bold uppercase text-secondary-foreground">
-                              {normalizeText(employee.designation).includes("assistant") ? "ATL" : "TL"}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3 text-xs text-muted-foreground">
-                        {employee.designation || "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        {performance
-                          ? `${formatScore(performance.productionActual)} / ${formatScore(performance.productionTarget)}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        {performance
-                          ? `${formatScore(performance.ticketActual)} / ${formatScore(performance.ticketTarget)}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        {performance
-                          ? `${formatScore(performance.errorActual)} / ${formatScore(performance.errorTarget)}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        {performance
-                          ? `${formatScore(performance.attendance, 1)}/10`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        {performance
-                          ? `${formatScore(performance.behavior, 1)}/5`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="py-3 text-xs">
-                        <RatingBadge
-                          rating={performance?.performanceRating}
-                          score={performance?.ratingScore}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3 text-right">
-                        <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5" />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {/* Subordinate Members — ALL CLICKABLE TO DRILL DOWN */}
+                  {filteredAndSortedMembers.map(({ employee, performance }) => {
+                    const subTier = getRoleTier(employee.designation);
+
+                    return (
+                      <TableRow
+                        key={employee.employeeId}
+                        className="cursor-pointer border-b border-border/40 hover:bg-muted/50"
+                        onClick={() => {
+                          if (onSelectMember && employee.employeeId) {
+                            onSelectMember(employee.employeeId);
+                          }
+                        }}
+                      >
+                        <TableCell className="py-3 text-xs font-semibold text-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span>{employee.name}</span>
+                            {subTier === 4 && (
+                              <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase text-indigo-700 dark:text-indigo-300">
+                                Manager
+                              </span>
+                            )}
+                            {subTier === 3 && (
+                              <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[8px] font-bold uppercase text-primary">
+                                Head TL
+                              </span>
+                            )}
+                            {subTier === 2 && (
+                              <span className="rounded bg-secondary px-1 py-0.5 text-[8px] font-bold uppercase text-secondary-foreground">
+                                {normalizeText(employee.designation).includes("assistant") ? "ATL" : "TL"}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 text-xs text-muted-foreground">
+                          {employee.designation || "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          {performance
+                            ? `${formatScore(performance.productionActual)} / ${formatScore(performance.productionTarget)}`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          {performance
+                            ? `${formatScore(performance.ticketActual)} / ${formatScore(performance.ticketTarget)}`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          {performance
+                            ? `${formatScore(performance.errorActual)} / ${formatScore(performance.errorTarget)}`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          {performance
+                            ? `${formatScore(performance.attendance, 1)}/10`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          {performance
+                            ? `${formatScore(performance.behavior, 1)}/5`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="py-3 text-xs">
+                          <RatingBadge
+                            rating={performance?.performanceRating}
+                            score={performance?.ratingScore}
+                          />
+                        </TableCell>
+                        <TableCell className="py-3 text-right">
+                          <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5" />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1628,7 +1644,7 @@ function EmployeePerformanceTable({
                     Tickets
                   </TableHead>
                   <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Errors / Rejections
+                    Errors
                   </TableHead>
                   <TableHead className="text-xs font-semibold text-muted-foreground">
                     Attendance
