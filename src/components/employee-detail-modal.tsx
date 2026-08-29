@@ -363,12 +363,31 @@ function getAchievementScoreFrontend(ratio: number): number {
   return 1;
 }
 
+function getDefectScoreFrontend(actual: number, target: number): number {
+  const act = Number(actual || 0);
+  const tar = Number(target || 0);
+
+  // 1. Zero errors/tickets is always perfect (5.0 / 5)
+  if (act <= 0) return 5.0;
+
+  // 2. Zero tolerance (target is 0) and defects occurred:
+  if (tar <= 0) return 0.0;
+
+  // 3. Reached or exceeded limit:
+  if (act >= tar) return 0.0;
+
+  // Option 2: Continuous Linear Drop -> Score = 5 * (1 - actual / target)
+  const score = 5.0 * (1.0 - act / tar);
+  return Math.max(0, Math.min(5.0, Math.round(score * 100) / 100));
+}
+
 function getRatingBandFrontend(score: number): string {
-  if (score >= 4.5) return "Exceeds Expectations";
-  if (score >= 4) return "Outstanding";
-  if (score >= 3) return "Meets Expectations";
-  if (score >= 2) return "Needs Improvement";
-  return "Unsatisfactory";
+  if (score >= 4.5) return "Outstanding";
+  if (score >= 4.0) return "Exceeds Expectations";
+  if (score >= 3.0) return "Meets Expectations";
+  if (score >= 2.0) return "Needs Improvement";
+  if (score > 0) return "Unsatisfactory";
+  return "—";
 }
 
 function calculatePerformanceRatingFromRows(
@@ -386,17 +405,19 @@ function calculatePerformanceRatingFromRows(
   const attendance = rows.reduce((sum, row) => sum + safeNumber(row.attendance), 0) / rows.length;
   const behavior = rows.reduce((sum, row) => sum + safeNumber(row.behavior), 0) / rows.length;
 
+  if (productionTarget === 0 && productionActual === 0 && ticketTarget === 0 && ticketActual === 0 && errorTarget === 0 && errorActual === 0 && attendance === 0 && behavior === 0) {
+    return { score: 0, rating: "—" };
+  }
+
   const productionRatio = productionTarget > 0 ? productionActual / productionTarget : productionActual > 0 ? 1 : 0;
-  const ticketRatio = ticketTarget > 0 ? ticketActual / ticketTarget : ticketActual > 0 ? 1 : 0;
-  const errorRatio = errorActual <= 0 ? 1 : errorTarget > 0 ? errorTarget / errorActual : 0;
   const attendanceRatio = Math.max(0, Math.min(1, attendance / 10));
   const behaviorRatio = Math.max(0, Math.min(1, behavior / 5));
 
   const productionScore = getAchievementScoreFrontend(productionRatio);
-  const ticketScore = getAchievementScoreFrontend(ticketRatio);
-  const errorScore = getAchievementScoreFrontend(errorRatio);
-  const attendanceScore = getAchievementScoreFrontend(attendanceRatio);
-  const behaviorScore = getAchievementScoreFrontend(behaviorRatio);
+  const ticketScore = getDefectScoreFrontend(ticketActual, ticketTarget);
+  const errorScore = getDefectScoreFrontend(errorActual, errorTarget);
+  const attendanceScore = attendance > 0 ? getAchievementScoreFrontend(attendanceRatio) : (productionActual > 0 ? 1 : 0);
+  const behaviorScore = behavior > 0 ? getAchievementScoreFrontend(behaviorRatio) : (productionActual > 0 ? 1 : 0);
 
   // Range mode: aggregate the KPI values over the selected months first.
   // If monthly weightages exist, average the configured weights for the
