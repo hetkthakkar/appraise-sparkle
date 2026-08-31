@@ -3,6 +3,7 @@ import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/mock-auth";
+import { AcentricBadge } from "@/components/acentric-badge";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -60,6 +61,7 @@ function LoginPage() {
           </p>
         </CardContent>
       </Card>
+      <AcentricBadge />
     </div>
   );
 }

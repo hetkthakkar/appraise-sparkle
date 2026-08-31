@@ -34,14 +34,14 @@ function AppLayout() {
           <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
             <SidebarTrigger />
             <h1 className="text-sm font-semibold">{PAGE_TITLES[pathname] ?? "Appraise"}</h1>
-            <div className="ml-auto">
-              <AcentricBadge />
+            <div className="ml-auto flex items-center gap-2">
               <RefreshButton />
             </div>
           </header>
           <main className="flex-1 bg-muted/20 p-6">
             <Outlet />
           </main>
+          <AcentricBadge />
         </div>
       </div>
     </SidebarProvider>

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
 import { useAuth } from "@/lib/mock-auth";
+import { AcentricBadge } from "@/components/acentric-badge";
 
 export const Route = createFileRoute("/pending")({
   component: Pending,
@@ -46,6 +47,7 @@ function Pending() {
           </Button>
         </CardContent>
       </Card>
+      <AcentricBadge />
     </div>
   );
 }
