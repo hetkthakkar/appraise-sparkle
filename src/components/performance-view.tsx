@@ -241,13 +241,13 @@ export function PerformanceView({
       {/* PERSONAL PERFORMANCE */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <CardTitle>
+              <CardTitle className="text-base sm:text-lg">
                 Personal Performance
               </CardTitle>
 
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Monthly performance history.
               </CardDescription>
             </div>
@@ -259,7 +259,7 @@ export function PerformanceView({
                   setSelectedYear
                 }
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px] text-xs">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
 
@@ -290,8 +290,8 @@ export function PerformanceView({
               No performance data available.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <Table className="min-w-[680px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>

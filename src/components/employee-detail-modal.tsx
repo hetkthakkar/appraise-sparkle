@@ -954,10 +954,10 @@ export function EmployeeDetailModal({
 
   return (
     <Dialog open={!!employeeId} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
-        <DialogHeader className="sticky top-0 z-20 border-b bg-background px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
+      <DialogContent className="max-h-[92vh] w-[95vw] sm:max-w-5xl overflow-y-auto p-0 rounded-xl">
+        <DialogHeader className="sticky top-0 z-20 border-b bg-background px-3.5 py-3 sm:px-6 sm:py-5">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               {history.length > 0 && (
                 <Button
                   variant="ghost"
@@ -970,10 +970,10 @@ export function EmployeeDetailModal({
               )}
 
               <div>
-                <DialogTitle className="text-xl font-bold uppercase tracking-tight text-foreground">
+                <DialogTitle className="text-base sm:text-xl font-bold uppercase tracking-tight text-foreground">
                   {profile?.name ?? "Employee detail"}
                 </DialogTitle>
-                <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
+                <DialogDescription className="mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
                   Profile and employee performance history.
                 </DialogDescription>
               </div>
@@ -983,18 +983,19 @@ export function EmployeeDetailModal({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs font-medium"
+                className="h-8 text-xs font-medium shrink-0"
                 onClick={() => setEditing((v) => !v)}
               >
                 <Pencil className="mr-1 size-3.5" />
-                Edit details
+                <span className="hidden sm:inline">Edit details</span>
+                <span className="sm:hidden">Edit</span>
               </Button>
             )}
           </div>
         </DialogHeader>
 
         {detailQ.isLoading && (
-          <div className="space-y-4 px-6 py-6">
+          <div className="space-y-4 px-3.5 py-4 sm:px-6 sm:py-6">
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-52 w-full" />
@@ -1002,7 +1003,7 @@ export function EmployeeDetailModal({
         )}
 
         {detailQ.isError && (
-          <div className="px-6 py-6">
+          <div className="px-3.5 py-4 sm:px-6 sm:py-6">
             <p className="text-sm text-destructive">
               Failed to load employee details:{" "}
               {detailQ.error instanceof Error
@@ -1013,7 +1014,7 @@ export function EmployeeDetailModal({
         )}
 
         {detailQ.data && profile && (
-          <div className="space-y-6 px-6 py-6">
+          <div className="space-y-4 sm:space-y-6 px-3.5 py-4 sm:px-6 sm:py-6">
             <ProfileSection
               profile={profile}
               canRemark={canEdit}
@@ -1573,7 +1574,7 @@ function TeamSection({
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/70">
-              <Table>
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow className="border-b border-border/60 hover:bg-transparent">
                     <TableHead
@@ -1870,7 +1871,7 @@ function EmployeePerformanceTable({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/70">
-            <Table>
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow className="border-b border-border/60 hover:bg-transparent">
                   <TableHead className="text-xs font-semibold text-muted-foreground">

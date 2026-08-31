@@ -347,15 +347,15 @@ function AdminDashboard() {
             : "Pending";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Team Overview</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Team Overview</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           {me?.department ?? "—"} • {directReports.length} {myTier >= 3 ? "team leads" : "reports"}
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <StatCard
           label={myTier >= 3 ? "Team Leads" : "Team Size"}
           value={directReports.length}
@@ -366,21 +366,22 @@ function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <CardTitle>
+            <CardTitle className="text-base sm:text-lg">
               {myTier >= 3 ? "Team Leads' Performance" : "Current Month Performance"}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               {myTier >= 3
                 ? `Rolled-up performance across all teams for ${month}. Click any team lead to drill down.`
                 : `Snapshot of your team's ${month} numbers.`}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2">
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => exportPerformance(teamPerf)}
               disabled={!teamPerf.length}
             >
@@ -388,7 +389,7 @@ function AdminDashboard() {
               Export Data
             </Button>
             {user.role === "super_admin" && (
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="w-full sm:w-auto">
                 <Link to="/upload">Upload File</Link>
               </Button>
             )}
@@ -402,7 +403,8 @@ function AdminDashboard() {
               ))}
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <Table className="min-w-[620px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>{myTier >= 3 ? "Team Lead / Team" : "Employee"}</TableHead>
@@ -456,6 +458,7 @@ function AdminDashboard() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

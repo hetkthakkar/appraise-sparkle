@@ -164,14 +164,14 @@ function SuperAdminDashboard() {
   const loading = empQ.isLoading || perfQ.isLoading;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Welcome back, {user.name.split(" ")[0]}</h2>
-        <p className="text-sm text-muted-foreground">Here's what's happening across the organisation.</p>
+        <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Welcome back, {user.name.split(" ")[0]}</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">Here's what's happening across the organisation.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 sm:h-24" />)
         ) : (
           <>
             <StatCard label="Total Employees" value={employees.length} icon={Users} />
@@ -184,13 +184,13 @@ function SuperAdminDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <CardTitle>Current month coverage</CardTitle>
-              <CardDescription>Performance rows uploaded for {month}.</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Current month coverage</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Performance rows uploaded for {month}.</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => exportPerformance(perf)} disabled={!perf.length}>
-              <Download />
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => exportPerformance(perf)} disabled={!perf.length}>
+              <Download className="mr-1.5 size-3.5" />
               Export Data
             </Button>
           </CardHeader>

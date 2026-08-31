@@ -31,14 +31,14 @@ function AppLayout() {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex flex-1 flex-col">
-          <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
+          <header className="flex h-14 items-center gap-2.5 border-b bg-background px-3 sm:px-4">
             <SidebarTrigger />
-            <h1 className="text-sm font-semibold">{PAGE_TITLES[pathname] ?? "Appraise"}</h1>
+            <h1 className="truncate text-xs font-semibold sm:text-sm">{PAGE_TITLES[pathname] ?? "Appraise"}</h1>
             <div className="ml-auto flex items-center gap-2">
               <RefreshButton />
             </div>
           </header>
-          <main className="flex-1 bg-muted/20 p-6">
+          <main className="flex-1 bg-muted/20 p-3 sm:p-5 md:p-6">
             <Outlet />
           </main>
           <AcentricBadge />

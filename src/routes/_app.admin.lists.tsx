@@ -280,10 +280,10 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
             </div>
 
             {selectedMonth === "custom" && (
-              <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-                <label className="text-xs font-semibold text-muted-foreground">Custom Month</label>
+              <div className="space-y-1 col-span-2 sm:col-span-1">
+                <label className="text-xs font-semibold text-muted-foreground">Month</label>
                 <Input
-                  placeholder="e.g. 2026-09"
+                  type="month"
                   value={customMonth}
                   onChange={(e) => setCustomMonth(e.target.value)}
                   className="h-9 text-xs"
@@ -292,7 +292,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Production (%)</label>
+              <label className="text-xs font-semibold text-muted-foreground">Prod (%)</label>
               <Input
                 type="number"
                 min="0"
@@ -328,7 +328,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Attendance (%)</label>
+              <label className="text-xs font-semibold text-muted-foreground">Atten (%)</label>
               <Input
                 type="number"
                 min="0"
@@ -340,7 +340,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Behavior (%)</label>
+              <label className="text-xs font-semibold text-muted-foreground">Behav (%)</label>
               <Input
                 type="number"
                 min="0"
@@ -352,7 +352,7 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
             <div className="text-xs text-muted-foreground">
               Target: <span className="font-medium text-foreground">{formatMonthDisplay(cleanEffectiveMonth) || "—"}</span> &nbsp;|&nbsp; Total: <span className={isValidTotal ? "font-bold text-emerald-600" : "font-bold text-destructive"}>{total}%</span>
             </div>
@@ -360,10 +360,10 @@ function KPIWeightageSection({ userEmail }: { userEmail: string }) {
               size="sm"
               disabled={m.isPending || !isValidTotal || !cleanEffectiveMonth}
               onClick={() => m.mutate()}
-              className="gap-1.5"
+              className="gap-1.5 w-full sm:w-auto"
             >
               <Save className="size-3.5" />
-              {m.isPending ? "Saving & Recalculating..." : `Save Weightages for ${cleanEffectiveMonth}`}
+              {m.isPending ? "Saving..." : `Save for ${cleanEffectiveMonth}`}
             </Button>
           </div>
         </div>
