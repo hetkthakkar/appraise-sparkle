@@ -387,9 +387,11 @@ function AdminDashboard() {
               <Download className="mr-2 h-4 w-4" />
               Export Data
             </Button>
-            <Button asChild size="sm">
-              <Link to="/upload">Upload File</Link>
-            </Button>
+            {user.role === "super_admin" && (
+              <Button asChild size="sm">
+                <Link to="/upload">Upload File</Link>
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

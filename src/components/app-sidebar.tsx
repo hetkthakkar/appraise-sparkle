@@ -51,7 +51,6 @@ export function AppSidebar() {
     items.push(
       { title: "Team Overview", url: "/admin", icon: BarChart3 },
       { title: "My Team", url: "/employees", icon: Users },
-      { title: "Upload Center", url: "/upload", icon: Upload },
       { title: "My Performance", url: "/me", icon: User },
     );
   } else if (user.role === "user") {

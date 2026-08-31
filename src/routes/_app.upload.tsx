@@ -13,7 +13,7 @@ function UploadCenter() {
   const qc = useQueryClient();
 
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== "super_admin" && user.role !== "admin") return <Navigate to="/" />;
+  if (user.role !== "super_admin") return <Navigate to="/" />;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
