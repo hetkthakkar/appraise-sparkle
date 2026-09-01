@@ -142,57 +142,55 @@ function UsersPage() {
               Failed to load users: {error instanceof Error ? error.message : String(error)}
             </p>
           ) : (
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <Table className="min-w-[540px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Current Role</TableHead>
-                    <TableHead className="w-[200px]">Change Role</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {uniqueUsers.map((u: SheetUser) => {
-                    const role = normalizeRole(u.role);
-                    return (
-                      <TableRow key={u.email}>
-                        <TableCell className="font-medium">{u.name || "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={roleVariant(role)}>{ROLE_LABEL[role]}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={role}
-                            onValueChange={(v) => mutation.mutate({ email: u.email, role: v as Role })}
-                            disabled={u.email === user.email || mutation.isPending}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLES.map((r) => (
-                                <SelectItem key={r} value={r} className="text-xs">
-                                  {ROLE_LABEL[r]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {uniqueUsers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                        No users found.
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Current Role</TableHead>
+                  <TableHead className="w-[220px]">Change Role</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {uniqueUsers.map((u: SheetUser) => {
+                  const role = normalizeRole(u.role);
+                  return (
+                    <TableRow key={u.email}>
+                      <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={roleVariant(role)}>{ROLE_LABEL[role]}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={role}
+                          onValueChange={(v) => mutation.mutate({ email: u.email, role: v as Role })}
+                          disabled={u.email === user.email || mutation.isPending}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map((r) => (
+                              <SelectItem key={r} value={r} className="text-xs">
+                                {ROLE_LABEL[r]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  );
+                })}
+                {uniqueUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

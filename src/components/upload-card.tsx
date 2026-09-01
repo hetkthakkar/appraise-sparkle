@@ -219,23 +219,22 @@ export function UploadCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <FileSpreadsheet className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-primary" />
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
             {title}
           </CardTitle>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="w-full sm:w-auto text-xs"
             onClick={() => downloadTemplate(templateFileName, columns)}
           >
             Download Template
           </Button>
         </div>
 
-        <CardDescription className="text-xs sm:text-sm">
+        <CardDescription>
           {description}
         </CardDescription>
       </CardHeader>
@@ -259,22 +258,22 @@ export function UploadCard({
               }
             }
           }}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 p-5 sm:p-8 text-center transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 text-center transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60"
         >
           {busy ? (
-            <Loader2 className="h-7 w-7 sm:h-8 sm:w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
-            <Upload className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
+            <Upload className="h-8 w-8 text-muted-foreground" />
           )}
 
-          <span className="text-xs sm:text-sm font-medium">
+          <span className="text-sm font-medium">
             {busy
               ? "Uploading…"
               : fileName ??
                 "Drop Excel or CSV file here or click to browse"}
           </span>
 
-          <span className="text-[11px] sm:text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             .xlsx, .xls, .csv accepted
           </span>
         </button>

@@ -158,35 +158,34 @@ function EmployeesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+              <CardTitle>
                 {user.role === "super_admin"
                   ? "All Employees"
                   : "My Team"}
               </CardTitle>
 
-              <CardDescription className="text-xs sm:text-sm">
+              <CardDescription>
                 {isLoading
                   ? "Loading…"
                   : `${filtered.length} of ${scope.length} shown`}
               </CardDescription>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row w-full sm:w-auto">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 placeholder="Search by name, ID, email…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="w-full sm:w-64"
+                className="max-w-xs"
               />
 
               <Button
                 variant="outline"
-                className="w-full sm:w-auto"
                 onClick={() => exportEmployees(filtered)}
                 disabled={!filtered.length}
               >
@@ -197,7 +196,7 @@ function EmployeesPage() {
           </div>
 
           {/* Filters — Populated dynamically only with values present in current team */}
-          <div className="grid grid-cols-1 gap-2.5 pt-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-4">
             <FilterSelect
               placeholder="Department"
               value={departmentFilter}
@@ -235,7 +234,7 @@ function EmployeesPage() {
             q) && (
             <button
               type="button"
-              className="text-xs sm:text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
               onClick={() => {
                 setQ("");
                 setDepartmentFilter("all");
@@ -267,8 +266,8 @@ function EmployeesPage() {
                 : String(error)}
             </p>
           ) : (
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <Table className="min-w-[700px]">
+            <div className="overflow-x-auto">
+              <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee ID</TableHead>
