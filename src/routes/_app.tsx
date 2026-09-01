@@ -38,8 +38,10 @@ function AppLayout() {
               <RefreshButton />
             </div>
           </header>
-          <main className="flex-1 bg-muted/20 p-6">
-            <Outlet />
+          <main className="flex-1 bg-muted/20 p-6 overflow-x-hidden">
+            <div key={pathname} className="page-transition h-full w-full">
+              <Outlet />
+            </div>
           </main>
           <AcentricBadge />
         </div>

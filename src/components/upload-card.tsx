@@ -217,7 +217,7 @@ export function UploadCard({
   };
 
   return (
-    <Card>
+    <Card className="transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-sm">
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export function UploadCard({
               }
             }
           }}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 text-center transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 text-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-primary hover:bg-primary/5 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
         >
           {busy ? (
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

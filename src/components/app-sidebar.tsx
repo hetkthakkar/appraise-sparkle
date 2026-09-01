@@ -81,9 +81,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url} className="transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98]">
                     <Link to={item.url} className="flex items-center gap-2.5 text-xs font-medium">
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover/menu-item:scale-110" />
                       <span className="truncate">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
