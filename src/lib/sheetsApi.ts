@@ -279,8 +279,15 @@ export function updateKPIWeightages(
   );
 }
 
-export function listDepartments() {
-  return callSheetsApi<string[]>("listDepartments", {});
+export async function listDepartments() {
+  const list = await callSheetsApi<string[]>("listDepartments", {});
+  return (list ?? []).slice().sort((a, b) => {
+    const isCeoA = a.trim().toLowerCase() === "ceo" || a.trim().toLowerCase().startsWith("ceo ");
+    const isCeoB = b.trim().toLowerCase() === "ceo" || b.trim().toLowerCase().startsWith("ceo ");
+    if (isCeoA && !isCeoB) return -1;
+    if (!isCeoA && isCeoB) return 1;
+    return a.localeCompare(b, undefined, { sensitivity: "base" });
+  });
 }
 
 export function addDepartment(callerEmail: string, name: string) {

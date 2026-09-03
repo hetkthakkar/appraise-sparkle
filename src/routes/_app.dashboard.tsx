@@ -141,6 +141,13 @@ function SuperAdminDashboard() {
   const perf = perfQ.data ?? [];
 
   const departments = new Set(employees.map((e) => e.department).filter(Boolean));
+  const sortedDepartments = Array.from(departments).sort((a, b) => {
+    const isCeoA = a.trim().toLowerCase() === "ceo" || a.trim().toLowerCase().startsWith("ceo ");
+    const isCeoB = b.trim().toLowerCase() === "ceo" || b.trim().toLowerCase().startsWith("ceo ");
+    if (isCeoA && !isCeoB) return -1;
+    if (!isCeoA && isCeoB) return 1;
+    return a.localeCompare(b, undefined, { sensitivity: "base" });
+  });
   const teamLeads = new Set(
     employees
       .filter(
@@ -218,7 +225,7 @@ function SuperAdminDashboard() {
             {loading ? (
               <Skeleton className="h-24" />
             ) : (
-              Array.from(departments).map((d) => {
+              sortedDepartments.map((d) => {
                 const count = employees.filter((e) => e.department === d).length;
                 return (
                   <div key={d} className="flex items-center justify-between rounded-md border p-3 text-sm">
