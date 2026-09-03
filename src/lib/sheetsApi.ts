@@ -282,10 +282,10 @@ export function updateKPIWeightages(
 export async function listDepartments() {
   const list = await callSheetsApi<string[]>("listDepartments", {});
   return (list ?? []).slice().sort((a, b) => {
-    const isCeoA = a.trim().toLowerCase() === "ceo" || a.trim().toLowerCase().startsWith("ceo ");
-    const isCeoB = b.trim().toLowerCase() === "ceo" || b.trim().toLowerCase().startsWith("ceo ");
-    if (isCeoA && !isCeoB) return -1;
-    if (!isCeoA && isCeoB) return 1;
+    const isLeadA = a.trim().toLowerCase() === "leadership" || a.trim().toLowerCase().startsWith("leadership ");
+    const isLeadB = b.trim().toLowerCase() === "leadership" || b.trim().toLowerCase().startsWith("leadership ");
+    if (isLeadA && !isLeadB) return -1;
+    if (!isLeadA && isLeadB) return 1;
     return a.localeCompare(b, undefined, { sensitivity: "base" });
   });
 }
