@@ -1,28 +1,139 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Building2, UserCheck, CalendarCheck2, Download } from "lucide-react";
+import {
+  Building2,
+  CalendarRange,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import { StatCard } from "@/components/stat-card";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/lib/mock-auth";
-import { getMyDashboard, listEmployees, listPerformance } from "@/lib/sheetsApi";
-import { exportPerformance } from "@/lib/excel";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/lib/mock-auth";
+import {
+  getMyDashboard,
+  listEmployees,
+  listPerformance,
+  type SheetPerformance,
+} from "@/lib/sheetsApi";
 import { EmployeeOnboarding } from "@/components/employee-onboarding";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: SuperAdminDashboard,
 });
 
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const ALL_LOCATIONS = "__all__";
+
+function normalizeMonth(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const match = raw.match(/^(\d{4})[-/](\d{1,2})/);
+  if (match) {
+    return `${match[1]}-${String(match[2]).padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  return raw;
+}
+
+function monthLabel(month: string): string {
+  const normalized = normalizeMonth(month);
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return normalized;
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function inSelectedRange(month: string, fromMonth: string, toMonth: string): boolean {
+  if (fromMonth && month < fromMonth) return false;
+  if (toMonth && month > toMonth) return false;
+  return true;
+}
+
+function aggregateByMonth(rows: SheetPerformance[]) {
+  const map = new Map<
+    string,
+    {
+      month: string;
+      productionTarget: number;
+      productionActual: number;
+      errorTarget: number;
+      errorActual: number;
+    }
+  >();
+
+  rows.forEach((row) => {
+    const month = normalizeMonth(row.month);
+    if (!month) return;
+
+    const current = map.get(month) ?? {
+      month,
+      productionTarget: 0,
+      productionActual: 0,
+      errorTarget: 0,
+      errorActual: 0,
+    };
+
+    current.productionTarget += Number(row.productionTarget || 0);
+    current.productionActual += Number(row.productionActual || 0);
+    current.errorTarget += Number(row.errorTarget || 0);
+    current.errorActual += Number(row.errorActual || 0);
+
+    map.set(month, current);
+  });
+
+  return Array.from(map.values())
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((row) => ({
+      ...row,
+      label: monthLabel(row.month),
+    }));
 }
 
 function SuperAdminDashboard() {
   const { user } = useAuth();
-  const month = currentMonth();
+
+  // Universal dashboard filters: From Month -> To Month -> Year -> Location
+  const [selectedYear, setSelectedYear] = useState("");
+  const [rangeStartMonth, setRangeStartMonth] = useState("01");
+  const [rangeEndMonth, setRangeEndMonth] = useState("12");
+  const [selectedLocation, setSelectedLocation] = useState(ALL_LOCATIONS);
 
   const empQ = useQuery({
     queryKey: ["employees", user?.email],
@@ -30,67 +141,13 @@ function SuperAdminDashboard() {
     enabled: !!user && user.role === "super_admin",
   });
 
- const perfQ = useQuery({
-  queryKey: ["performance", user?.email, month],
-  queryFn: async () => {
-    const rows = await listPerformance(
-      user!.email,
-      month
-    );
-
-    // Normalize the month on the frontend as a safety check.
-    // This prevents the Dashboard from showing 0 even when
-    // the backend has returned the correct current-month rows.
-    const normalizeMonth = (value: unknown) => {
-      if (!value) return "";
-
-      const s = String(value).trim();
-
-      const match = s.match(
-        /^(?:[A-Za-z]+)[-\s\/](\d{4})$/i
-      );
-
-      if (match) {
-        const monthNames = [
-          "jan", "feb", "mar", "apr", "may", "jun",
-          "jul", "aug", "sep", "oct", "nov", "dec",
-        ];
-
-        const name =
-          s.split(/[-\s\/]/)[0].toLowerCase();
-
-        const index = monthNames.indexOf(
-          name.slice(0, 3)
-        );
-
-        if (index !== -1) {
-          return `${match[1]}-${String(index + 1).padStart(2, "0")}`;
-        }
-      }
-
-      const ym = s.match(
-        /^(\d{4})[-\/](\d{1,2})/
-      );
-
-      if (ym) {
-        return `${ym[1]}-${String(ym[2]).padStart(2, "0")}`;
-      }
-
-      return s;
-    };
-
-    const normalizedCurrentMonth =
-      normalizeMonth(month);
-
-    return rows.filter(
-      row =>
-        normalizeMonth(row.month) ===
-        normalizedCurrentMonth
-    );
-  },
-  enabled:
-    !!user &&
-    user.role === "super_admin",
+  // No month is passed here intentionally.
+  // The dashboard needs all available monthly rows so the date range filter
+  // and monthly line charts can work across the complete history.
+  const perfQ = useQuery({
+    queryKey: ["performance", "all", user?.email],
+    queryFn: () => listPerformance(user!.email),
+    enabled: !!user && user.role === "super_admin",
   });
 
   const meQ = useQuery({
@@ -99,25 +156,202 @@ function SuperAdminDashboard() {
     enabled: !!user && user.role === "super_admin",
   });
 
-  if (!user || user.role !== "super_admin") return <Navigate to="/" />;
+  const employees = empQ.data ?? [];
+  const performance = perfQ.data ?? [];
+
+  const employeeLocationMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    employees.forEach((employee) => {
+      const employeeId = String(employee.employeeId ?? "").trim();
+      const location = String(employee.location ?? "").trim();
+      if (employeeId && location) map.set(employeeId, location);
+    });
+
+    return map;
+  }, [employees]);
+
+  const locations = useMemo(() => {
+    const values = new Set<string>();
+
+    employees.forEach((employee) => {
+      const location = String(employee.location ?? "").trim();
+      if (location) values.add(location);
+    });
+
+    performance.forEach((row) => {
+      const location = String(row.location ?? "").trim();
+      if (location) values.add(location);
+    });
+
+    return Array.from(values).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [employees, performance]);
+
+  const availableMonths = useMemo(() => {
+    return Array.from(
+      new Set(
+        performance
+          .map((row) => normalizeMonth(row.month))
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [performance]);
+
+  const availableYears = useMemo(() => {
+    return Array.from(
+      new Set(
+        availableMonths
+          .map((month) => month.slice(0, 4))
+          .filter((year) => /^\d{4}$/.test(year))
+      )
+    ).sort();
+  }, [availableMonths]);
+
+  const monthOptions = useMemo(
+    () => [
+      { value: "01", label: "January" },
+      { value: "02", label: "February" },
+      { value: "03", label: "March" },
+      { value: "04", label: "April" },
+      { value: "05", label: "May" },
+      { value: "06", label: "June" },
+      { value: "07", label: "July" },
+      { value: "08", label: "August" },
+      { value: "09", label: "September" },
+      { value: "10", label: "October" },
+      { value: "11", label: "November" },
+      { value: "12", label: "December" },
+    ],
+    []
+  );
+
+  // Use the latest available year automatically until the user chooses one.
+  const effectiveYear = selectedYear || availableYears[availableYears.length - 1] || "";
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) {
+      setSelectedYear(availableYears[availableYears.length - 1]);
+    }
+  }, [availableYears, selectedYear]);
+
+  const fromMonth = useMemo(() => {
+    if (!effectiveYear) return "";
+    return `${effectiveYear}-${rangeStartMonth}`;
+  }, [effectiveYear, rangeStartMonth]);
+
+  const toMonth = useMemo(() => {
+    if (!effectiveYear) return "";
+    return `${effectiveYear}-${rangeEndMonth}`;
+  }, [effectiveYear, rangeEndMonth]);
+
+
+  const filteredEmployees = useMemo(() => {
+    if (selectedLocation === ALL_LOCATIONS) return employees;
+
+    return employees.filter(
+      (employee) =>
+        String(employee.location ?? "").trim() === selectedLocation
+    );
+  }, [employees, selectedLocation]);
+
+  const filteredPerformance = useMemo(() => {
+    return performance.filter((row) => {
+      const month = normalizeMonth(row.month);
+      const rowLocation = String(row.location ?? "").trim();
+      const location =
+        rowLocation ||
+        employeeLocationMap.get(String(row.employeeId ?? "").trim()) ||
+        "";
+
+      if (!inSelectedRange(month, fromMonth, toMonth)) return false;
+
+      if (
+        selectedLocation !== ALL_LOCATIONS &&
+        location !== selectedLocation
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    performance,
+    fromMonth,
+    toMonth,
+    selectedLocation,
+    employeeLocationMap,
+  ]);
+
+  const chartData = useMemo(
+    () => aggregateByMonth(filteredPerformance),
+    [filteredPerformance]
+  );
+
+  const departments = useMemo(() => {
+    return Array.from(
+      new Set(
+        filteredEmployees
+          .map((employee) => String(employee.department ?? "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => {
+      const isLeadA =
+        a.toLowerCase() === "leadership" ||
+        a.toLowerCase().startsWith("leadership ");
+      const isLeadB =
+        b.toLowerCase() === "leadership" ||
+        b.toLowerCase().startsWith("leadership ");
+
+      if (isLeadA && !isLeadB) return -1;
+      if (!isLeadA && isLeadB) return 1;
+
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+  }, [filteredEmployees]);
+
+  const teamLeads = useMemo(() => {
+    return new Set(
+      filteredEmployees
+        .filter((employee) => {
+          const designation = String(employee.designation ?? "").toLowerCase();
+          return designation.includes("lead") || designation.includes("head");
+        })
+        .map((employee) => employee.employeeId || employee.name)
+        .filter(Boolean)
+    ).size;
+  }, [filteredEmployees]);
+
+  const loading = empQ.isLoading || perfQ.isLoading;
+  const me = meQ.data?.profile;
+
+  const needsOnboarding =
+    !me ||
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim();
+
+  const resetFilters = () => {
+    setRangeStartMonth("01");
+    setRangeEndMonth("12");
+    setSelectedLocation(ALL_LOCATIONS);
+  };
+
+  if (!user || user.role !== "super_admin") {
+    return <Navigate to="/" />;
+  }
 
   if (meQ.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
-        <Skeleton className="h-40" />
-        <Skeleton className="h-64" />
+      <div className="mx-auto max-w-7xl space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-80 w-full" />
       </div>
     );
   }
 
-  const me = meQ.data?.profile;
-  const needsOnboarding =
-  !me ||
-  !me.department?.trim() ||
-  !me.designation?.trim() ||
-  !me.location?.trim() ||
-  !String(me.joiningDate ?? "").trim();
-  
   if (needsOnboarding) {
     return (
       <EmployeeOnboarding
@@ -137,80 +371,213 @@ function SuperAdminDashboard() {
     );
   }
 
-  const employees = empQ.data ?? [];
-  const perf = perfQ.data ?? [];
-
-  const departments = new Set(employees.map((e) => e.department).filter(Boolean));
-  const sortedDepartments = Array.from(departments).sort((a, b) => {
-    const isLeadA = a.trim().toLowerCase() === "leadership" || a.trim().toLowerCase().startsWith("leadership ");
-    const isLeadB = b.trim().toLowerCase() === "leadership" || b.trim().toLowerCase().startsWith("leadership ");
-    if (isLeadA && !isLeadB) return -1;
-    if (!isLeadA && isLeadB) return 1;
-    return a.localeCompare(b, undefined, { sensitivity: "base" });
-  });
-  const teamLeads = new Set(
-    employees
-      .filter(
-        (e) =>
-          e.designation?.toLowerCase().includes("lead") ||
-          e.designation?.toLowerCase().includes("head")
-      )
-      .map((e) => e.name)
-  );
-  const uploadStatus =
-    perfQ.isLoading || empQ.isLoading
-      ? "…"
-      : employees.length === 0
-        ? "No data"
-        : perf.length >= employees.length
-          ? "Complete"
-          : perf.length > 0
-            ? "Partial"
-            : "Pending";
-
-  const loading = empQ.isLoading || perfQ.isLoading;
-
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Welcome back, {user.name.split(" ")[0]}</h2>
-        <p className="text-sm text-muted-foreground">Here's what's happening across the organisation.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Welcome back, {user.name.split(" ")[0]}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Here's what's happening across the organisation.
+        </p>
       </div>
+
+      {/* Universal dashboard filters */}
+      <Card>
+        <CardContent className="pt-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={rangeStartMonth}
+              onValueChange={(value) => {
+                setRangeStartMonth(value);
+                if (value > rangeEndMonth) setRangeEndMonth(value);
+              }}
+            >
+              <SelectTrigger className="h-10 w-[145px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <span className="text-sm text-muted-foreground">to</span>
+
+            <Select
+              value={rangeEndMonth}
+              onValueChange={(value) => {
+                setRangeEndMonth(value);
+                if (value < rangeStartMonth) setRangeStartMonth(value);
+              }}
+            >
+              <SelectTrigger className="h-10 w-[145px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions
+                  .filter((month) => month.value >= rangeStartMonth)
+                  .map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={effectiveYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="h-10 w-[105px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="min-w-[180px] flex-1 sm:flex-none">
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="h-10 min-w-[180px]">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_LOCATIONS}>All Locations</SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10"
+              onClick={resetFilters}
+              disabled={
+                rangeStartMonth === "01" &&
+                rangeEndMonth === "12" &&
+                selectedLocation === ALL_LOCATIONS
+              }
+            >
+              Reset
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))
         ) : (
           <>
-            <StatCard label="Total Employees" value={employees.length} icon={Users} />
-            <StatCard label="Total Departments" value={departments.size} icon={Building2} />
-            <StatCard label="Total Team Leads" value={teamLeads.size} icon={UserCheck} />
-            <StatCard label="Monthly Upload" value={uploadStatus} icon={CalendarCheck2} hint={month} />
+            <StatCard
+              label="Total Employees"
+              value={filteredEmployees.length}
+              icon={Users}
+              hint={
+                selectedLocation === ALL_LOCATIONS
+                  ? "All locations"
+                  : selectedLocation
+              }
+            />
+            <StatCard
+              label="Total Departments"
+              value={departments.length}
+              icon={Building2}
+              hint="Based on selected location"
+            />
+            <StatCard
+              label="Total Team Leads"
+              value={teamLeads}
+              icon={UserCheck}
+              hint="Based on selected location"
+            />
+            <StatCard
+              label="Performance Rows"
+              value={filteredPerformance.length}
+              icon={CalendarRange}
+              hint={
+                fromMonth || toMonth
+                  ? `${fromMonth ? monthLabel(fromMonth) : "Start"} – ${
+                      toMonth ? monthLabel(toMonth) : "Latest"
+                    }`
+                  : "All available months"
+              }
+            />
           </>
         )}
       </div>
 
+      {/* Current month coverage section removed */}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle>Current month coverage</CardTitle>
-              <CardDescription>Performance rows uploaded for {month}.</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => exportPerformance(perf)} disabled={!perf.length}>
-              <Download />
-              Export Data
-            </Button>
+          <CardHeader>
+            <CardTitle>Production Trend</CardTitle>
+            <CardDescription>
+              Monthly production target versus actual performance.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-16" />
+              <Skeleton className="h-[320px] w-full" />
+            ) : chartData.length === 0 ? (
+              <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+                No production data is available for the selected filters.
+              </div>
             ) : (
-              <div className="flex items-center justify-between rounded-md border p-4 text-sm">
-                <div>
-                  <div className="font-medium">{perf.length} / {employees.length} employees</div>
-                  <div className="text-xs text-muted-foreground">Rows submitted this month</div>
-                </div>
-                <Badge variant={uploadStatus === "Complete" ? "default" : "secondary"}>{uploadStatus}</Badge>
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      formatter={(value: number) =>
+                        Number(value).toLocaleString()
+                      }
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="productionTarget"
+                      name="Target"
+                      stroke="#64748b"
+                      strokeDasharray="7 5"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="productionActual"
+                      name="Actual"
+                      stroke="#2563eb"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             )}
           </CardContent>
@@ -218,26 +585,102 @@ function SuperAdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Departments</CardTitle>
-            <CardDescription>Headcount by department.</CardDescription>
+            <CardTitle>Error Trend</CardTitle>
+            <CardDescription>
+              Monthly internal error/rejection target versus actual.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent>
             {loading ? (
-              <Skeleton className="h-24" />
+              <Skeleton className="h-[320px] w-full" />
+            ) : chartData.length === 0 ? (
+              <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+                No error data is available for the selected filters.
+              </div>
             ) : (
-              sortedDepartments.map((d) => {
-                const count = employees.filter((e) => e.department === d).length;
-                return (
-                  <div key={d} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                    <span className="font-medium">{d}</span>
-                    <Badge variant="outline">{count} people</Badge>
-                  </div>
-                );
-              })
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      formatter={(value: number) =>
+                        Number(value).toLocaleString()
+                      }
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="errorTarget"
+                      name="Target"
+                      stroke="#f59e0b"
+                      strokeDasharray="7 5"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="errorActual"
+                      name="Actual"
+                      stroke="#dc2626"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Departments</CardTitle>
+          <CardDescription>
+            Headcount by department for the selected location.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-2">
+          {loading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : departments.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No departments are available for the selected filters.
+            </div>
+          ) : (
+            departments.map((department) => {
+              const count = filteredEmployees.filter(
+                (employee) => employee.department === department
+              ).length;
+
+              return (
+                <div
+                  key={department}
+                  className="flex items-center justify-between rounded-md border p-3 text-sm"
+                >
+                  <span className="font-medium">{department}</span>
+                  <span className="rounded-full border px-3 py-1 text-xs font-medium">
+                    {count} {count === 1 ? "person" : "people"}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
