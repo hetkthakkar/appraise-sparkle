@@ -1,11 +1,9 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
   CalendarRange,
-  Filter,
-  RefreshCcw,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -131,8 +129,14 @@ function aggregateByMonth(rows: SheetPerformance[]) {
 function SuperAdminDashboard() {
   const { user } = useAuth();
 
-  const [fromMonth, setFromMonth] = useState("");
-  const [toMonth, setToMonth] = useState("");
+  // Compact universal date filter.
+  // Range Mode ON  -> From Month to To Month + Year
+  // Range Mode OFF -> Single Month + Year
+  const [rangeMode, setRangeMode] = useState(true);
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [rangeStartMonth, setRangeStartMonth] = useState("01");
+  const [rangeEndMonth, setRangeEndMonth] = useState("12");
   const [selectedLocation, setSelectedLocation] = useState(ALL_LOCATIONS);
 
   const empQ = useQuery({
@@ -198,6 +202,68 @@ function SuperAdminDashboard() {
       )
     ).sort();
   }, [performance]);
+
+  const availableYears = useMemo(() => {
+    return Array.from(
+      new Set(
+        availableMonths
+          .map((month) => month.slice(0, 4))
+          .filter((year) => /^\d{4}$/.test(year))
+      )
+    ).sort();
+  }, [availableMonths]);
+
+  const monthOptions = useMemo(
+    () => [
+      { value: "01", label: "January" },
+      { value: "02", label: "February" },
+      { value: "03", label: "March" },
+      { value: "04", label: "April" },
+      { value: "05", label: "May" },
+      { value: "06", label: "June" },
+      { value: "07", label: "July" },
+      { value: "08", label: "August" },
+      { value: "09", label: "September" },
+      { value: "10", label: "October" },
+      { value: "11", label: "November" },
+      { value: "12", label: "December" },
+    ],
+    []
+  );
+
+  // Use the latest available year automatically until the user chooses one.
+  const effectiveYear = selectedYear || availableYears[availableYears.length - 1] || "";
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) {
+      setSelectedYear(availableYears[availableYears.length - 1]);
+    }
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    if (!selectedMonth && availableMonths.length > 0) {
+      const latestInYear = availableMonths.filter((month) =>
+        effectiveYear ? month.startsWith(`${effectiveYear}-`) : true
+      );
+      const latest = latestInYear[latestInYear.length - 1] || availableMonths[availableMonths.length - 1];
+      if (latest) setSelectedMonth(latest.slice(5, 7));
+    }
+  }, [availableMonths, effectiveYear, selectedMonth]);
+
+  const fromMonth = useMemo(() => {
+    if (!effectiveYear) return "";
+    return rangeMode
+      ? `${effectiveYear}-${rangeStartMonth}`
+      : `${effectiveYear}-${selectedMonth || "01"}`;
+  }, [effectiveYear, rangeMode, rangeStartMonth, selectedMonth]);
+
+  const toMonth = useMemo(() => {
+    if (!effectiveYear) return "";
+    return rangeMode
+      ? `${effectiveYear}-${rangeEndMonth}`
+      : `${effectiveYear}-${selectedMonth || "12"}`;
+  }, [effectiveYear, rangeMode, rangeEndMonth, selectedMonth]);
+
 
   const filteredEmployees = useMemo(() => {
     if (selectedLocation === ALL_LOCATIONS) return employees;
@@ -286,8 +352,10 @@ function SuperAdminDashboard() {
     !String(me.joiningDate ?? "").trim();
 
   const resetFilters = () => {
-    setFromMonth("");
-    setToMonth("");
+    setRangeMode(true);
+    setSelectedMonth("");
+    setRangeStartMonth("01");
+    setRangeEndMonth("12");
     setSelectedLocation(ALL_LOCATIONS);
   };
 
@@ -336,74 +404,94 @@ function SuperAdminDashboard() {
 
       {/* Universal dashboard filters */}
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-1">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Filter className="h-4 w-4" />
-              Dashboard Filters
-            </CardTitle>
-            <CardDescription>
-              These filters update the dashboard data, department summary, and both monthly graphs.
-            </CardDescription>
-          </div>
-        </CardHeader>
+        <CardContent className="pt-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant={rangeMode ? "default" : "outline"}
+              className="h-10 gap-2"
+              onClick={() => setRangeMode((value) => !value)}
+            >
+              <CalendarRange className="h-4 w-4" />
+              Range Mode {rangeMode ? "ON" : "OFF"}
+            </Button>
 
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr_auto]">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">From Month</label>
-              <Select
-                value={fromMonth || undefined}
-                onValueChange={(value) => {
-                  setFromMonth(value);
-                  if (toMonth && value > toMonth) setToMonth("");
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All months" />
+            {rangeMode ? (
+              <>
+                <Select
+                  value={rangeStartMonth}
+                  onValueChange={(value) => {
+                    setRangeStartMonth(value);
+                    if (value > rangeEndMonth) setRangeEndMonth(value);
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-[145px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <span className="text-sm text-muted-foreground">to</span>
+
+                <Select
+                  value={rangeEndMonth}
+                  onValueChange={(value) => {
+                    setRangeEndMonth(value);
+                    if (value < rangeStartMonth) setRangeStartMonth(value);
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-[145px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions
+                      .filter((month) => month.value >= rangeStartMonth)
+                      .map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : (
+              <Select value={selectedMonth || "01"} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="h-10 w-[145px]">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableMonths.map((month) => (
-                    <SelectItem key={month} value={month}>
-                      {monthLabel(month)}
+                  {monthOptions.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">To Month</label>
-              <Select
-                value={toMonth || undefined}
-                onValueChange={(value) => {
-                  setToMonth(value);
-                  if (fromMonth && value < fromMonth) setFromMonth("");
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All months" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableMonths
-                    .filter((month) => !fromMonth || month >= fromMonth)
-                    .map((month) => (
-                      <SelectItem key={month} value={month}>
-                        {monthLabel(month)}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={effectiveYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="h-10 w-[105px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Location</label>
-              <Select
-                value={selectedLocation}
-                onValueChange={setSelectedLocation}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All locations" />
+            <div className="ml-auto min-w-[180px] flex-1 sm:flex-none">
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="h-10 min-w-[180px]">
+                  <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_LOCATIONS}>All Locations</SelectItem>
@@ -416,21 +504,20 @@ function SuperAdminDashboard() {
               </Select>
             </div>
 
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                className="w-full xl:w-auto"
-                onClick={resetFilters}
-                disabled={
-                  !fromMonth &&
-                  !toMonth &&
-                  selectedLocation === ALL_LOCATIONS
-                }
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10"
+              onClick={resetFilters}
+              disabled={
+                rangeMode &&
+                rangeStartMonth === "01" &&
+                rangeEndMonth === "12" &&
+                selectedLocation === ALL_LOCATIONS
+              }
+            >
+              Reset
+            </Button>
           </div>
         </CardContent>
       </Card>
