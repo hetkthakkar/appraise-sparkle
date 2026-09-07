@@ -122,10 +122,10 @@ const MONTH_OPTIONS = [
 
 function normalizeText(value: unknown): string {
   return String(value ?? "")
-    .trim()
     .toLowerCase()
     .replace(/[._\-]/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function getRoleTier(designation: unknown): number {
@@ -187,10 +187,22 @@ function samePerson(a: unknown, b: unknown): boolean {
   const strB = normalizeText(b);
 
   if (!strA || !strB) return false;
+  if (
+    strA === "-" ||
+    strB === "-" ||
+    strA === "na" ||
+    strB === "na" ||
+    strA === "none" ||
+    strB === "none"
+  ) {
+    return false;
+  }
   if (strA === strB) return true;
 
-  if (strA.includes(strB) || strB.includes(strA)) {
-    return true;
+  if (strA.length >= 3 && strB.length >= 3) {
+    if (strA.includes(strB) || strB.includes(strA)) {
+      return true;
+    }
   }
 
   const wordsA = strA.split(" ").filter((w) => w.length > 1);
@@ -319,9 +331,19 @@ function getCurrentMonthKey(): string {
 
 function getLatestMonth(rows: SheetPerformance[]): string | null {
   if (!rows.length) return null;
+  const withData = rows.filter(
+    (r) =>
+      safeNumber(r.productionTarget) > 0 ||
+      safeNumber(r.productionActual) > 0 ||
+      safeNumber(r.ticketActual) > 0 ||
+      safeNumber(r.errorActual) > 0 ||
+      safeNumber(r.attendance) > 0 ||
+      safeNumber(r.behavior) > 0
+  );
+  const targetRows = withData.length > 0 ? withData : rows;
   const months = Array.from(
     new Set(
-      rows
+      targetRows
         .map((row) => parseMonthYear(row.month)?.key)
         .filter((k): k is string => !!k)
     )
@@ -659,7 +681,12 @@ export function EmployeeDetailModal({
 
     const current = getCurrentMonthKey();
     const hasCurrent = teamRows.some(
-      (row) => parseMonthYear(row.month)?.key === current
+      (row) =>
+        parseMonthYear(row.month)?.key === current &&
+        (safeNumber(row.productionTarget) > 0 ||
+          safeNumber(row.productionActual) > 0 ||
+          safeNumber(row.ticketActual) > 0 ||
+          safeNumber(row.errorActual) > 0)
     );
 
     if (hasCurrent) return current;

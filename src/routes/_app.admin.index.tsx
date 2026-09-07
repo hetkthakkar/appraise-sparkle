@@ -34,10 +34,10 @@ function currentMonth() {
 
 function normalizeText(value: unknown): string {
   return String(value ?? "")
-    .trim()
     .toLowerCase()
     .replace(/[._\-]/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function samePerson(a: unknown, b: unknown): boolean {
@@ -45,8 +45,21 @@ function samePerson(a: unknown, b: unknown): boolean {
   const strB = normalizeText(b);
 
   if (!strA || !strB) return false;
+  if (
+    strA === "-" ||
+    strB === "-" ||
+    strA === "na" ||
+    strB === "na" ||
+    strA === "none" ||
+    strB === "none"
+  ) {
+    return false;
+  }
   if (strA === strB) return true;
-  if (strA.includes(strB) || strB.includes(strA)) return true;
+
+  if (strA.length >= 3 && strB.length >= 3) {
+    if (strA.includes(strB) || strB.includes(strA)) return true;
+  }
 
   const wordsA = strA.split(" ").filter((w) => w.length > 1);
   const wordsB = strB.split(" ").filter((w) => w.length > 1);
