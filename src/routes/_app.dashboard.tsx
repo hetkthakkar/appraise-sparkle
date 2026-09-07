@@ -129,12 +129,8 @@ function aggregateByMonth(rows: SheetPerformance[]) {
 function SuperAdminDashboard() {
   const { user } = useAuth();
 
-  // Compact universal date filter.
-  // Range Mode ON  -> From Month to To Month + Year
-  // Range Mode OFF -> Single Month + Year
-  const [rangeMode, setRangeMode] = useState(true);
+  // Universal dashboard filters: From Month -> To Month -> Year -> Location
   const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
   const [rangeStartMonth, setRangeStartMonth] = useState("01");
   const [rangeEndMonth, setRangeEndMonth] = useState("12");
   const [selectedLocation, setSelectedLocation] = useState(ALL_LOCATIONS);
@@ -240,29 +236,15 @@ function SuperAdminDashboard() {
     }
   }, [availableYears, selectedYear]);
 
-  useEffect(() => {
-    if (!selectedMonth && availableMonths.length > 0) {
-      const latestInYear = availableMonths.filter((month) =>
-        effectiveYear ? month.startsWith(`${effectiveYear}-`) : true
-      );
-      const latest = latestInYear[latestInYear.length - 1] || availableMonths[availableMonths.length - 1];
-      if (latest) setSelectedMonth(latest.slice(5, 7));
-    }
-  }, [availableMonths, effectiveYear, selectedMonth]);
-
   const fromMonth = useMemo(() => {
     if (!effectiveYear) return "";
-    return rangeMode
-      ? `${effectiveYear}-${rangeStartMonth}`
-      : `${effectiveYear}-${selectedMonth || "01"}`;
-  }, [effectiveYear, rangeMode, rangeStartMonth, selectedMonth]);
+    return `${effectiveYear}-${rangeStartMonth}`;
+  }, [effectiveYear, rangeStartMonth]);
 
   const toMonth = useMemo(() => {
     if (!effectiveYear) return "";
-    return rangeMode
-      ? `${effectiveYear}-${rangeEndMonth}`
-      : `${effectiveYear}-${selectedMonth || "12"}`;
-  }, [effectiveYear, rangeMode, rangeEndMonth, selectedMonth]);
+    return `${effectiveYear}-${rangeEndMonth}`;
+  }, [effectiveYear, rangeEndMonth]);
 
 
   const filteredEmployees = useMemo(() => {
@@ -352,8 +334,6 @@ function SuperAdminDashboard() {
     !String(me.joiningDate ?? "").trim();
 
   const resetFilters = () => {
-    setRangeMode(true);
-    setSelectedMonth("");
     setRangeStartMonth("01");
     setRangeEndMonth("12");
     setSelectedLocation(ALL_LOCATIONS);
@@ -406,74 +386,47 @@ function SuperAdminDashboard() {
       <Card>
         <CardContent className="pt-5">
           <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant={rangeMode ? "default" : "outline"}
-              className="h-10 gap-2"
-              onClick={() => setRangeMode((value) => !value)}
+            <Select
+              value={rangeStartMonth}
+              onValueChange={(value) => {
+                setRangeStartMonth(value);
+                if (value > rangeEndMonth) setRangeEndMonth(value);
+              }}
             >
-              <CalendarRange className="h-4 w-4" />
-              Range Mode {rangeMode ? "ON" : "OFF"}
-            </Button>
+              <SelectTrigger className="h-10 w-[145px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {rangeMode ? (
-              <>
-                <Select
-                  value={rangeStartMonth}
-                  onValueChange={(value) => {
-                    setRangeStartMonth(value);
-                    if (value > rangeEndMonth) setRangeEndMonth(value);
-                  }}
-                >
-                  <SelectTrigger className="h-10 w-[145px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions.map((month) => (
-                      <SelectItem key={month.value} value={month.value}>
-                        {month.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <span className="text-sm text-muted-foreground">to</span>
 
-                <span className="text-sm text-muted-foreground">to</span>
-
-                <Select
-                  value={rangeEndMonth}
-                  onValueChange={(value) => {
-                    setRangeEndMonth(value);
-                    if (value < rangeStartMonth) setRangeStartMonth(value);
-                  }}
-                >
-                  <SelectTrigger className="h-10 w-[145px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions
-                      .filter((month) => month.value >= rangeStartMonth)
-                      .map((month) => (
-                        <SelectItem key={month.value} value={month.value}>
-                          {month.label}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </>
-            ) : (
-              <Select value={selectedMonth || "01"} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="h-10 w-[145px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((month) => (
+            <Select
+              value={rangeEndMonth}
+              onValueChange={(value) => {
+                setRangeEndMonth(value);
+                if (value < rangeStartMonth) setRangeStartMonth(value);
+              }}
+            >
+              <SelectTrigger className="h-10 w-[145px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions
+                  .filter((month) => month.value >= rangeStartMonth)
+                  .map((month) => (
                     <SelectItem key={month.value} value={month.value}>
                       {month.label}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            )}
+              </SelectContent>
+            </Select>
 
             <Select value={effectiveYear} onValueChange={setSelectedYear}>
               <SelectTrigger className="h-10 w-[105px]">
@@ -488,7 +441,7 @@ function SuperAdminDashboard() {
               </SelectContent>
             </Select>
 
-            <div className="ml-auto min-w-[180px] flex-1 sm:flex-none">
+            <div className="min-w-[180px] flex-1 sm:flex-none">
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger className="h-10 min-w-[180px]">
                   <SelectValue placeholder="All Locations" />
@@ -510,7 +463,6 @@ function SuperAdminDashboard() {
               className="h-10"
               onClick={resetFilters}
               disabled={
-                rangeMode &&
                 rangeStartMonth === "01" &&
                 rangeEndMonth === "12" &&
                 selectedLocation === ALL_LOCATIONS
@@ -609,6 +561,8 @@ function SuperAdminDashboard() {
                       type="monotone"
                       dataKey="productionTarget"
                       name="Target"
+                      stroke="#64748b"
+                      strokeDasharray="7 5"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
@@ -617,9 +571,10 @@ function SuperAdminDashboard() {
                       type="monotone"
                       dataKey="productionActual"
                       name="Actual"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
+                      stroke="#2563eb"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -667,6 +622,8 @@ function SuperAdminDashboard() {
                       type="monotone"
                       dataKey="errorTarget"
                       name="Target"
+                      stroke="#f59e0b"
+                      strokeDasharray="7 5"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
@@ -675,9 +632,10 @@ function SuperAdminDashboard() {
                       type="monotone"
                       dataKey="errorActual"
                       name="Actual"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
+                      stroke="#dc2626"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
