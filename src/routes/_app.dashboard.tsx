@@ -375,7 +375,7 @@ function SuperAdminDashboard() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">
-          Welcome back, {user.name.split(" ")[0]}
+          Welcome, {user.name.split(" ")[0]}
         </h2>
         <p className="text-sm text-muted-foreground">
           Here's what's happening across the organisation.
