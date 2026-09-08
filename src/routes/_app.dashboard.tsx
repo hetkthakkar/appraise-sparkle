@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
-  CalendarRange,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -474,9 +473,9 @@ function SuperAdminDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))
         ) : (
@@ -502,18 +501,6 @@ function SuperAdminDashboard() {
               value={teamLeads}
               icon={UserCheck}
               hint="Based on selected location"
-            />
-            <StatCard
-              label="Performance Rows"
-              value={filteredPerformance.length}
-              icon={CalendarRange}
-              hint={
-                fromMonth || toMonth
-                  ? `${fromMonth ? monthLabel(fromMonth) : "Start"} – ${
-                      toMonth ? monthLabel(toMonth) : "Latest"
-                    }`
-                  : "All available months"
-              }
             />
           </>
         )}
