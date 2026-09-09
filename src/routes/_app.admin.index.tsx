@@ -438,9 +438,9 @@ function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamPerf.map((p) => (
+                {teamPerf.map((p, index) => (
                   <TableRow
-                    key={p.employeeId}
+                    key={`${p.employeeId}-${p.name}-${index}`}
                     onClick={() => setSelected(p.employeeId)}
                     className="cursor-pointer hover:bg-muted/50"
                   >

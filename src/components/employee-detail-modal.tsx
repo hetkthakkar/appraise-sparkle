@@ -1726,12 +1726,12 @@ function TeamSection({
                   )}
 
                   {/* Subordinate Members */}
-                  {filteredAndSortedMembers.map(({ employee, performance }) => {
+                  {filteredAndSortedMembers.map(({ employee, performance }, index) => {
                     const subTier = getRoleTier(employee.designation);
 
                     return (
                       <TableRow
-                        key={employee.employeeId}
+                        key={`${employee.employeeId}-${employee.name}-${index}`}
                         className="cursor-pointer border-b border-border/40 hover:bg-muted/50"
                         onClick={() => {
                           if (onSelectMember && employee.employeeId) {

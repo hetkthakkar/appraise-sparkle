@@ -282,9 +282,9 @@ function EmployeesPage() {
                 </TableHeader>
 
                 <TableBody>
-                  {filtered.map((e) => (
+                  {filtered.map((e, index) => (
                     <TableRow
-                      key={e.employeeId}
+                      key={`${e.employeeId}-${e.email || e.name}-${index}`}
                       onClick={() =>
                         setSelected(e.employeeId)
                       }
