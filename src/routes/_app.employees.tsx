@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -69,136 +69,30 @@ function EmployeesPage() {
 
   const scope = useMemo(() => data ?? [], [data]);
 
-  // Interdependent / cascading filter options:
-  // Each filter's available options are derived from employees matching all OTHER active filters.
+  // Dynamically derive filter options ONLY from the visible employee list on this page
   const departmentOptions = useMemo(() => {
-    const matching = scope.filter((e) => {
-      const matchDesig =
-        designationFilter === "all" ||
-        String(e.designation ?? "").trim() === designationFilter;
-      const matchLead =
-        teamLeadFilter === "all" ||
-        String(e.teamLead ?? "").trim() === teamLeadFilter;
-      const matchLoc =
-        locationFilter === "all" ||
-        String(e.location ?? "").trim() === locationFilter;
-      return matchDesig && matchLead && matchLoc;
-    });
-
     return Array.from(
-      new Set(
-        matching
-          .map((e) => String(e.department ?? "").trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [scope, designationFilter, teamLeadFilter, locationFilter]);
+      new Set(scope.map((e) => String(e.department ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
   const designationOptions = useMemo(() => {
-    const matching = scope.filter((e) => {
-      const matchDept =
-        departmentFilter === "all" ||
-        String(e.department ?? "").trim() === departmentFilter;
-      const matchLead =
-        teamLeadFilter === "all" ||
-        String(e.teamLead ?? "").trim() === teamLeadFilter;
-      const matchLoc =
-        locationFilter === "all" ||
-        String(e.location ?? "").trim() === locationFilter;
-      return matchDept && matchLead && matchLoc;
-    });
-
     return Array.from(
-      new Set(
-        matching
-          .map((e) => String(e.designation ?? "").trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [scope, departmentFilter, teamLeadFilter, locationFilter]);
+      new Set(scope.map((e) => String(e.designation ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
   const teamLeadOptions = useMemo(() => {
-    const matching = scope.filter((e) => {
-      const matchDept =
-        departmentFilter === "all" ||
-        String(e.department ?? "").trim() === departmentFilter;
-      const matchDesig =
-        designationFilter === "all" ||
-        String(e.designation ?? "").trim() === designationFilter;
-      const matchLoc =
-        locationFilter === "all" ||
-        String(e.location ?? "").trim() === locationFilter;
-      return matchDept && matchDesig && matchLoc;
-    });
-
     return Array.from(
-      new Set(
-        matching
-          .map((e) => String(e.teamLead ?? "").trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [scope, departmentFilter, designationFilter, locationFilter]);
+      new Set(scope.map((e) => String(e.teamLead ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
   const locationOptions = useMemo(() => {
-    const matching = scope.filter((e) => {
-      const matchDept =
-        departmentFilter === "all" ||
-        String(e.department ?? "").trim() === departmentFilter;
-      const matchDesig =
-        designationFilter === "all" ||
-        String(e.designation ?? "").trim() === designationFilter;
-      const matchLead =
-        teamLeadFilter === "all" ||
-        String(e.teamLead ?? "").trim() === teamLeadFilter;
-      return matchDept && matchDesig && matchLead;
-    });
-
     return Array.from(
-      new Set(
-        matching
-          .map((e) => String(e.location ?? "").trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [scope, departmentFilter, designationFilter, teamLeadFilter]);
-
-  // If a filter's selected value is no longer available among options due to another filter change, reset to "all"
-  useEffect(() => {
-    if (
-      departmentFilter !== "all" &&
-      !departmentOptions.includes(departmentFilter)
-    ) {
-      setDepartmentFilter("all");
-    }
-  }, [departmentFilter, departmentOptions]);
-
-  useEffect(() => {
-    if (
-      designationFilter !== "all" &&
-      !designationOptions.includes(designationFilter)
-    ) {
-      setDesignationFilter("all");
-    }
-  }, [designationFilter, designationOptions]);
-
-  useEffect(() => {
-    if (
-      teamLeadFilter !== "all" &&
-      !teamLeadOptions.includes(teamLeadFilter)
-    ) {
-      setTeamLeadFilter("all");
-    }
-  }, [teamLeadFilter, teamLeadOptions]);
-
-  useEffect(() => {
-    if (
-      locationFilter !== "all" &&
-      !locationOptions.includes(locationFilter)
-    ) {
-      setLocationFilter("all");
-    }
-  }, [locationFilter, locationOptions]);
+      new Set(scope.map((e) => String(e.location ?? "").trim()).filter(Boolean))
+    ).sort();
+  }, [scope]);
 
   const filtered = useMemo(() => {
     const search = q.trim().toLowerCase();

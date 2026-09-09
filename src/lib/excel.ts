@@ -256,72 +256,32 @@ export function parseEmployeeExcel(fileData: ArrayBuffer): Record<string, unknow
   return results;
 }
 
-export function downloadTemplate(
-  typeOrFileName: "employees" | "performance" | string,
-  columns?: string[]
-) {
+export function downloadTemplate(type: "employees" | "performance") {
   const wb = XLSX.utils.book_new();
-  const isPerformance =
-    typeOrFileName === "performance" ||
-    typeOrFileName.toLowerCase().includes("performance");
 
-  if (!isPerformance) {
-    const headers =
-      columns && columns.length > 0
-        ? columns
-        : [
-            "Employee ID",
-            "Name",
-            "Email",
-            "Department",
-            "Designation",
-            "Team Lead",
-            "Location",
-            "Joining Date",
-          ];
+  if (type === "employees") {
     const data = [
       {
         "Employee ID": "EMP001",
-        Name: "John Doe",
-        Email: "john.doe@example.com",
-        Department: "Operations",
-        Designation: "Team Member",
+        "Name": "John Doe",
+        "Email": "john.doe@example.com",
+        "Department": "Operations",
+        "Designation": "Team Member",
         "Team Lead": "Jane Lead",
-        Location: "Vadodara",
+        "Location": "Vadodara",
         "Joining Date": "2024-01-15",
       },
     ];
-    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
+    const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Employees");
-    const fileName = typeOrFileName.endsWith(".xlsx")
-      ? typeOrFileName
-      : "employees_template.xlsx";
-    XLSX.writeFile(wb, fileName);
+    XLSX.writeFile(wb, "employees_template.xlsx");
   } else {
-    const headers =
-      columns && columns.length > 0
-        ? columns
-        : [
-            "Month",
-            "Employee ID",
-            "Name",
-            "Location",
-            "Production Target",
-            "Production Actual",
-            "Ticket Target",
-            "Ticket Actual",
-            "Internal Errors/Rejection Target",
-            "Internal Errors/Rejection Actual",
-            "Attendance (0-10)",
-            "Behavior (0-5)",
-            "Manager Remarks",
-          ];
     const data = [
       {
-        Month: "2026-08",
+        "Month": "2026-08",
         "Employee ID": "EMP001",
-        Name: "John Doe",
-        Location: "Vadodara",
+        "Name": "John Doe",
+        "Location": "Vadodara",
         "Production Target": 3000,
         "Production Actual": 3100,
         "Ticket Target": 100,
@@ -333,12 +293,9 @@ export function downloadTemplate(
         "Manager Remarks": "Consistent high performer",
       },
     ];
-    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
+    const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Performance");
-    const fileName = typeOrFileName.endsWith(".xlsx")
-      ? typeOrFileName
-      : "performance_template.xlsx";
-    XLSX.writeFile(wb, fileName);
+    XLSX.writeFile(wb, "performance_template.xlsx");
   }
 }
 

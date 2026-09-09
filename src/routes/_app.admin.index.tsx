@@ -323,14 +323,29 @@ function AdminDashboard() {
   }
 
   const needsOnboarding =
-    !!me &&
-    (!me.department?.trim() ||
-      !me.designation?.trim() ||
-      !me.location?.trim() ||
-      !String(me.joiningDate ?? "").trim());
+    !me ||
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim();
 
-  if (needsOnboarding && me) {
-    return <AdminOnboarding me={me} />;
+  if (needsOnboarding) {
+    return (
+      <AdminOnboarding
+        me={
+          me ?? {
+            employeeId: "",
+            name: user.name,
+            email: user.email,
+            department: "",
+            designation: "Team Lead",
+            teamLead: "",
+            location: "",
+            joiningDate: "",
+          }
+        }
+      />
+    );
   }
 
   const uploadStatus =

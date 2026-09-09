@@ -1808,7 +1808,7 @@ function TeamMetricCard({
   suffix,
   decimals = false,
 }: {
-  icon: React.ReactNode;
+  icon: JSX.Element;
   label: string;
   value: number;
   secondaryValue?: number;
