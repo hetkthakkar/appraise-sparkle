@@ -326,11 +326,11 @@ function SuperAdminDashboard() {
   const me = meQ.data?.profile;
 
   const needsOnboarding =
-    !me ||
-    !me.department?.trim() ||
-    !me.designation?.trim() ||
-    !me.location?.trim() ||
-    !String(me.joiningDate ?? "").trim();
+    !!me &&
+    (!me.department?.trim() ||
+      !me.designation?.trim() ||
+      !me.location?.trim() ||
+      !String(me.joiningDate ?? "").trim());
 
   const resetFilters = () => {
     setRangeStartMonth("01");
@@ -351,23 +351,8 @@ function SuperAdminDashboard() {
     );
   }
 
-  if (needsOnboarding) {
-    return (
-      <EmployeeOnboarding
-        me={
-          me ?? {
-            employeeId: user.employeeId ?? "",
-            name: user.name,
-            email: user.email,
-            department: "",
-            designation: "",
-            teamLead: "",
-            location: "",
-            joiningDate: "",
-          }
-        }
-      />
-    );
+  if (needsOnboarding && me) {
+    return <EmployeeOnboarding me={me} />;
   }
 
   return (

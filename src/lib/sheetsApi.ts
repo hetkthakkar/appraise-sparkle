@@ -13,7 +13,7 @@ export async function callSheetsApi<T = unknown>(
 
   const controller = new AbortController();
 
-  const timer = window.setTimeout(() => {
+  const timer = setTimeout(() => {
     controller.abort();
   }, REQUEST_TIMEOUT_MS);
 
@@ -73,7 +73,7 @@ export async function callSheetsApi<T = unknown>(
     }
     throw e;
   } finally {
-    window.clearTimeout(timer);
+    clearTimeout(timer);
   }
 }
 
@@ -87,6 +87,7 @@ export interface SheetUser {
   role: string;
   location?: string;
   status?: string;
+  employeeId?: string;
 }
 
 export interface SheetEmployee {
@@ -355,17 +356,33 @@ export function getEmployeeDetail(callerEmail: string, employeeId: string) {
 
 export function updateEmployeeDetails(
   callerEmail: string,
-  details: {
-    department: string;
-    designation: string;
-    teamLead: string;
-    location: string;
-    joiningDate: string;
-  }
+  detailsOrDepartment:
+    | {
+        department?: string;
+        designation?: string;
+        teamLead?: string;
+        location?: string;
+        joiningDate?: string;
+      }
+    | string,
+  designation?: string,
+  teamLead?: string,
+  location?: string,
+  joiningDate?: string
 ) {
+  if (typeof detailsOrDepartment === "object" && detailsOrDepartment !== null) {
+    return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
+      callerEmail,
+      ...detailsOrDepartment,
+    });
+  }
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
     callerEmail,
-    ...details,
+    department: detailsOrDepartment,
+    designation,
+    teamLead,
+    location,
+    joiningDate,
   });
 }
 
