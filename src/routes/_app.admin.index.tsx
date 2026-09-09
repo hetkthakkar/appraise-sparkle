@@ -57,17 +57,27 @@ function samePerson(a: unknown, b: unknown): boolean {
   }
   if (strA === strB) return true;
 
-  if (strA.length >= 3 && strB.length >= 3) {
-    if (strA.includes(strB) || strB.includes(strA)) return true;
+  // Handle multi-person entries like "Person A / Person B" or "Person A, Person B"
+  if (strA.includes("/") || strA.includes(",")) {
+    const parts = strA.split(/[/,]/).map((p) => p.trim());
+    if (parts.some((p) => samePerson(p, strB))) return true;
+  }
+  if (strB.includes("/") || strB.includes(",")) {
+    const parts = strB.split(/[/,]/).map((p) => p.trim());
+    if (parts.some((p) => samePerson(strA, p))) return true;
   }
 
-  const wordsA = strA.split(" ").filter((w) => w.length > 1);
-  const wordsB = strB.split(" ").filter((w) => w.length > 1);
+  const wordsA = strA.split(" ").filter(Boolean);
+  const wordsB = strB.split(" ").filter(Boolean);
 
-  if (wordsA.length >= 2 && wordsB.length >= 2) {
-    if (wordsA[0] === wordsB[0] && wordsA[wordsA.length - 1] === wordsB[wordsB.length - 1]) {
-      return true;
-    }
+  // Exact word sequence
+  if (wordsA.join(" ") === wordsB.join(" ")) return true;
+
+  // Re-ordered words match if all words are identical (e.g., "Patel Utkarsh" === "Utkarsh Patel")
+  if (wordsA.length === wordsB.length && wordsA.length > 1) {
+    const sortedA = [...wordsA].sort().join(" ");
+    const sortedB = [...wordsB].sort().join(" ");
+    if (sortedA === sortedB) return true;
   }
 
   return false;
