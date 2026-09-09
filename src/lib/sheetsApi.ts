@@ -39,10 +39,12 @@ export async function callSheetsApi<T = unknown>(
     } else {
       const url =
         `${API_URL}?action=${encodeURIComponent(action)}` +
-        `&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+        `&payload=${encodeURIComponent(JSON.stringify(payload))}` +
+        `&_t=${Date.now()}`;
 
       res = await fetch(url, {
         method: "GET",
+        cache: "no-store",
         signal: controller.signal,
       });
     }
