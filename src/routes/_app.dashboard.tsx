@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
+  Target,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -322,6 +323,32 @@ function SuperAdminDashboard() {
     ).size;
   }, [filteredEmployees]);
 
+  const totalProduction = useMemo(() => {
+    let actual = 0;
+    let target = 0;
+    filteredPerformance.forEach((row) => {
+      actual += Number(row.productionActual || 0);
+      target += Number(row.productionTarget || 0);
+    });
+    const achievementRate = target > 0 ? (actual / target) * 100 : 0;
+    return {
+      actual,
+      target,
+      achievementRate,
+    };
+  }, [filteredPerformance]);
+
+  const dateRangeLabel = useMemo(() => {
+    const startName =
+      monthOptions.find((m) => m.value === rangeStartMonth)?.label.slice(0, 3) ?? "";
+    const endName =
+      monthOptions.find((m) => m.value === rangeEndMonth)?.label.slice(0, 3) ?? "";
+    if (rangeStartMonth === rangeEndMonth) {
+      return `${startName} ${effectiveYear}`;
+    }
+    return `${startName} - ${endName} ${effectiveYear}`;
+  }, [monthOptions, rangeStartMonth, rangeEndMonth, effectiveYear]);
+
   const loading = empQ.isLoading || perfQ.isLoading;
   const me = meQ.data?.profile;
 
@@ -473,9 +500,9 @@ function SuperAdminDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
+          Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))
         ) : (
@@ -501,6 +528,25 @@ function SuperAdminDashboard() {
               value={teamLeads}
               icon={UserCheck}
               hint="Based on selected location"
+            />
+            <StatCard
+              label="Total Production / Target"
+              value={
+                <div className="flex flex-wrap items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold text-foreground">
+                    {Math.round(totalProduction.actual).toLocaleString()}
+                  </span>
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    / {Math.round(totalProduction.target).toLocaleString()}
+                  </span>
+                </div>
+              }
+              icon={Target}
+              hint={
+                totalProduction.target > 0
+                  ? `${totalProduction.achievementRate.toFixed(1)}% achieved • ${dateRangeLabel}`
+                  : `0% achieved • ${dateRangeLabel}`
+              }
             />
           </>
         )}
