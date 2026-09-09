@@ -31,6 +31,7 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   const locQ = useQuery({ queryKey: ["locations"], queryFn: listLocations });
   const leadQ = useQuery({ queryKey: ["teamLeads"], queryFn: listTeamLeads });
 
+  const [employeeId, setEmployeeId] = useState(String(me.employeeId ?? ""));
   const [department, setDepartment] = useState(me.department ?? "");
   const [designation, setDesignation] = useState(me.designation ?? "");
   const [teamLead, setTeamLead] = useState(me.teamLead ?? "");
@@ -55,7 +56,11 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
         designation,
         teamLead,
         location,
-        joiningDate
+        joiningDate,
+        {
+          name: me.name || user?.name || "",
+          employeeId: employeeId.trim() || me.employeeId || "",
+        }
       ),
     onSuccess: async () => {
       await Promise.all([
@@ -75,6 +80,7 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
   const isSuperAdmin = user?.role === "super_admin";
 
   const canSubmit =
+    (!me.employeeId ? !!employeeId.trim() : true) &&
     !!department &&
     !!designation &&
     (isSuperAdmin || !!teamLead) &&
@@ -86,15 +92,33 @@ export function EmployeeOnboarding({ me }: { me: SheetEmployee }) {
     <div className="mx-auto max-w-3xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Welcome, {me.name.split(" ")[0]}</CardTitle>
+          <CardTitle>Welcome, {(me.name || user?.name || "there").split(" ")[0]}</CardTitle>
           <CardDescription>
             Please confirm your details to finish setting up your profile.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3 text-sm">
-          <Field label="Employee ID" value={String(me.employeeId ?? "")} />
-          <Field label="Name" value={me.name} />
-          <Field label="Email" value={me.email} />
+        <CardContent className="grid gap-4 sm:grid-cols-3 text-sm items-center">
+          {me.employeeId ? (
+            <Field label="Employee ID" value={String(me.employeeId)} />
+          ) : (
+            <div className="space-y-1">
+              <label
+                className="text-xs uppercase tracking-wide text-muted-foreground font-medium"
+                htmlFor="empId"
+              >
+                Employee ID
+              </label>
+              <Input
+                id="empId"
+                placeholder="e.g. EMP001"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                className="h-8 text-sm"
+              />
+            </div>
+          )}
+          <Field label="Name" value={me.name || user?.name || "—"} />
+          <Field label="Email" value={me.email || user?.email || "—"} />
         </CardContent>
       </Card>
 

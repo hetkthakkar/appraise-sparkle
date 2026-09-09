@@ -256,10 +256,26 @@ export function parseEmployeeExcel(fileData: ArrayBuffer): Record<string, unknow
   return results;
 }
 
-export function downloadTemplate(type: "employees" | "performance") {
+export function downloadTemplate(
+  typeOrFilename: "employees" | "performance" | string = "template.xlsx",
+  columns?: string[]
+) {
   const wb = XLSX.utils.book_new();
 
-  if (type === "employees") {
+  if (typeOrFilename === "employees" || typeOrFilename.includes("employee")) {
+    const headers =
+      columns && columns.length > 0
+        ? columns
+        : [
+            "Employee ID",
+            "Name",
+            "Email",
+            "Department",
+            "Designation",
+            "Team Lead",
+            "Location",
+            "Joining Date",
+          ];
     const data = [
       {
         "Employee ID": "EMP001",
@@ -272,10 +288,29 @@ export function downloadTemplate(type: "employees" | "performance") {
         "Joining Date": "2024-01-15",
       },
     ];
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
     XLSX.utils.book_append_sheet(wb, ws, "Employees");
-    XLSX.writeFile(wb, "employees_template.xlsx");
+    const fn = typeOrFilename.endsWith(".xlsx") ? typeOrFilename : "employees_template.xlsx";
+    XLSX.writeFile(wb, fn);
   } else {
+    const headers =
+      columns && columns.length > 0
+        ? columns
+        : [
+            "Month",
+            "Employee ID",
+            "Name",
+            "Location",
+            "Production Target",
+            "Production Actual",
+            "Ticket Target",
+            "Ticket Actual",
+            "Internal Errors/Rejection Target",
+            "Internal Errors/Rejection Actual",
+            "Attendance (0-10)",
+            "Behavior (0-5)",
+            "Manager Remarks",
+          ];
     const data = [
       {
         "Month": "2026-08",
@@ -293,9 +328,10 @@ export function downloadTemplate(type: "employees" | "performance") {
         "Manager Remarks": "Consistent high performer",
       },
     ];
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
     XLSX.utils.book_append_sheet(wb, ws, "Performance");
-    XLSX.writeFile(wb, "performance_template.xlsx");
+    const fn = typeOrFilename.endsWith(".xlsx") ? typeOrFilename : "performance_template.xlsx";
+    XLSX.writeFile(wb, fn);
   }
 }
 
@@ -340,3 +376,4 @@ export function exportPerformance(rows: SheetPerformance[]) {
   XLSX.utils.book_append_sheet(wb, ws, "Performance");
   XLSX.writeFile(wb, `performance_export_${Date.now()}.xlsx`);
 }
+

@@ -85,6 +85,7 @@ export interface SheetUser {
   email: string;
   name: string;
   role: string;
+  employeeId?: string;
   location?: string;
   status?: string;
 }
@@ -355,17 +356,40 @@ export function getEmployeeDetail(callerEmail: string, employeeId: string) {
 
 export function updateEmployeeDetails(
   callerEmail: string,
-  details: {
-    department: string;
-    designation: string;
-    teamLead: string;
-    location: string;
-    joiningDate: string;
+  detailsOrDepartment:
+    | {
+        employeeId?: string;
+        name?: string;
+        department?: string;
+        designation?: string;
+        teamLead?: string;
+        location?: string;
+        joiningDate?: string;
+      }
+    | string,
+  designation?: string,
+  teamLead?: string,
+  location?: string,
+  joiningDate?: string,
+  extra?: {
+    employeeId?: string;
+    name?: string;
   }
 ) {
+  if (typeof detailsOrDepartment === "object" && detailsOrDepartment !== null) {
+    return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
+      callerEmail,
+      ...detailsOrDepartment,
+    });
+  }
   return callSheetsApi<{ ok: true }>("updateEmployeeDetails", {
     callerEmail,
-    ...details,
+    department: detailsOrDepartment,
+    designation,
+    teamLead,
+    location,
+    joiningDate,
+    ...extra,
   });
 }
 

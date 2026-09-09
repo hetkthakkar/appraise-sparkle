@@ -34,28 +34,43 @@ function MyPerformance() {
     );
   }
 
-  if (dashQ.isError) {
+  const errMessage = dashQ.isError
+    ? dashQ.error instanceof Error
+      ? dashQ.error.message
+      : String(dashQ.error)
+    : "";
+
+  const isRecordNotFound = /record not found|not found|no employee/i.test(errMessage);
+
+  if (dashQ.isError && !isRecordNotFound) {
     return (
       <p className="p-6 text-sm text-destructive">
-        Failed to load your dashboard:{" "}
-        {dashQ.error instanceof Error ? dashQ.error.message : String(dashQ.error)}
+        Failed to load your dashboard: {errMessage}
       </p>
     );
   }
 
   const dashboard = dashQ.data;
-  const me = dashboard?.profile;
-  if (!dashboard || !me) {
-    return <p className="p-6 text-muted-foreground">No employee record found for your account.</p>;
-  }
+  const me = dashboard?.profile ?? {
+    employeeId: user.employeeId ?? "",
+    name: user.name,
+    email: user.email,
+    department: "",
+    designation: "",
+    teamLead: "",
+    location: "",
+    joiningDate: "",
+  };
 
   const needsOnboarding =
-  !me ||
-  !me.department?.trim() ||
-  !me.designation?.trim() ||
-  !me.location?.trim() ||
-  !String(me.joiningDate ?? "").trim();
-  
+    !dashboard ||
+    !dashboard.profile ||
+    isRecordNotFound ||
+    !me.department?.trim() ||
+    !me.designation?.trim() ||
+    !me.location?.trim() ||
+    !String(me.joiningDate ?? "").trim();
+
   if (needsOnboarding) return <EmployeeOnboarding me={me} />;
 
   return (
