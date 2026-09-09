@@ -122,6 +122,10 @@ function aggregateByMonth(rows: SheetPerformance[]) {
     .sort((a, b) => a.month.localeCompare(b.month))
     .map((row) => ({
       ...row,
+      productionTarget: Math.round(row.productionTarget),
+      productionActual: Math.round(row.productionActual),
+      errorTarget: Math.round(row.errorTarget),
+      errorActual: Math.round(row.errorActual),
       label: monthLabel(row.month),
     }));
 }
@@ -618,7 +622,7 @@ function SuperAdminDashboard() {
                     />
                     <Tooltip
                       formatter={(value: number) =>
-                        Number(value).toLocaleString()
+                        Math.round(Number(value) || 0).toLocaleString()
                       }
                     />
                     <Legend />
@@ -679,7 +683,7 @@ function SuperAdminDashboard() {
                     />
                     <Tooltip
                       formatter={(value: number) =>
-                        Number(value).toLocaleString()
+                        Math.round(Number(value) || 0).toLocaleString()
                       }
                     />
                     <Legend />
