@@ -8,15 +8,16 @@ interface Props {
   icon: LucideIcon;
   hint?: string;
   className?: string;
+  valueClassName?: string;
 }
 
-export function StatCard({ label, value, icon: Icon, hint, className }: Props) {
+export function StatCard({ label, value, icon: Icon, hint, className, valueClassName }: Props) {
   return (
     <Card className={`transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-md hover:border-primary/20 ${className ?? ""}`}>
       <CardContent className="flex items-center justify-between gap-4 p-6">
-        <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
           <span className="text-sm text-muted-foreground truncate">{label}</span>
-          <div className="text-3xl font-semibold tracking-tight">{value}</div>
+          <div className={valueClassName || "text-3xl font-semibold tracking-tight"}>{value}</div>
           {hint && <span className="text-xs text-muted-foreground truncate">{hint}</span>}
         </div>
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -323,18 +323,31 @@ function SuperAdminDashboard() {
     ).size;
   }, [filteredEmployees]);
 
-  const totalProduction = useMemo(() => {
-    let actual = 0;
-    let target = 0;
+  const totalPerformanceMetrics = useMemo(() => {
+    let prodActual = 0;
+    let prodTarget = 0;
+    let errActual = 0;
+    let errTarget = 0;
+
     filteredPerformance.forEach((row) => {
-      actual += Number(row.productionActual || 0);
-      target += Number(row.productionTarget || 0);
+      prodActual += Number(row.productionActual || 0);
+      prodTarget += Number(row.productionTarget || 0);
+      errActual += Number(row.errorActual || 0);
+      errTarget += Number(row.errorTarget || 0);
     });
-    const achievementRate = target > 0 ? (actual / target) * 100 : 0;
+
+    const prodAchievementRate =
+      prodTarget > 0 ? (prodActual / prodTarget) * 100 : 0;
+    const isErrorExceeded =
+      errTarget > 0 && errActual > errTarget;
+
     return {
-      actual,
-      target,
-      achievementRate,
+      prodActual,
+      prodTarget,
+      prodAchievementRate,
+      errActual,
+      errTarget,
+      isErrorExceeded,
     };
   }, [filteredPerformance]);
 
@@ -530,21 +543,48 @@ function SuperAdminDashboard() {
               hint="Based on selected location"
             />
             <StatCard
-              label="Total Production / Target"
+              label="Production & Errors"
+              valueClassName="w-full"
               value={
-                <div className="flex flex-wrap items-baseline gap-1.5">
-                  <span className="text-xl sm:text-2xl font-bold text-foreground">
-                    {Math.round(totalProduction.actual).toLocaleString()}
-                  </span>
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                    / {Math.round(totalProduction.target).toLocaleString()}
-                  </span>
+                <div className="space-y-1 pt-0.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Prod:
+                    </span>
+                    <div className="flex items-baseline gap-1 text-right">
+                      <span className="text-base font-bold text-foreground">
+                        {Math.round(totalPerformanceMetrics.prodActual).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        / {Math.round(totalPerformanceMetrics.prodTarget).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Errors:
+                    </span>
+                    <div className="flex items-baseline gap-1 text-right">
+                      <span
+                        className={`text-base font-bold ${
+                          totalPerformanceMetrics.isErrorExceeded
+                            ? "text-destructive"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {Math.round(totalPerformanceMetrics.errActual).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        / {Math.round(totalPerformanceMetrics.errTarget).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               }
               icon={Target}
               hint={
-                totalProduction.target > 0
-                  ? `${totalProduction.achievementRate.toFixed(1)}% achieved • ${dateRangeLabel}`
+                totalPerformanceMetrics.prodTarget > 0
+                  ? `${totalPerformanceMetrics.prodAchievementRate.toFixed(1)}% prod achieved • ${dateRangeLabel}`
                   : `0% achieved • ${dateRangeLabel}`
               }
             />
