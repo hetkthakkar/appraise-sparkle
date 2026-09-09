@@ -547,46 +547,38 @@ function SuperAdminDashboard() {
               valueClassName="w-full"
               value={
                 <div className="space-y-1 pt-0.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="w-12 text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
                       Prod:
                     </span>
-                    <div className="flex items-baseline gap-1 text-right">
-                      <span className="text-base font-bold text-foreground">
-                        {Math.round(totalPerformanceMetrics.prodActual).toLocaleString()}
-                      </span>
-                      <span className="text-xs font-normal text-muted-foreground">
-                        / {Math.round(totalPerformanceMetrics.prodTarget).toLocaleString()}
-                      </span>
-                    </div>
+                    <span className="text-sm font-bold text-foreground whitespace-nowrap">
+                      {Math.round(totalPerformanceMetrics.prodActual).toLocaleString()}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground whitespace-nowrap">
+                      / {Math.round(totalPerformanceMetrics.prodTarget).toLocaleString()}
+                    </span>
                   </div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="w-12 text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
                       Errors:
                     </span>
-                    <div className="flex items-baseline gap-1 text-right">
-                      <span
-                        className={`text-base font-bold ${
-                          totalPerformanceMetrics.isErrorExceeded
-                            ? "text-destructive"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {Math.round(totalPerformanceMetrics.errActual).toLocaleString()}
-                      </span>
-                      <span className="text-xs font-normal text-muted-foreground">
-                        / {Math.round(totalPerformanceMetrics.errTarget).toLocaleString()}
-                      </span>
-                    </div>
+                    <span
+                      className={`text-sm font-bold whitespace-nowrap ${
+                        totalPerformanceMetrics.isErrorExceeded
+                          ? "text-destructive"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {Math.round(totalPerformanceMetrics.errActual).toLocaleString()}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground whitespace-nowrap">
+                      / {Math.round(totalPerformanceMetrics.errTarget).toLocaleString()}
+                    </span>
                   </div>
                 </div>
               }
               icon={Target}
-              hint={
-                totalPerformanceMetrics.prodTarget > 0
-                  ? `${totalPerformanceMetrics.prodAchievementRate.toFixed(1)}% prod achieved • ${dateRangeLabel}`
-                  : `0% achieved • ${dateRangeLabel}`
-              }
+              hint={dateRangeLabel}
             />
           </>
         )}
