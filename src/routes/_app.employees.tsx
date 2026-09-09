@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -43,9 +43,19 @@ export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
 });
 
+const isValidFilterValue = (val: unknown): val is string => {
+  const s = String(val ?? "").trim();
+  return (
+    Boolean(s) &&
+    s !== "-" &&
+    s !== "—" &&
+    s.toLowerCase() !== "n/a" &&
+    s.toLowerCase() !== "none"
+  );
+};
+
 function EmployeesPage() {
   const { user } = useAuth();
-
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -69,30 +79,131 @@ function EmployeesPage() {
 
   const scope = useMemo(() => data ?? [], [data]);
 
-  // Dynamically derive filter options ONLY from the visible employee list on this page
+  // Cascading filter options: each dropdown only displays options relevant to the other active selections
   const departmentOptions = useMemo(() => {
+    const pool = scope.filter((e) => {
+      const matchDesig =
+        designationFilter === "all" ||
+        String(e.designation ?? "").trim() === designationFilter;
+      const matchTL =
+        teamLeadFilter === "all" ||
+        String(e.teamLead ?? "").trim() === teamLeadFilter;
+      const matchLoc =
+        locationFilter === "all" ||
+        String(e.location ?? "").trim() === locationFilter;
+      return matchDesig && matchTL && matchLoc;
+    });
     return Array.from(
-      new Set(scope.map((e) => String(e.department ?? "").trim()).filter(Boolean))
+      new Set(
+        pool
+          .map((e) => String(e.department ?? "").trim())
+          .filter(isValidFilterValue)
+      )
     ).sort();
-  }, [scope]);
+  }, [scope, designationFilter, teamLeadFilter, locationFilter]);
 
   const designationOptions = useMemo(() => {
+    const pool = scope.filter((e) => {
+      const matchDept =
+        departmentFilter === "all" ||
+        String(e.department ?? "").trim() === departmentFilter;
+      const matchTL =
+        teamLeadFilter === "all" ||
+        String(e.teamLead ?? "").trim() === teamLeadFilter;
+      const matchLoc =
+        locationFilter === "all" ||
+        String(e.location ?? "").trim() === locationFilter;
+      return matchDept && matchTL && matchLoc;
+    });
     return Array.from(
-      new Set(scope.map((e) => String(e.designation ?? "").trim()).filter(Boolean))
+      new Set(
+        pool
+          .map((e) => String(e.designation ?? "").trim())
+          .filter(isValidFilterValue)
+      )
     ).sort();
-  }, [scope]);
+  }, [scope, departmentFilter, teamLeadFilter, locationFilter]);
 
   const teamLeadOptions = useMemo(() => {
+    const pool = scope.filter((e) => {
+      const matchDept =
+        departmentFilter === "all" ||
+        String(e.department ?? "").trim() === departmentFilter;
+      const matchDesig =
+        designationFilter === "all" ||
+        String(e.designation ?? "").trim() === designationFilter;
+      const matchLoc =
+        locationFilter === "all" ||
+        String(e.location ?? "").trim() === locationFilter;
+      return matchDept && matchDesig && matchLoc;
+    });
     return Array.from(
-      new Set(scope.map((e) => String(e.teamLead ?? "").trim()).filter(Boolean))
+      new Set(
+        pool
+          .map((e) => String(e.teamLead ?? "").trim())
+          .filter(isValidFilterValue)
+      )
     ).sort();
-  }, [scope]);
+  }, [scope, departmentFilter, designationFilter, locationFilter]);
 
   const locationOptions = useMemo(() => {
+    const pool = scope.filter((e) => {
+      const matchDept =
+        departmentFilter === "all" ||
+        String(e.department ?? "").trim() === departmentFilter;
+      const matchDesig =
+        designationFilter === "all" ||
+        String(e.designation ?? "").trim() === designationFilter;
+      const matchTL =
+        teamLeadFilter === "all" ||
+        String(e.teamLead ?? "").trim() === teamLeadFilter;
+      return matchDept && matchDesig && matchTL;
+    });
     return Array.from(
-      new Set(scope.map((e) => String(e.location ?? "").trim()).filter(Boolean))
+      new Set(
+        pool
+          .map((e) => String(e.location ?? "").trim())
+          .filter(isValidFilterValue)
+      )
     ).sort();
-  }, [scope]);
+  }, [scope, departmentFilter, designationFilter, teamLeadFilter]);
+
+  // If a cascading filter makes the currently selected value invalid, reset it to "all"
+  useEffect(() => {
+    if (
+      departmentFilter !== "all" &&
+      !departmentOptions.includes(departmentFilter)
+    ) {
+      setDepartmentFilter("all");
+    }
+  }, [departmentOptions, departmentFilter]);
+
+  useEffect(() => {
+    if (
+      designationFilter !== "all" &&
+      !designationOptions.includes(designationFilter)
+    ) {
+      setDesignationFilter("all");
+    }
+  }, [designationOptions, designationFilter]);
+
+  useEffect(() => {
+    if (
+      teamLeadFilter !== "all" &&
+      !teamLeadOptions.includes(teamLeadFilter)
+    ) {
+      setTeamLeadFilter("all");
+    }
+  }, [teamLeadOptions, teamLeadFilter]);
+
+  useEffect(() => {
+    if (
+      locationFilter !== "all" &&
+      !locationOptions.includes(locationFilter)
+    ) {
+      setLocationFilter("all");
+    }
+  }, [locationOptions, locationFilter]);
 
   const filtered = useMemo(() => {
     const search = q.trim().toLowerCase();
@@ -303,19 +414,19 @@ function EmployeesPage() {
                       </TableCell>
 
                       <TableCell>
-                        {e.department || "—"}
+                        {isValidFilterValue(e.department) ? e.department : "—"}
                       </TableCell>
 
                       <TableCell>
-                        {e.designation || "—"}
+                        {isValidFilterValue(e.designation) ? e.designation : "—"}
                       </TableCell>
 
                       <TableCell>
-                        {e.teamLead || "—"}
+                        {isValidFilterValue(e.teamLead) ? e.teamLead : "—"}
                       </TableCell>
 
                       <TableCell>
-                        {e.location || "—"}
+                        {isValidFilterValue(e.location) ? e.location : "—"}
                       </TableCell>
 
                       <TableCell>
