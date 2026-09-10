@@ -401,7 +401,7 @@ export function getEmployeeRelievedStatus(
 
   const empRows = allPerformanceRows.filter((r) => {
     if (empId && String(r.employeeId ?? "").trim() === empId) return true;
-    if (empName && samePerson(r.employeeName, empName)) return true;
+    if (empName && (samePerson(r.name, empName) || samePerson((r as any).employeeName, empName))) return true;
     return false;
   });
 
