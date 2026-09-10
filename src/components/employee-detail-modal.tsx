@@ -737,6 +737,9 @@ export function EmployeeDetailModal({
       if (subTier >= 2 && tier >= 3) {
         const subDownline = getDescendants(employee, allEmployees);
         const subIds = new Set(subDownline.map((e) => String(e.employeeId)));
+        if (employee.employeeId) {
+          subIds.add(String(employee.employeeId).trim());
+        }
 
         const subRows = performanceRows.filter((r) => {
           const parsed = parseMonthYear(r.month);
@@ -887,7 +890,7 @@ export function EmployeeDetailModal({
     if (directTeamPerformance.length === 0) return null;
 
     const actualSubordinates = directTeamPerformance.filter((item) => !item.isLeader);
-    const rowsToCalculate = (actualSubordinates.length > 0 ? actualSubordinates : directTeamPerformance)
+    const rowsToCalculate = directTeamPerformance
       .map((item) => item.performance)
       .filter((row): row is SheetPerformance => !!row);
 

@@ -233,6 +233,9 @@ function AdminDashboard() {
             String(e.employeeId).trim()
           )
         );
+        if (emp.employeeId) {
+          subIds.add(String(emp.employeeId).trim());
+        }
 
         const memberPerfRows = performanceRows.filter((p) =>
           subIds.has(String(p.employeeId).trim())
