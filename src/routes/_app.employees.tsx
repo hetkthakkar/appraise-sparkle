@@ -220,6 +220,7 @@ function EmployeesPage() {
           e.teamLead,
           e.location,
           e.joiningDate,
+          e.leavingDate,
         ].some((f) =>
           String(f ?? "")
             .toLowerCase()
@@ -406,7 +407,14 @@ function EmployeesPage() {
                       </TableCell>
 
                       <TableCell className="font-medium">
-                        {e.name}
+                        <div className="flex items-center gap-2">
+                          <span>{e.name}</span>
+                          {e.leavingDate && (
+                            <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                              Relieved
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
 
                       <TableCell className="text-muted-foreground">
@@ -430,7 +438,14 @@ function EmployeesPage() {
                       </TableCell>
 
                       <TableCell>
-                        {formatJoiningDate(e.joiningDate)}
+                        <div className="flex flex-col text-xs">
+                          <span>{formatJoiningDate(e.joiningDate)}</span>
+                          {e.leavingDate && (
+                            <span className="text-[10px] text-muted-foreground">
+                              Exit: {formatJoiningDate(e.leavingDate)}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

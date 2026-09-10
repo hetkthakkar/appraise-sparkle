@@ -63,6 +63,7 @@ import {
   Search,
   MessageSquarePlus,
   CalendarRange,
+  UserMinus,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -103,6 +104,7 @@ interface EmployeeProfile {
   teamLead?: string;
   location?: string;
   joiningDate?: string;
+  leavingDate?: string;
 }
 
 const MONTH_OPTIONS = [
@@ -358,6 +360,68 @@ function getLatestMonth(rows: SheetPerformance[]): string | null {
   );
   months.sort((a, b) => b.localeCompare(a));
   return months[0] ?? null;
+}
+
+export function getEmployeeRelievedStatus(
+  employee: SheetEmployee,
+  minMonth: string,
+  maxMonth: string,
+  allPerformanceRows: SheetPerformance[]
+): { isRelieved: boolean; relievedLabel: string | null } {
+  // 1. Explicit leaving date from employee master
+  if (employee.leavingDate) {
+    const parsedLeaving = parseMonthYear(employee.leavingDate);
+    if (parsedLeaving) {
+      if (minMonth > parsedLeaving.key) {
+        return {
+          isRelieved: true,
+          relievedLabel: `Relieved ${monthToLabel(parsedLeaving.key)}`,
+        };
+      }
+    }
+  }
+
+  // 2. Explicit future joining date
+  if (employee.joiningDate) {
+    const parsedJoining = parseMonthYear(employee.joiningDate);
+    if (parsedJoining) {
+      if (maxMonth < parsedJoining.key) {
+        return {
+          isRelieved: true,
+          relievedLabel: `Joined ${monthToLabel(parsedJoining.key)}`,
+        };
+      }
+    }
+  }
+
+  // 3. Auto-detect past activity: If employee has no performance rows in [minMonth, maxMonth]
+  // but has performance records in prior months, they are relieved/past members for this period.
+  const empId = String(employee.employeeId ?? "").trim();
+  const empName = String(employee.name ?? "").trim();
+
+  const empRows = allPerformanceRows.filter((r) => {
+    if (empId && String(r.employeeId ?? "").trim() === empId) return true;
+    if (empName && samePerson(r.employeeName, empName)) return true;
+    return false;
+  });
+
+  const activeMonths = empRows
+    .map((r) => parseMonthYear(r.month)?.key)
+    .filter((k): k is string => !!k)
+    .sort((a, b) => a.localeCompare(b));
+
+  const hasCurrentActivity = activeMonths.some((k) => k >= minMonth && k <= maxMonth);
+  if (!hasCurrentActivity && activeMonths.length > 0) {
+    const latestActiveMonth = activeMonths[activeMonths.length - 1];
+    if (latestActiveMonth < minMonth) {
+      return {
+        isRelieved: true,
+        relievedLabel: `Last active ${monthToLabel(latestActiveMonth)}`,
+      };
+    }
+  }
+
+  return { isRelieved: false, relievedLabel: null };
 }
 
 function getEffectiveWeightageForMonth(
@@ -732,10 +796,18 @@ export function EmployeeDetailModal({
       employee: SheetEmployee;
       performance: SheetPerformance | null;
       isLeader?: boolean;
+      isRelieved?: boolean;
+      relievedLabel?: string | null;
     }[] = [];
 
     directReports.forEach((employee) => {
       const subTier = getRoleTier(employee.designation);
+      const relievedStatus = getEmployeeRelievedStatus(
+        employee,
+        minMonth,
+        maxMonth,
+        performanceRows
+      );
 
       if (subTier >= 2 && tier >= 3) {
         const subDownline = getDescendants(employee, allEmployees);
@@ -779,6 +851,8 @@ export function EmployeeDetailModal({
               ratingScore: rangeRating.score,
             } as SheetPerformance,
             isLeader: false,
+            isRelieved: relievedStatus.isRelieved,
+            relievedLabel: relievedStatus.relievedLabel,
           });
           return;
         }
@@ -820,6 +894,8 @@ export function EmployeeDetailModal({
             ratingScore: rangeRating.score,
           } as SheetPerformance,
           isLeader: false,
+          isRelieved: relievedStatus.isRelieved,
+          relievedLabel: relievedStatus.relievedLabel,
         });
         return;
       }
@@ -828,6 +904,8 @@ export function EmployeeDetailModal({
         employee,
         performance: null,
         isLeader: false,
+        isRelieved: relievedStatus.isRelieved,
+        relievedLabel: relievedStatus.relievedLabel,
       });
     });
 
@@ -892,8 +970,10 @@ export function EmployeeDetailModal({
   const teamSummary = useMemo(() => {
     if (directTeamPerformance.length === 0) return null;
 
-    const actualSubordinates = directTeamPerformance.filter((item) => !item.isLeader);
-    const rowsToCalculate = directTeamPerformance
+    // Filter out relieved/past members from active team metrics rollup
+    const activeItems = directTeamPerformance.filter((item) => item.isLeader || !item.isRelieved);
+    const actualSubordinates = activeItems.filter((item) => !item.isLeader);
+    const rowsToCalculate = activeItems
       .map((item) => item.performance)
       .filter((row): row is SheetPerformance => !!row);
 
@@ -1282,6 +1362,23 @@ function ProfileSection({
             <p className="mt-1 text-sm font-bold">{formatJoiningDate(profile.joiningDate)}</p>
           </div>
 
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              LEAVING DATE
+            </p>
+            <p className="mt-1 text-sm font-bold">
+              {profile.leavingDate ? (
+                <span className="inline-flex items-center text-rose-600 dark:text-rose-400">
+                  {formatJoiningDate(profile.leavingDate)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center font-medium text-emerald-600 dark:text-emerald-400">
+                  Active
+                </span>
+              )}
+            </p>
+          </div>
+
           {canRemark && onAddRemark ? (
             <div className="flex flex-col justify-center sm:col-span-3">
               <button
@@ -1343,6 +1440,8 @@ function TeamSection({
     employee: SheetEmployee;
     performance: SheetPerformance | null;
     isLeader?: boolean;
+    isRelieved?: boolean;
+    relievedLabel?: string | null;
   }[];
   teamYear: string;
   teamStartMonth: string;
@@ -1356,6 +1455,7 @@ function TeamSection({
   performanceLoading: boolean;
   onSelectMember?: (id: string) => void;
 }) {
+  const [showPastMembers, setShowPastMembers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<TeamSortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -1375,7 +1475,12 @@ function TeamSection({
   };
 
   const leaderRow = directTeamPerformance.find((item) => item.isLeader);
-  const regularMembers = directTeamPerformance.filter((item) => !item.isLeader);
+  const allSubordinates = directTeamPerformance.filter((item) => !item.isLeader);
+  const relievedCount = allSubordinates.filter((item) => item.isRelieved).length;
+
+  const regularMembers = showPastMembers
+    ? allSubordinates
+    : allSubordinates.filter((item) => !item.isRelieved);
 
   const filteredAndSortedMembers = useMemo(() => {
     let result = [...regularMembers];
@@ -1597,15 +1702,30 @@ function TeamSection({
               </p>
             </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Filter by name / designation..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-xs"
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              {relievedCount > 0 && (
+                <Button
+                  type="button"
+                  variant={showPastMembers ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-8 shrink-0 px-2.5 text-xs font-medium"
+                  onClick={() => setShowPastMembers((prev) => !prev)}
+                  title="Toggle past or relieved team members"
+                >
+                  <UserMinus className="mr-1.5 size-3.5" />
+                  {showPastMembers ? "Hide Past Members" : `Past Members (${relievedCount})`}
+                </Button>
+              )}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Filter by name / designation..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
             </div>
           </div>
 
@@ -1732,13 +1852,15 @@ function TeamSection({
                   )}
 
                   {/* Subordinate Members */}
-                  {filteredAndSortedMembers.map(({ employee, performance }) => {
+                  {filteredAndSortedMembers.map(({ employee, performance, isRelieved, relievedLabel }) => {
                     const subTier = getRoleTier(employee.designation);
 
                     return (
                       <TableRow
                         key={employee.employeeId}
-                        className="cursor-pointer border-b border-border/40 hover:bg-muted/50"
+                        className={`cursor-pointer border-b border-border/40 hover:bg-muted/50 ${
+                          isRelieved ? "bg-muted/15 opacity-80" : ""
+                        }`}
                         onClick={() => {
                           if (onSelectMember && employee.employeeId) {
                             onSelectMember(employee.employeeId);
@@ -1748,6 +1870,11 @@ function TeamSection({
                         <TableCell className="py-3 text-xs font-semibold text-foreground">
                           <div className="flex items-center gap-1.5">
                             <span>{employee.name}</span>
+                            {isRelieved && relievedLabel && (
+                              <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                                {relievedLabel}
+                              </span>
+                            )}
                             {subTier === 4 && (
                               <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase text-indigo-700 dark:text-indigo-300">
                                 Manager
@@ -2054,6 +2181,9 @@ function EditForm({
   const [joiningDate, setJoiningDate] = useState(
     initial.joiningDate ? String(initial.joiningDate).slice(0, 10) : ""
   );
+  const [leavingDate, setLeavingDate] = useState(
+    initial.leavingDate ? String(initial.leavingDate).slice(0, 10) : ""
+  );
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -2066,6 +2196,7 @@ function EditForm({
         teamLead,
         location,
         joiningDate,
+        leavingDate,
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -2167,6 +2298,18 @@ function EditForm({
               type="date"
               value={joiningDate}
               onChange={(e) => setJoiningDate(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium" htmlFor="edit-leaving">
+              Leaving Date (Optional)
+            </label>
+            <Input
+              id="edit-leaving"
+              type="date"
+              value={leavingDate}
+              onChange={(e) => setLeavingDate(e.target.value)}
             />
           </div>
 

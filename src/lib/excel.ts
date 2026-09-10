@@ -232,6 +232,7 @@ export function parseEmployeeExcel(fileData: ArrayBuffer): Record<string, unknow
     teamLead: headers.findIndex((h) => h.includes("lead") || h.includes("manager") || h.includes("tl") || h.includes("report")),
     location: headers.findIndex((h) => h.includes("location") || h.includes("branch") || h.includes("city")),
     joiningDate: headers.findIndex((h) => h.includes("join") || h.includes("doj")),
+    leavingDate: headers.findIndex((h) => h.includes("leav") || h.includes("reliev") || h.includes("exit") || h.includes("lwd") || h.includes("resign")),
   };
 
   const results: Record<string, unknown>[] = [];
@@ -250,6 +251,7 @@ export function parseEmployeeExcel(fileData: ArrayBuffer): Record<string, unknow
       "Team Lead": colIndex.teamLead !== -1 ? String(row[colIndex.teamLead] ?? "").trim() : "",
       "Location": colIndex.location !== -1 ? String(row[colIndex.location] ?? "").trim() : "",
       "Joining Date": colIndex.joiningDate !== -1 ? String(row[colIndex.joiningDate] ?? "").trim() : "",
+      "Leaving Date": colIndex.leavingDate !== -1 ? String(row[colIndex.leavingDate] ?? "").trim() : "",
     });
   }
 
@@ -275,6 +277,7 @@ export function downloadTemplate(
             "Team Lead",
             "Location",
             "Joining Date",
+            "Leaving Date",
           ];
     const data = [
       {
