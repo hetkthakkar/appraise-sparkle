@@ -458,13 +458,13 @@ function AdminDashboard() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {p.productionActual} / {p.productionTarget}
+                      {Math.round(safeNumber(p.productionActual))} / {Math.round(safeNumber(p.productionTarget))}
                     </TableCell>
                     <TableCell>
-                      {p.ticketActual} / {p.ticketTarget}
+                      {Math.round(safeNumber(p.ticketActual))} / {Math.round(safeNumber(p.ticketTarget))}
                     </TableCell>
                     <TableCell>
-                      {p.errorActual} / {p.errorTarget}
+                      {Math.round(safeNumber(p.errorActual))} / {Math.round(safeNumber(p.errorTarget))}
                     </TableCell>
                     <TableCell>{Number(p.attendance).toFixed(1)}/10</TableCell>
                     <TableCell>{Number(p.behavior).toFixed(1)}/5</TableCell>

@@ -230,9 +230,12 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatScore(val: number | string | undefined | null, maxDecimals = 2): string {
+function formatScore(val: number | string | undefined | null, maxDecimals = 0): string {
   const n = Number(val);
   if (!Number.isFinite(n)) return "0";
+  if (maxDecimals === 0) {
+    return Math.round(n).toString();
+  }
   return parseFloat(n.toFixed(maxDecimals)).toString();
 }
 
@@ -1834,11 +1837,11 @@ function TeamMetricCard({
         {label}
       </div>
       <div className="mt-2 text-xl font-bold tracking-tight text-foreground">
-        {formatScore(value, decimals ? 1 : 2)}
+        {formatScore(value, decimals ? 1 : 0)}
         {secondaryValue !== undefined && (
           <span className="text-sm font-normal text-muted-foreground">
             {" / "}
-            {formatScore(secondaryValue, decimals ? 1 : 2)}
+            {formatScore(secondaryValue, decimals ? 1 : 0)}
           </span>
         )}
         {suffix}
