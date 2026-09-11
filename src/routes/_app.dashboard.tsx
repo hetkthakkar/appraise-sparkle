@@ -41,6 +41,7 @@ import {
   listEmployees,
   listPerformance,
   type SheetPerformance,
+  type SheetEmployee,
 } from "@/lib/sheetsApi";
 import { EmployeeOnboarding } from "@/components/employee-onboarding";
 
@@ -160,7 +161,40 @@ function SuperAdminDashboard() {
     enabled: !!user && user.role === "super_admin",
   });
 
-  const employees = empQ.data ?? [];
+  const employees = useMemo(() => {
+    if (!empQ.data) return [];
+    const map = new Map<string, SheetEmployee>();
+    for (const emp of empQ.data) {
+      const id = String(emp.employeeId ?? "").trim();
+      const fallbackKey = `${String(emp.email ?? "").trim().toLowerCase()}_${String(emp.name ?? "").trim().toLowerCase()}`;
+      const key = id || fallbackKey;
+      if (!key) continue;
+
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, emp);
+      } else {
+        const prefersIncoming = !emp.leavingDate && Boolean(existing.leavingDate);
+        const base = prefersIncoming ? existing : emp;
+        const incoming = prefersIncoming ? emp : existing;
+
+        map.set(key, {
+          ...base,
+          ...incoming,
+          name: incoming.name || base.name,
+          email: incoming.email || base.email,
+          department: incoming.department || base.department,
+          designation: incoming.designation || base.designation,
+          teamLead: incoming.teamLead || base.teamLead,
+          location: incoming.location || base.location,
+          joiningDate: incoming.joiningDate || base.joiningDate,
+          leavingDate: prefersIncoming ? undefined : (incoming.leavingDate || base.leavingDate),
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [empQ.data]);
+
   const performance = perfQ.data ?? [];
 
   const employeeLocationMap = useMemo(() => {
@@ -251,14 +285,19 @@ function SuperAdminDashboard() {
   }, [effectiveYear, rangeEndMonth]);
 
 
-  const filteredEmployees = useMemo(() => {
-    if (selectedLocation === ALL_LOCATIONS) return employees;
+  // Active employees (exclude employees who have left / have leavingDate)
+  const activeEmployees = useMemo(() => {
+    return employees.filter((e) => !String(e.leavingDate ?? "").trim());
+  }, [employees]);
 
-    return employees.filter(
+  const filteredActiveEmployees = useMemo(() => {
+    if (selectedLocation === ALL_LOCATIONS) return activeEmployees;
+
+    return activeEmployees.filter(
       (employee) =>
         String(employee.location ?? "").trim() === selectedLocation
     );
-  }, [employees, selectedLocation]);
+  }, [activeEmployees, selectedLocation]);
 
   const filteredPerformance = useMemo(() => {
     return performance.filter((row) => {
@@ -296,7 +335,7 @@ function SuperAdminDashboard() {
   const departments = useMemo(() => {
     return Array.from(
       new Set(
-        filteredEmployees
+        filteredActiveEmployees
           .map((employee) => String(employee.department ?? "").trim())
           .filter(Boolean)
       )
@@ -313,11 +352,11 @@ function SuperAdminDashboard() {
 
       return a.localeCompare(b, undefined, { sensitivity: "base" });
     });
-  }, [filteredEmployees]);
+  }, [filteredActiveEmployees]);
 
   const teamLeads = useMemo(() => {
     return new Set(
-      filteredEmployees
+      filteredActiveEmployees
         .filter((employee) => {
           const designation = String(employee.designation ?? "").toLowerCase();
           return designation.includes("lead") || designation.includes("head");
@@ -325,7 +364,7 @@ function SuperAdminDashboard() {
         .map((employee) => employee.employeeId || employee.name)
         .filter(Boolean)
     ).size;
-  }, [filteredEmployees]);
+  }, [filteredActiveEmployees]);
 
   const totalPerformanceMetrics = useMemo(() => {
     let prodActual = 0;
@@ -526,11 +565,11 @@ function SuperAdminDashboard() {
           <>
             <StatCard
               label="Total Employees"
-              value={filteredEmployees.length}
+              value={filteredActiveEmployees.length}
               icon={Users}
               hint={
                 selectedLocation === ALL_LOCATIONS
-                  ? "All locations"
+                  ? "All locations (Active)"
                   : selectedLocation
               }
             />
