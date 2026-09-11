@@ -1852,12 +1852,12 @@ function TeamSection({
                   )}
 
                   {/* Subordinate Members */}
-                  {filteredAndSortedMembers.map(({ employee, performance, isRelieved, relievedLabel }) => {
+                  {filteredAndSortedMembers.map(({ employee, performance, isRelieved, relievedLabel }, index) => {
                     const subTier = getRoleTier(employee.designation);
 
                     return (
                       <TableRow
-                        key={employee.employeeId}
+                        key={`${employee.employeeId || employee.email || employee.name}-${index}`}
                         className={`cursor-pointer border-b border-border/40 hover:bg-muted/50 ${
                           isRelieved ? "bg-muted/15 opacity-80" : ""
                         }`}

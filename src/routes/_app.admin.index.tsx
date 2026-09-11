@@ -208,7 +208,17 @@ function AdminDashboard() {
   });
 
   const myTier = getRoleTier(me?.designation);
-  const directReports = detailQ.data?.directReports ?? empQ.data ?? [];
+  const rawDirectReports = detailQ.data?.directReports ?? empQ.data ?? [];
+  const directReports = useMemo(() => {
+    const map = new Map<string, SheetEmployee>();
+    for (const emp of rawDirectReports) {
+      const id = String(emp.employeeId ?? "").trim() || String(emp.email ?? "").trim() || emp.name;
+      if (id && !map.has(id)) {
+        map.set(id, emp);
+      }
+    }
+    return Array.from(map.values());
+  }, [rawDirectReports]);
   const downline = detailQ.data?.downline ?? [];
   const performanceRows = perfQ.data ?? [];
   const kpiWeightages = kpiWeightagesQ.data ?? [];
@@ -441,9 +451,9 @@ function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamPerf.map((p) => (
+                {teamPerf.map((p, index) => (
                   <TableRow
-                    key={p.employeeId}
+                    key={`${p.employeeId || p.name}-${index}`}
                     onClick={() => setSelected(p.employeeId)}
                     className="cursor-pointer hover:bg-muted/50"
                   >

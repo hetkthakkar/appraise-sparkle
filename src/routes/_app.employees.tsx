@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table";
 
 import { useAuth } from "@/lib/mock-auth";
-import { listEmployees } from "@/lib/sheetsApi";
+import { listEmployees, type SheetEmployee } from "@/lib/sheetsApi";
 
 import { EmployeeDetailModal } from "@/components/employee-detail-modal";
 import { exportEmployees } from "@/lib/excel";
@@ -77,7 +77,41 @@ function EmployeesPage() {
       (user.role === "super_admin" || user.role === "admin"),
   });
 
-  const scope = useMemo(() => data ?? [], [data]);
+  // Deduplicate employees by employeeId (or unique fallback) so no duplicates enter the filter pipeline
+  const scope = useMemo(() => {
+    if (!data) return [];
+    const map = new Map<string, SheetEmployee>();
+    for (const emp of data) {
+      const id = String(emp.employeeId ?? "").trim();
+      const fallbackKey = `${String(emp.email ?? "").trim().toLowerCase()}_${String(emp.name ?? "").trim().toLowerCase()}`;
+      const key = id || fallbackKey;
+      if (!key) continue;
+
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, emp);
+      } else {
+        // If an existing record was relieved and the incoming record is active, prefer active
+        const prefersIncoming = !emp.leavingDate && Boolean(existing.leavingDate);
+        const base = prefersIncoming ? existing : emp;
+        const incoming = prefersIncoming ? emp : existing;
+
+        map.set(key, {
+          ...base,
+          ...incoming,
+          name: incoming.name || base.name,
+          email: incoming.email || base.email,
+          department: incoming.department || base.department,
+          designation: incoming.designation || base.designation,
+          teamLead: incoming.teamLead || base.teamLead,
+          location: incoming.location || base.location,
+          joiningDate: incoming.joiningDate || base.joiningDate,
+          leavingDate: prefersIncoming ? undefined : (incoming.leavingDate || base.leavingDate),
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [data]);
 
   // Cascading filter options: each dropdown only displays options relevant to the other active selections
   const departmentOptions = useMemo(() => {
@@ -394,9 +428,9 @@ function EmployeesPage() {
                 </TableHeader>
 
                 <TableBody>
-                  {filtered.map((e) => (
+                  {filtered.map((e, index) => (
                     <TableRow
-                      key={e.employeeId}
+                      key={`${e.employeeId || e.email || e.name || "emp"}-${index}`}
                       onClick={() =>
                         setSelected(e.employeeId)
                       }
