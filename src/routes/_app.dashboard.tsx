@@ -162,9 +162,10 @@ function SuperAdminDashboard() {
   });
 
   const employees = useMemo(() => {
-    if (!empQ.data) return [];
+    if (!empQ.data || !Array.isArray(empQ.data)) return [];
     const map = new Map<string, SheetEmployee>();
     for (const emp of empQ.data) {
+      if (!emp) continue;
       const id = String(emp.employeeId ?? "").trim();
       const fallbackKey = `${String(emp.email ?? "").trim().toLowerCase()}_${String(emp.name ?? "").trim().toLowerCase()}`;
       const key = id || fallbackKey;
@@ -770,7 +771,7 @@ function SuperAdminDashboard() {
             </div>
           ) : (
             departments.map((department) => {
-              const count = filteredEmployees.filter(
+              const count = filteredActiveEmployees.filter(
                 (employee) => employee.department === department
               ).length;
 
